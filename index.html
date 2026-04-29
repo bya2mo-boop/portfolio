@@ -171,7 +171,7 @@ async function fetchStocks(){
 // Alpha Vantage for EU stocks - 25 calls/day limit, 5/min
 // Uses .PA suffix for Paris (Euronext), .AS for Amsterdam
 async function fetchEuStocks(){
-  const AV_KEY="00W280M7CIGG84L4";
+  const AV_KEY="9MFAHWQWJGM1IYKJ";
   const AV_TICKERS={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA"};
   const p={};
   for(const [tkr,sym] of Object.entries(AV_TICKERS)){
