@@ -46,8 +46,6 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 <script>
 // ══════════════ CONFIG ══════════════
 const JSONBIN_KEY="$2a$10$IZBWT5RYzP4kWGucKxhcBO8rif3aIYR3cn5QSsyNv7TdLSNCT4QSu";
-// Shared bin across all devices - hardcoded to avoid Mac/iPhone divergence
-// 'let' instead of 'const' to allow fallback reassignment if createBin is needed
 let BIN_ID="69f1c55d856a68218986c9bb";
 
 const DCOL=["#6c8cff","#34d399","#a78bfa","#f87171","#fbbf24","#38bdf8","#f472b6","#fb923c","#4ade80","#c084fc","#22d3ee","#e879f9"];
@@ -57,7 +55,6 @@ const SCOL={"Tech":"#6c8cff","Semi":"#38bdf8","Space":"#a78bfa","Énergie":"#fbb
 const CUR={GOOGL:"USD",NVDA:"USD",NBIS:"USD",ASTS:"USD",RKLB:"USD",TSM:"USD",KRKNF:"USD",OKLO:"USD",NVTS:"USD",RDW:"USD",ONDS:"USD",QBTS:"USD",AI:"EUR",SU:"EUR",VCT:"EUR",VIE:"EUR",WKL:"EUR",VU:"EUR",DPAM:"EUR",GEM:"EUR",BDL:"EUR","CDC-M":"EUR","CDC-D":"EUR","CDC-E":"EUR",SOL:"USD",BTC:"USD",HYPE:"USD","50PESO":"EUR"};
 const DIVS={AI:3.20,SU:3.90,VIE:1.35,WKL:2.19,VU:0.90,NVDA:0.04,TSM:2.17};
 
-// CoinGecko IDs for crypto
 const CG={SOL:"solana",BTC:"bitcoin",HYPE:"hyperliquid"};
 
 const DEF={updatedAt:"15/04/2026",eurUsd:1.10,cash:6000,targetAlloc:{CTO:40,PEA:25,"Assurance Vie":5,PEE:10,Crypto:8,"Métaux":2,Cash:10},immobilier:{valeurEstimee:184400,capitalRestant:151752.90},poches:{
@@ -79,18 +76,14 @@ const fmt2_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2}).format(n
 const fP=n=>(n>0?"+":"")+(n||0).toFixed(1)+"%";
 const fL=n=>(n>=0?"+":"")+fmt_(n)+" €";
 const pn=s=>{
-  // Robust number parsing: handles "1 000,50" (FR) and "1,000.50" (US)
   const str=String(s||0).replace(/\s/g,"");
-  // If contains both . and , the last one is the decimal separator
   const lastComma=str.lastIndexOf(",");
   const lastDot=str.lastIndexOf(".");
   let cleaned;
   if(lastComma>-1&&lastDot>-1){
-    // Both present: last one is decimal, others are thousands separators
     if(lastComma>lastDot)cleaned=str.replace(/\./g,"").replace(",",".");
     else cleaned=str.replace(/,/g,"");
   }else if(lastComma>-1){
-    // Only commas: treat as decimal separator (French format)
     cleaned=str.replace(",",".");
   }else{
     cleaned=str;
@@ -98,8 +91,17 @@ const pn=s=>{
   return parseFloat(cleaned)||0;
 };
 const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=8?"g":n>=6?"a":"r"};
-// XSS protection: escape user-provided strings before injection in HTML
+// Protection XSS
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+function normalizeData(d) {
+  if(!d) return JSON.parse(JSON.stringify(DEF));
+  if(!d.poches) d.poches = JSON.parse(JSON.stringify(DEF.poches));
+  if(!d.immobilier) d.immobilier = {valeurEstimee: 0, capitalRestant: 0};
+  if(typeof d.cash === 'undefined') d.cash = 0;
+  if(!d.sales) d.sales = [];
+  return d;
+}
 
 function rc(d){const eurUsd=d.eurUsd||1.1;Object.values(d.poches).forEach(p=>{p.positions.forEach(x=>{const rate=(CUR[x.ticker]==="USD")?eurUsd:1;x.valeur=(x.qty*x.cours)/rate;x.pl=(x.qty*(x.cours-x.pru))/rate;x.plPct=x.pru?((x.cours-x.pru)/x.pru*100):0});p.investi=p.positions.reduce((s,x)=>{const rate=(CUR[x.ticker]==="USD")?eurUsd:1;return s+(x.qty*x.pru)/rate},0);p.valeur=p.positions.reduce((s,x)=>s+x.valeur,0);p.pl=p.valeur-p.investi;const t=p.valeur||1;p.positions.forEach(x=>{x.poids=Math.round(x.valeur/t*1000)/10})});d.immobilier.equityNette=d.immobilier.valeurEstimee-d.immobilier.capitalRestant;d.updatedAt=new Date().toLocaleDateString("fr-FR")+" "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});return d}
 
@@ -111,33 +113,31 @@ async function createBin(){
     const j=await r.json();
     BIN_ID=j.metadata.id;
     localStorage.setItem("pf-bin-id",BIN_ID);
-    console.log("Bin créé:",BIN_ID);
     return true;
-  }catch(e){console.error("createBin:",e);return false}
+  }catch(e){return false}
 }
 
 let _isSyncing=false;
 async function pushToBin(){
   if(!BIN_ID){const ok=await createBin();return ok}
-  if(_isSyncing){console.log("push: sync already in progress, skipping");return false}
+  if(_isSyncing)return false;
   _isSyncing=true;
   try{
     const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":JSONBIN_KEY},body:JSON.stringify({data:D,hist:H.slice(-300)})});
     st.sync=r.ok;
     return r.ok;
-  }catch(e){console.error("push:",e);st.sync=false;return false}
+  }catch(e){st.sync=false;return false}
   finally{_isSyncing=false}
 }
 
 async function pullFromBin(){
   if(!BIN_ID)return false;
   try{
-    // Public bins don't need auth - avoids CORS preflight
     const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`);
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     if(j.record&&j.record.data){D=j.record.data;if(j.record.hist)H=j.record.hist;st.sync=true;return true}
-  }catch(e){console.error("pull:",e);st.sync=false}
+  }catch(e){st.sync=false}
   return false;
 }
 
@@ -147,42 +147,38 @@ const saveLocal=()=>{
     localStorage.setItem("pf-hist",JSON.stringify(H.slice(-300)));
     st.localOk=true;
   }catch(e){
-    console.error("LocalStorage save failed (full or disabled):",e);
-    st.localOk=false; // displayed in status bar
+    st.localOk=false;
   }
 };
-const loadLocal=()=>{try{const d=localStorage.getItem("pf-data");const h=localStorage.getItem("pf-hist");return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]}}catch(e){console.error("LocalStorage read failed:",e);return{D:null,H:[]}}};
+const loadLocal=()=>{try{const d=localStorage.getItem("pf-data");const h=localStorage.getItem("pf-hist");return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]}}catch(e){return{D:null,H:[]}}};
 
 async function save(){rc(D);saveLocal();R();pushToBin();}
 
 // ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
   const ids=Object.values(CG).join(",");
-  // Try CoinGecko direct first
   try{
     const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
-    if(!r.ok)throw new Error("CG "+r.status);
+    if(!r.ok)throw new Error("CG");
     const d=await r.json();const p={};
     Object.entries(CG).forEach(([t,id])=>{if(d[id]?.usd)p[t]=d[id].usd});
     if(Object.keys(p).length)return p;
-  }catch(e){console.log("CG direct fail:",e.message)}
-  // Fallback: use Binance public API (no CORS issues)
+  }catch(e){}
   try{
     const BINANCE={SOL:"SOLUSDT",BTC:"BTCUSDT",HYPE:"HYPEUSDT"};
     const p={};
     const r=await fetch("https://api.binance.com/api/v3/ticker/price");
-    if(!r.ok)throw new Error("Binance "+r.status);
+    if(!r.ok)throw new Error("Binance");
     const arr=await r.json();
     Object.entries(BINANCE).forEach(([tkr,sym])=>{
       const item=arr.find(x=>x.symbol===sym);
       if(item)p[tkr]=parseFloat(item.price);
     });
     return p;
-  }catch(e){console.log("Binance fail:",e.message);throw e}
+  }catch(e){throw e}
 }
 
 async function fetchStocks(){
-  // Finnhub API - free tier, 60 calls/min, US stocks only
   const FINNHUB_KEY="d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg";
   const US_TICKERS=["GOOGL","NVDA","NBIS","ASTS","RKLB","TSM","KRKNF","OKLO","NVTS","RDW","ONDS","QBTS"];
   const p={};
@@ -193,31 +189,25 @@ async function fetchStocks(){
         const j=await r.json();
         if(j.c&&j.c>0)p[tkr]=j.c;
       }
-    }catch(e){console.log(`${tkr} fail:`,e.message)}
+    }catch(e){}
     await new Promise(res=>setTimeout(res,100));
   }
-  if(Object.keys(p).length===0)throw new Error("No prices");
   return p;
 }
 
-// Alpha Vantage for EU stocks - 25 calls/day limit, 5/min
-// Uses .PA suffix for Paris (Euronext), .AS for Amsterdam
 async function fetchEuStocks(){
-  // 2 Alpha Vantage keys = 50 calls/day combined. Auto-rotation on quota.
   const AV_KEYS=["9MFAHWQWJGM1IYKJ","1DV70SRK4XHZY3G4"];
   const AV_TICKERS={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA"};
   const today=new Date().toISOString().slice(0,10);
-  // Track exhausted keys per day in localStorage (auto-resets when date changes)
   let exhausted=[];
   try{
     const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");
     if(e.date===today)exhausted=e.keys||[];
   }catch{}
   const usableKeys=AV_KEYS.filter(k=>!exhausted.includes(k));
-  if(usableKeys.length===0){console.log("AV: all keys exhausted today");return {}}
+  if(usableKeys.length===0){return {}}
   const p={};
   let kIdx=0,curKey=usableKeys[0];
-  console.log(`AV: using key ${curKey.slice(0,4)}... (${usableKeys.length}/${AV_KEYS.length} avail)`);
   for(const [tkr,sym] of Object.entries(AV_TICKERS)){
     let attempts=0;
     while(attempts<usableKeys.length){
@@ -228,19 +218,17 @@ async function fetchEuStocks(){
           const price=parseFloat(j["Global Quote"]?.["05. price"]);
           if(price>0){p[tkr]=price;break}
           if(j.Note||j.Information){
-            console.log(`AV ${tkr}: quota hit on ${curKey.slice(0,4)}...`);
             exhausted.push(curKey);
             try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}
             kIdx++;
-            if(kIdx>=usableKeys.length){console.log("AV: all keys exhausted, stopping");return p}
+            if(kIdx>=usableKeys.length){return p}
             curKey=usableKeys[kIdx];
-            console.log(`AV: switching to ${curKey.slice(0,4)}...`);
             attempts++;
             continue;
           }
           break;
         }
-      }catch(e){console.log(`AV ${tkr} fail:`,e.message);break}
+      }catch(e){break}
       attempts++;
     }
     await new Promise(res=>setTimeout(res,15000));
@@ -257,16 +245,11 @@ async function fetchEurUsd(){
 }
 
 async function fetchGold(){
-  // Gold price in EUR per ounce from various sources - use 50 Pesos market price
-  // 50 Pesos Mexicain contient 37.5g d'or pur
   try{
-    // Metals-API fallback: use a simple gold price API
     const r=await fetch("https://api.gold-api.com/price/XAU");
     if(r.ok){
       const j=await r.json();
       if(j.price){
-        // j.price is USD per ounce. Convert to EUR per 37.5g coin
-        // 1 oz = 31.1035g, so 37.5g = 1.2056 oz
         const usdPerOz=j.price;
         const eurUsd=D.eurUsd||1.1;
         const eurPerCoin=(usdPerOz*1.2056)/eurUsd;
@@ -283,31 +266,26 @@ async function refreshPrices(){
   let cnt=0,ok=false;
   const nd=JSON.parse(JSON.stringify(D));
 
-  // Crypto
   try{
     const cp=await fetchCrypto();
     if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker];cnt++}});
     ok=true;
-  }catch(e){console.log("crypto fail:",e)}
+  }catch(e){}
 
-  // US Stocks (Finnhub) - every refresh
   try{
     const sp=await fetchStocks();
     Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
       if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker];cnt++}
     }));
     ok=true;
-  }catch(e){console.log("stocks fail:",e)}
+  }catch(e){}
 
-  // EU Stocks (Alpha Vantage) - runs on first refresh after 10h00 and 18h00
-  // 2 calls/day × 6 tickers = 12 calls/day, plenty of margin on 50/day limit (2 keys)
   try{
     const now=new Date();
     const hm=now.getHours()*60+now.getMinutes();
-    const slots=[10*60+0, 18*60+0]; // 10h00 and 18h00 in minutes since midnight
+    const slots=[10*60+0, 18*60+0];
     const today=now.toISOString().slice(0,10);
     const lastAV=localStorage.getItem("pf-last-av")||"";
-    // Find the most recent slot that has passed today and that we haven't processed yet
     let shouldRun=false,slotKey="";
     for(let i=slots.length-1;i>=0;i--){
       if(hm>=slots[i]){
@@ -320,22 +298,19 @@ async function refreshPrices(){
       }
     }
     if(shouldRun){
-      console.log("AV refresh triggered for slot",slotKey);
       const eup=await fetchEuStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
         if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker];cnt++}
       }));
       if(Object.keys(eup).length>0)localStorage.setItem("pf-last-av",slotKey);
     }
-  }catch(e){console.log("EU stocks fail:",e)}
+  }catch(e){}
 
-  // EUR/USD
   try{
     const r=await fetchEurUsd();
     if(r)nd.eurUsd=Math.round(r*10000)/10000;
   }catch{}
 
-  // Gold (50 Pesos)
   try{
     const gp=await fetchGold();
     if(gp&&nd.poches["Métaux"]){
@@ -349,56 +324,48 @@ async function refreshPrices(){
   const ts=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
   st.lastUp=ts;st.ok=ok;st.count=cnt;st.loading=false;
 
-  // Add history point
   const tv=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash;
   const tp=Object.values(D.poches).reduce((s,p)=>s+p.pl,0);
   H.push({t:now.getTime(),v:Math.round(tv),pl:Math.round(tp),h:ts.slice(0,5)});
-  if(H.length>300)H=H.slice(-300); // cap memory to 300 points
+  if(H.length>300)H=H.slice(-300);
 
   saveLocal();R();pushToBin();
-  cd=900; // 15 min countdown
+  cd=900;
 }
 
 // ══════════════ INIT ══════════════
 async function init(){
   const loc=loadLocal();
-  // Always pull from shared bin first - this ensures Mac/iPhone stay in sync
   const pulled=await pullFromBin();
   if(!pulled){
-    // JSONBin unreachable, fall back to local or default
     if(loc.D){D=loc.D;H=loc.H||[]}
     else{D=JSON.parse(JSON.stringify(DEF));H=[]}
   }
-  // Apply monthly mortgage payments (1st of each month)
+  
+  // FIX: Normalisation des données pour éviter l'écran blanc
+  D = normalizeData(D);
+
   applyMortgagePayments();
-  // Migrate portfolio positions if needed (new buys, PRU updates)
   const migrated=applyPortfolioMigrations();
   rc(D);R();
   if(migrated)pushToBin();
   refreshPrices();
-  // Auto refresh 15 min (900000 ms)
   setInterval(refreshPrices,900000);
-  // Check mortgage payments every hour (handles midnight transitions)
   setInterval(()=>{if(applyMortgagePayments()){rc(D);R();pushToBin()}},3600000);
-  // Countdown
   if(cdTimer)clearInterval(cdTimer);
   cd=900;
   cdTimer=setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
 }
 
-// Portfolio migrations - apply position changes that need to propagate across devices
 function applyPortfolioMigrations(){
   if(!D||!D.poches||!D.poches.PEA)return false;
   const pea=D.poches.PEA.positions;
   let changed=false;
-  // Migration 2026-04-24: add Vusion + update Veolia qty/pru
   if(!D.migV1){
-    // Add Vusion if not already present
     if(!pea.find(p=>p.ticker==="VU")){
       pea.push({titre:"Vusion",ticker:"VU",qty:5,pru:143.30,cours:143.30});
       changed=true;
     }
-    // Update Veolia to 70 shares at 33.917 PRU - only if still at old qty
     const vie=pea.find(p=>p.ticker==="VIE");
     if(vie&&vie.qty<70){
       vie.qty=70;
@@ -408,15 +375,12 @@ function applyPortfolioMigrations(){
     D.migV1=true;
     changed=true;
   }
-  // Migration 2026-04-24 bis: pre-record CDC-D sale (141.13 parts @ PRU 6.40 for 1807.40€ net)
   if(!D.migV2){
     if(!D.sales)D.sales=[];
-    // Only add if not already recorded
     const alreadyExists=D.sales.some(s=>s.ticker==="CDC-D"&&Math.abs(s.qty-141.13)<0.01);
     if(!alreadyExists){
       D.sales.push({date:"2026-04-24",poche:"PEE",ticker:"CDC-D",titre:"CDC Diversifié ISR",qty:141.13,pru:6.40,net:1807.40,brut:1909.24,pl:904.17});
     }
-    // Update CDC-D qty in PEE if still at old value
     if(D.poches.PEE&&D.poches.PEE.positions){
       const cdcd=D.poches.PEE.positions.find(p=>p.ticker==="CDC-D");
       if(cdcd&&cdcd.qty>93.5)cdcd.qty=93.1;
@@ -424,7 +388,6 @@ function applyPortfolioMigrations(){
     D.migV2=true;
     changed=true;
   }
-  // Migration 2026-04-24 ter: add 2025 historical P&L realized total
   if(!D.migV3){
     if(!D.sales)D.sales=[];
     const histExists=D.sales.some(s=>s.ticker==="HIST-2025");
@@ -439,12 +402,10 @@ function applyPortfolioMigrations(){
 
 function applyMortgagePayments(){
   if(!D||!D.immobilier)return false;
-  // Force migration: if old (incorrect) PTZ values detected, reset to correct ones
   if(D.immobilier.mortgage&&D.immobilier.mortgage.ptzCapital<20000){
     delete D.immobilier.mortgage;
     D.immobilier.capitalRestant=151752.90;
   }
-  // Initialize mortgage data if not present
   if(!D.immobilier.mortgage){
     D.immobilier.mortgage={
       ptzCapital:29514.90,
@@ -452,38 +413,29 @@ function applyMortgagePayments(){
       mainCapital:122238.00,
       mainMensualite:654.65,
       mainTaux:0.038,
-      lastPayment:"2026-04-01" // avril 2026 déjà payé
+      lastPayment:"2026-04-01"
     };
   }
   const m=D.immobilier.mortgage;
   const now=new Date();
-  // Parse lastPayment as local date (not UTC) to avoid timezone drift
   const parts=String(m.lastPayment||"").split("-").map(Number);
   const last=parts.length===3?new Date(parts[0],parts[1]-1,parts[2]):new Date(NaN);
-  // Defensive: if lastPayment is corrupted, reset to today and skip this cycle
   if(isNaN(last.getTime())){
-    console.warn("Mortgage: invalid lastPayment, resetting");
     m.lastPayment=now.toISOString().slice(0,10);
     return false;
   }
   let applied=false;
-  let safety=0; // prevent infinite loop in any edge case
-  // Advance month by month
+  let safety=0;
   while(safety<600){
     safety++;
     const next=new Date(last.getFullYear(),last.getMonth()+1,1);
     if(isNaN(next.getTime())||next>now)break;
-    // Apply 1 month of amortization
-    // PTZ: all in capital (0% rate)
     const ptzPay=Math.min(m.ptzMensualite,m.ptzCapital);
     m.ptzCapital=Math.max(0,m.ptzCapital-ptzPay);
-    // Principal: interest + capital split
     const interest=m.mainCapital*(m.mainTaux/12);
     const capitalPart=Math.max(0,m.mainMensualite-interest);
     m.mainCapital=Math.max(0,m.mainCapital-capitalPart);
-    // Update total capital restant dû
     D.immobilier.capitalRestant=Math.round((m.ptzCapital+m.mainCapital)*100)/100;
-    // Save lastPayment as local date string YYYY-MM-DD (not UTC) for consistency
     const yy=next.getFullYear(),mm=String(next.getMonth()+1).padStart(2,"0"),dd=String(next.getDate()).padStart(2,"0");
     m.lastPayment=`${yy}-${mm}-${dd}`;
     last.setTime(next.getTime());
@@ -513,13 +465,14 @@ window.cm=cm;window.pn=pn;
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
 window.eImmo=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Immobilier</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Valeur estimée (€)</label><input id="iv" value="${D.immobilier.valeurEstimee}" inputmode="decimal"></div><div class="field"><label>Capital restant (€)</label><input id="ir" value="${D.immobilier.capitalRestant}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.immobilier.valeurEstimee=pn(document.getElementById('iv').value);D.immobilier.capitalRestant=pn(document.getElementById('ir').value);cm();save()">Enregistrer</button>`)};
 
+// FIX XSS: ajout de la fonction esc() sur les valeurs des inputs
 window.ePos=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return;
-sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${tk}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
-<div class="field"><label>Nom</label><input id="mt" value="${p.titre}"></div>
-<div class="field"><label>Ticker</label><input id="mk" value="${p.ticker}"></div>
+sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
+<div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div>
+<div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div>
 <div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div>
 <div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div>
-<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${pn_}','${tk}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${pn_}','${tk}')">🗑</button></div>`)};
+<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${esc(pn_)}','${esc(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${esc(pn_)}','${esc(tk)}')">🗑</button></div>`)};
 
 window.sP=(pn_,otk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===otk);if(!p)return;
   const newTitre=document.getElementById("mt").value;
@@ -528,28 +481,25 @@ window.sP=(pn_,otk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===otk);if
   const newPru=pn(document.getElementById("mp").value);
   const newCours=pn(document.getElementById("mx").value);
   const newCible=document.getElementById("mi").value;
-  // Detect qty decrease -> ask for sale/correction
   if(newQty<p.qty){
     const diff=p.qty-newQty;
     askSale(pn_,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible});
     return;
   }
-  // Normal save
   p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours;
   if(newCible)p.cible=pn(newCible);else delete p.cible;
   cm();save()};
 
 window.dP=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return;
-  // Always ask sale/correction on full deletion
   askSale(pn_,tk,p.qty,p.pru,p.titre,"full",null)};
 
-// Sale/correction popup - asks if it's a real sale or just a data correction
+// FIX XSS: ajout de la fonction esc() sur les variables injectées
 window.askSale=(pn_,tk,qty,pru,titre,mode,pendingEdit)=>{
   _pendingSale={pn:pn_,tk,qty,pru,titre,mode,pendingEdit};
   const cost=qty*pru;
-  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${tk}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
 <div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--dim);line-height:1.5">
-${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} ${qty>1?"parts/actions":"part/action"}</b> de ${titre}<br>Coût d'acquisition : ${fmt2_(cost)} €</div>
+${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} ${qty>1?"parts/actions":"part/action"}</b> de ${esc(titre)}<br>Coût d'acquisition : ${fmt2_(cost)} €</div>
 <div style="margin-bottom:10px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25">
 <input type="radio" name="mo" value="sale" checked onchange="document.getElementById('saleFields').style.display='block'">
 <div style="flex:1"><div style="font-weight:600;font-size:13px">Vente réelle</div><div style="font-size:10px;color:var(--dim)">Calcule le P&L réalisé</div></div></label></div>
@@ -575,7 +525,6 @@ window.confirmSale=()=>{
     if(!D.sales)D.sales=[];
     D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:brut,pl:Math.round(pl*100)/100});
   }
-  // Apply the position change
   if(mode==="full"){
     D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk);
   }else if(pe){
@@ -586,11 +535,11 @@ window.confirmSale=()=>{
   cm();save();
 };
 
-window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${pn_}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
+window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pn_)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
 <div class="field"><label>Nom</label><input id="mt" placeholder="ex: Apple"></div><div class="field"><label>Ticker</label><input id="mk" placeholder="AAPL" oninput="this.value=this.value.toUpperCase()"></div>
 <div class="row"><div class="field"><label>Quantité</label><input id="mq" placeholder="10" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" placeholder="150" inputmode="decimal"></div></div>
 <div class="row"><div class="field"><label>Cours</label><input id="mx" placeholder="155" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" placeholder="optionnel" inputmode="decimal"></div></div>
-<button class="btn btn-p" style="margin-top:8px" onclick="doA('${pn_}')">Ajouter</button>`)};
+<button class="btn btn-p" style="margin-top:8px" onclick="doA('${esc(pn_)}')">Ajouter</button>`)};
 
 window.doA=(pn_)=>{const tk=document.getElementById("mk").value;if(!tk)return;const pos={titre:document.getElementById("mt").value||tk,ticker:tk,qty:pn(document.getElementById("mq").value),pru:pn(document.getElementById("mp").value),cours:pn(document.getElementById("mx").value)};const ci=document.getElementById("mi").value;if(ci)pos.cible=pn(ci);D.poches[pn_].positions.push(pos);cm();save()};
 
@@ -599,7 +548,6 @@ function R(){
 if(!D)return;
 const d=ga();const $=document.getElementById("app");let h="";
 
-// Status bar
 h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
   <div style="display:flex;align-items:center;gap:6px">
     <div style="width:8px;height:8px;border-radius:50%;background:${st.loading?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${st.loading?'animation:bl 1s infinite':''}"></div>
@@ -669,7 +617,6 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
 <div class="card"><div class="section">P&L</div>${lc(r,"pl","#34d399")}</div></div>`;}
 
 $.innerHTML=h;
-// Nav
 const tabs=[["home","Vue"],["analyse","Analyse"],["alerts","Alertes"],["history","Hist."]];
 document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]==="home");return`<button class="nav-btn${ac?" active":""}" onclick="gt('${t[0]}')"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
 }
