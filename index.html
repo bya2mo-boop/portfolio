@@ -402,6 +402,10 @@ async function init(){
     if(loc.D){D=loc.D;H=loc.H||[]}
     else{D=JSON.parse(JSON.stringify(DEF));H=[]}
   }
+  
+  // Set initial state for history
+  history.replaceState({tab: "home", sel: null}, "", "");
+  
   // Apply monthly mortgage payments (1st of each month)
   applyMortgagePayments();
   // Migrate portfolio positions if needed (new buys, PRU updates)
@@ -804,8 +808,33 @@ const tabs=[["home","Vue"],["analyse","Analyse"],["alerts","Alertes"],["history"
 document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]==="home");return`<button class="nav-btn${ac?" active":""}" onclick="gt('${t[0]}')"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
 }
 
-window.gt=id=>{if(id==="home")sel=null;tab=id;R();scrollTo(0,0)};
-window.oP=n=>{sel=n;tab="detail";R();scrollTo(0,0)};
+window.addEventListener('popstate', (event) => {
+  if (event.state) {
+    tab = event.state.tab;
+    sel = event.state.sel;
+  } else {
+    tab = "home";
+    sel = null;
+  }
+  R();
+});
+
+window.gt=id=>{
+  if(id==="home")sel=null;
+  tab=id;
+  history.pushState({tab: id, sel: sel}, "", `#${id}`);
+  R();
+  scrollTo(0,0);
+};
+
+window.oP=n=>{
+  sel=n;
+  tab="detail";
+  history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`);
+  R();
+  scrollTo(0,0);
+};
+
 window.aEnv=()=>{const n=prompt("Nom de la nouvelle enveloppe:");if(!n)return;if(D.poches[n])return alert("Existe déjà");D.poches[n]={sante:"7,0",positions:[]};save()};
 window.refreshPrices=refreshPrices;
 
