@@ -127,7 +127,7 @@ async function pushToBin(){
 async function pullFromBin(){
   if(!BIN_ID)return false;
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`);
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":JSONBIN_KEY}});
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     if(j.record&&j.record.data){D=j.record.data;if(j.record.hist)H=j.record.hist;st.sync=true;return true}
