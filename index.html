@@ -577,35 +577,60 @@ window.srcStock=async()=>{
   const out=document.getElementById("srchRes");
   if(!q){out.innerHTML="";return}
   out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`;
+
+  const isISIN=/^[A-Z]{2}[A-Z0-9]{10}$/i.test(q.trim());
+  let searchQuery=q.trim();
+
+  if(isISIN){
+    try{
+      const figiResp=await fetch("https://api.openfigi.com/v3/mapping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([{idType:"ID_ISIN",idValue:q.trim().toUpperCase()}])});
+      if(figiResp.ok){
+        const figiData=await figiResp.json();
+        const matches=figiData[0]?.data;
+        if(matches&&matches.length>0){
+          out.innerHTML=matches.slice(0,8).map((m,i)=>{
+            const sym=m.ticker||"";const name=m.name||"";const exch=m.exchCode||"";const cur=m.currency||"";const secType=m.securityType||"";
+            return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)} · ${esc(secType)}</div></div>`;
+          }).join("");
+          return;
+        }
+      }
+    }catch(e){console.log("OpenFIGI fail:",e.message)}
+    out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">ISIN non résolu, recherche par nom…</div>`;
+  }
+
+  try{
+    const yhResp=await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(searchQuery)}&lang=fr&region=FR&quotesCount=8&newsCount=0`);
+    if(yhResp.ok){
+      const yhData=await yhResp.json();
+      const quotes=(yhData.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol);
+      if(quotes.length>0){
+        out.innerHTML=quotes.slice(0,8).map((m,i)=>{
+          const sym=m.symbol||"";const name=m.longname||m.shortname||"";const exch=m.exchange||"";const cur=m.currency||"";
+          return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)}</div></div>`;
+        }).join("");
+        return;
+      }
+    }
+  }catch(e){console.log("Yahoo fail:",e.message)}
+
   const AV_KEYS=["9MFAHWQWJGM1IYKJ","1DV70SRK4XHZY3G4"];
   const today=new Date().toISOString().slice(0,10);
   let exhausted=[];
   try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{}
   const key=AV_KEYS.find(k=>!exhausted.includes(k));
-  if(!key){out.innerHTML=`<div style="color:var(--red);font-size:11px;padding:6px">Quota Alpha Vantage épuisé pour aujourd'hui. Saisissez manuellement.</div>`;return}
+  if(!key){out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return}
   try{
-    const r=await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(q)}&apikey=${key}`);
+    const r=await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(searchQuery)}&apikey=${key}`);
     const j=await r.json();
-    if(j.Note||j.Information){
-      exhausted.push(key);
-      try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}
-      out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Limite atteinte. Réessayez plus tard ou saisissez manuellement.</div>`;
-      return;
-    }
+    if(j.Note||j.Information){exhausted.push(key);try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return}
     const matches=j.bestMatches||[];
     if(matches.length===0){out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return}
     out.innerHTML=matches.slice(0,8).map((m,i)=>{
-      const sym=m["1. symbol"]||"";
-      const name=m["2. name"]||"";
-      const region=m["4. region"]||"";
-      const cur=m["8. currency"]||"";
-      return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}">
-        <div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div>
-        <div style="font-size:10px;color:var(--dim)">${esc(name)}</div>
-        <div style="font-size:9px;color:var(--mut)">${esc(region)}</div>
-      </div>`;
+      const sym=m["1. symbol"]||"";const name=m["2. name"]||"";const region=m["4. region"]||"";const cur=m["8. currency"]||"";
+      return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(region)}</div></div>`;
     }).join("");
-  }catch(e){out.innerHTML=`<div style="color:var(--red);font-size:11px;padding:6px">Erreur de recherche</div>`}
+  }catch(e){out.innerHTML=`<div style="color:var(--red);font-size:11px;padding:6px">Erreur de recherche. Saisissez manuellement.</div>`}
 };
 
 window.pickStock=(idx)=>{
