@@ -17,7 +17,7 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .card-tap{cursor:pointer}.card-tap:active{background:#181a25}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
 .chip{display:inline-flex;padding:3px 8px;border-radius:6px;font-size:12px;font-weight:600}
-.chip-g{background:#34d39918;color:var(--grn)}.chip-a{background:#fbbf2418;color:var(--amb)}.chip-r{background:#f8717118;color:var(--red)}
+.chip-s{background:#a78bfa18;color:#a78bfa;border:1px solid #a78bfa33}.chip-a{background:#34d39918;color:var(--grn)}.chip-b{background:#fbbf2418;color:var(--amb)}.chip-c{background:#f8717118;color:var(--red)}
 .section{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:500;margin-bottom:8px}
 .nav{position:fixed;bottom:0;left:0;right:0;background:#12131aee;border-top:1px solid var(--bdr);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);padding:6px 0 env(safe-area-inset-bottom,8px);z-index:100}
 .nav-inner{display:flex;justify-content:space-around;max-width:480px;margin:0 auto}
@@ -90,7 +90,9 @@ const pn=s=>{
   }
   return parseFloat(cleaned)||0;
 };
-const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=8?"g":n>=6?"a":"r"};
+const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=9?"s":n>=7?"a":n>=5?"b":"c"};
+const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S";if(n>=7)return"A";if(n>=5)return"B";if(n>=3)return"C";return"D"};
+const sGradeColor=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"#a78bfa";if(n>=7)return"var(--grn)";if(n>=5)return"var(--amb)";return"var(--red)"};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 function rc(d){if(!d||!d.poches)return d;const eurUsd=d.eurUsd||1.1;Object.values(d.poches).forEach(p=>{p.positions.forEach(x=>{const cur=x.currency||CUR[x.ticker];const rate=(cur==="USD")?eurUsd:1;x.valeur=(x.qty*x.cours)/rate;x.pl=(x.qty*(x.cours-x.pru))/rate;x.plPct=x.pru?((x.cours-x.pru)/x.pru*100):0});p.investi=p.positions.reduce((s,x)=>{const cur=x.currency||CUR[x.ticker];const rate=(cur==="USD")?eurUsd:1;return s+(x.qty*x.pru)/rate},0);p.valeur=p.positions.reduce((s,x)=>s+x.valeur,0);p.pl=p.valeur-p.investi;const t=p.valeur||1;p.positions.forEach(x=>{x.poids=Math.round(x.valeur/t*1000)/10});
@@ -241,7 +243,7 @@ async function fetchEuStocks(){
   let exhausted=[];
   try{
     const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");
-    if(e.date===today)exhausted=e.keys||[];
+    if(e.date===today)exhausted=e.keys||[];else{try{localStorage.removeItem("pf-av-exhausted")}catch{}exhausted=[]}
   }catch{}
   const usableKeys=AV_KEYS.filter(k=>!exhausted.includes(k));
   if(usableKeys.length===0){console.log("AV: all keys exhausted today");return {}}
@@ -325,28 +327,12 @@ async function refreshPrices(){
     }catch(e){console.log("stocks fail:",e)}
 
     try{
-      const now=new Date();
-      const hm=now.getHours()*60+now.getMinutes();
-      const slots=[10*60+0, 18*60+0];
-      const today=now.toISOString().slice(0,10);
-      const lastAV=localStorage.getItem("pf-last-av")||"";
-      let shouldRun=false,slotKey="";
-      for(let i=slots.length-1;i>=0;i--){
-        if(hm>=slots[i]){
-          const key=`${today}-${slots[i]}`;
-          if(lastAV!==key){shouldRun=true;slotKey=key}
-          break;
-        }
-      }
-      if(shouldRun){
-        console.log("AV refresh triggered for slot",slotKey);
-        const eup=await fetchEuStocks();
-        Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-          if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker];cnt++}
-        }));
-        if(Object.keys(eup).length>0)localStorage.setItem("pf-last-av",slotKey);
-      }
-    }catch(e){console.log("EU stocks fail:",e)}
+const eup=await fetchEuStocks();
+Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker];cnt++}
+}));
+if(Object.keys(eup).length>0)console.log("EU stocks: updated "+Object.keys(eup).join(","));
+}catch(e){console.log("EU stocks fail:",e)}catch(e){console.log("EU stocks fail:",e)}
 
     try{const r=await fetchEurUsd();if(r)nd.eurUsd=Math.round(r*10000)/10000}catch{}
 
@@ -720,20 +706,20 @@ const im=D.immobilier,pg=(im.valeurEstimee-im.capitalRestant)/im.valeurEstimee*1
 h+=`<div class="card card-tap" onclick="eImmo()"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div class="section" style="margin-bottom:4px">Immobilier <span style="color:var(--acc);font-size:9px">✎</span></div><div class="mono" style="font-size:17px;font-weight:700;margin-top:4px">${fmt_(im.equityNette||0)} €</div>${im.mortgage?`<div style="margin-top:6px;font-size:9px;color:var(--mut);line-height:1.5"><div>PTZ (0%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.ptzCapital)} €</span></div><div>Principal (3,8%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.mainCapital)} €</span></div></div>`:""}</div><div style="text-align:right;font-size:10px;color:var(--dim)"><div>Valeur ${fmt_(im.valeurEstimee)} €</div><div>Restant ${fmt_(im.capitalRestant)} €</div><div style="margin-top:3px;height:4px;width:70px;background:var(--bdr);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pg}%;background:var(--acc);border-radius:2px"></div></div>${im.mortgage?`<div style="margin-top:6px;font-size:9px;color:var(--mut)">Mens. ${fmt2_(im.mortgage.ptzMensualite+im.mortgage.mainMensualite)} €</div>`:""}</div></div></div>`;
 h+=`<div class="section" style="margin-top:6px">Enveloppes</div>`;
 Object.entries(D.poches).forEach(([n,p])=>{const ip=p.pl>=0;const dd=p.positions.map(x=>[x.ticker,x.valeur]);
-h+=`<div class="card card-tap" style="position:relative;overflow:hidden" onclick="oP('${esc(n)}')"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:${PCOL[n]||'var(--mut)'};opacity:.6"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:14px;font-weight:700">${esc(n)}</span><span class="chip chip-${sC(p.sante)} mono">${esc(p.sante)}</span></div><div class="mono" style="font-size:20px;font-weight:700">${fmt_(p.valeur)} <span style="font-size:12px;color:var(--dim)">€</span></div><div class="mono" style="font-size:12px;color:${ip?"var(--grn)":"var(--red)"};margin-top:3px;font-weight:500">${fL(p.pl)} <span style="opacity:.7">(${fP(p.investi?p.pl/p.investi*100:0)})</span></div></div>${dn(dd,DCOL,85)}</div></div>`;});
+h+=`<div class="card card-tap" style="position:relative;overflow:hidden" onclick="oP('${esc(n)}')"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:${PCOL[n]||'var(--mut)'};opacity:.6"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:14px;font-weight:700">${esc(n)}</span><span class="chip chip-${sC(p.sante)} mono" title="${p.sante}/10">${sGrade(p.sante)} <span style="font-size:9px;opacity:.7">${p.sante}</span></span></div><div class="mono" style="font-size:20px;font-weight:700">${fmt_(p.valeur)} <span style="font-size:12px;color:var(--dim)">€</span></div><div class="mono" style="font-size:12px;color:${ip?"var(--grn)":"var(--red)"};margin-top:3px;font-weight:500">${fL(p.pl)} <span style="opacity:.7">(${fP(p.investi?p.pl/p.investi*100:0)})</span></div></div>${dn(dd,DCOL,85)}</div></div>`;});
 h+=`<div class="add-btn" onclick="aEnv()">+ Ajouter une enveloppe</div>`;
 h+=`<div class="card card-tap" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px" onclick="eCash()"><span style="font-size:14px;font-weight:700">Liquidités <span style="color:var(--acc);font-size:11px">✎</span></span><span class="mono" style="font-size:18px;font-weight:700">${fmt_(D.cash)} €</span></div></div>`;
 }
 
 if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}const ip=p.pl>=0;const dd=p.positions.map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
 h+=`<div class="fade"><button onclick="gt('home')" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button>
-<div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${PCOL[sel]||'var(--mut)'}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2><span class="chip chip-${sC(p.sante)} mono">${esc(p.sante)}</span></div>
+<div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${PCOL[sel]||'var(--mut)'}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2><span class="chip chip-${sC(p.sante)} mono" title="${p.sante}/10">${sGrade(p.sante)} <span style="font-size:9px;opacity:.7">${p.sante}</span></span></div>
 <div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:7px;height:7px;border-radius:50%;background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${((d[1]/dt)*100).toFixed(1)}%</span></div>`).join("")}</div></div>
 ${(()=>{const hasUsd=p.positions.some(x=>CUR[x.ticker]==="USD");const eurUsd=D.eurUsd||1.1;const investiUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.pru:x.qty*x.pru*eurUsd),0);const valeurUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.cours:x.qty*x.cours*eurUsd),0);const plUsd=valeurUsd-investiUsd;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,hasUsd?fmt_(investiUsd)+" $":""],["Valeur",fmt_(p.valeur)+" €",null,hasUsd?fmt_(valeurUsd)+" $":""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",hasUsd?(plUsd>=0?"+":"")+fmt_(plUsd)+" $":""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:9px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})()}
 <div class="card" style="padding:4px 12px 6px">`;
 p.positions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="USD";const eurUsd=D.eurUsd||1.1;const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru);
 h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${esc(sel)}','${esc(x.ticker)}')">
-<div><div style="font-size:12px;font-weight:600">${esc(x.ticker)} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.cible){const e=(x.cours-x.cible)/x.cible*100;if(e>5)xs+=0.8;else if(e<-5)xs-=0.8;}if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const cl=sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}">${sc.toFixed(1).replace(".",",")}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div>
+<div><div style="font-size:12px;font-weight:600">${esc(x.ticker)} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.cible){const e=(x.cours-x.cible)/x.cible*100;if(e>5)xs+=0.8;else if(e<-5)xs-=0.8;}if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div>
 <div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:9px;color:var(--mut)">${fmt_(valUsd)} $</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div>
 <div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:9px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:8px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} $</div>`:""}</div></div>`;});
 h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une position</div></div>`;}
@@ -778,7 +764,7 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
 <div class="card" style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section" style="margin:0">Score global portefeuille</div>
-    <div class="mono" style="font-size:22px;font-weight:700;color:${avgCl}">${avgScore.toFixed(1).replace('.',',')}<span style="font-size:11px;color:var(--dim)">/10</span></div>
+    <div class="mono" style="font-size:22px;font-weight:700;color:${avgCl}">${avgScore>=9?"S":avgScore>=7?"A":avgScore>=5?"B":avgScore>=3?"C":"D"} <span style="font-size:14px;color:var(--dim)" title="${avgScore.toFixed(1)}/10">${avgScore.toFixed(1)}</span></div>
   </div>
   <div style="display:flex;flex-direction:column;gap:5px">
     ${pocheScores.map(x=>`
@@ -787,7 +773,7 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
       <div style="flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden">
         <div style="height:100%;width:${x.sc*10}%;background:${x.cl};border-radius:3px;transition:width .4s"></div>
       </div>
-      <span class="mono" style="font-size:11px;font-weight:700;color:${x.cl};width:28px;text-align:right">${String(x.sc.toFixed(1)).replace('.',',')}</span>
+      <span class="mono" style="font-size:11px;font-weight:700;color:${x.cl};width:28px;text-align:right" title="${x.sc.toFixed(1)}/10">${x.sc>=9?"S":x.sc>=7?"A":x.sc>=5?"B":x.sc>=3?"C":"D"}</span>
     </div>`).join('')}
   </div>
 </div>
@@ -798,7 +784,7 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
 <div class="card">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section" style="margin:0">Score santé positions</div>
-    <div style="font-size:9px;color:var(--mut)">Base 5 · max 10</div>
+    <div style="font-size:9px;color:var(--mut)">S≥9&nbsp;A≥7&nbsp;B≥5&nbsp;C≥3&nbsp;D&lt;3</div>
   </div>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9px;color:var(--dim)">
     <div>🟢 P&L% · 🎯 Cible · ⚖️ Poids</div>
@@ -813,7 +799,7 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
         <div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden">
           <div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div>
         </div>
-        <span class="mono" style="color:${cl};font-weight:700;font-size:12px;width:24px;text-align:right">${p.sc}</span>
+        <span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div>
     </div>`;
