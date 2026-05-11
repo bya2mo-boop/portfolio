@@ -40,13 +40,23 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 </style>
 </head>
 <body>
-<div id="app"></div>
+<div id="app">
+  <div style="padding:40px 20px;text-align:center;color:var(--dim)" class="blink">
+    <div class="mono" style="font-size:18px;font-weight:600;margin-bottom:10px;color:var(--acc)">Chargement...</div>
+    <div style="font-size:12px">Connexion aux API et synchronisation en cours</div>
+  </div>
+</div>
 <div class="nav"><div class="nav-inner" id="nav"></div></div>
 <div id="modal-root"></div>
 <script>
-// ══════════════ CONFIG ══════════════
-const JSONBIN_KEY="$2a$10$IZBWT5RYzP4kWGucKxhcBO8rif3aIYR3cn5QSsyNv7TdLSNCT4QSu";
-let BIN_ID="69f1c55d856a68218986c9bb";
+// ══════════════ CONFIG (AMÉLIORATION 2: PARAMÈTRES) ══════════════
+let API_KEYS = JSON.parse(localStorage.getItem('pf-api-keys')) || {
+  JSONBIN: "$2a$10$IZBWT5RYzP4kWGucKxhcBO8rif3aIYR3cn5QSsyNv7TdLSNCT4QSu",
+  BIN_ID: "69f1c55d856a68218986c9bb",
+  FINNHUB: "d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg",
+  AV: ["9MFAHWQWJGM1IYKJ", "1DV70SRK4XHZY3G4"]
+};
+let BIN_ID = API_KEYS.BIN_ID;
 
 const DCOL=["#6c8cff","#34d399","#a78bfa","#f87171","#fbbf24","#38bdf8","#f472b6","#fb923c","#4ade80","#c084fc","#22d3ee","#e879f9"];
 const PCOL={CTO:"#6c8cff",PEA:"#34d399","Assurance Vie":"#a78bfa",PEE:"#fbbf24",Crypto:"#fb923c","Métaux":"#eab308",Cash:"#4a4d5e"};
@@ -96,18 +106,14 @@ const sGradeColor=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)ret
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 function rc(d){if(!d||!d.poches)return d;const eurUsd=d.eurUsd||1.1;Object.values(d.poches).forEach(p=>{p.positions.forEach(x=>{const cur=x.currency||CUR[x.ticker];const rate=(cur==="USD")?eurUsd:1;x.valeur=(x.qty*x.cours)/rate;x.pl=(x.qty*(x.cours-x.pru))/rate;x.plPct=x.pru?((x.cours-x.pru)/x.pru*100):0});p.investi=p.positions.reduce((s,x)=>{const cur=x.currency||CUR[x.ticker];const rate=(cur==="USD")?eurUsd:1;return s+(x.qty*x.pru)/rate},0);p.valeur=p.positions.reduce((s,x)=>s+x.valeur,0);p.pl=p.valeur-p.investi;const t=p.valeur||1;p.positions.forEach(x=>{x.poids=Math.round(x.valeur/t*1000)/10});
-// Score santé automatique de la poche
 const n=p.positions.length;
 if(n===0){p.sante="5,0";return;}
 let sc=0,wTotal=0;
 p.positions.forEach(x=>{const w=x.poids/100;const xPl=x.plPct||0;let xs=5;if(xPl>15)xs+=1.5;else if(xPl>5)xs+=0.8;else if(xPl<-15)xs-=1.5;else if(xPl<-5)xs-=0.8;if(x.cible){const e=(x.cours-x.cible)/x.cible*100;if(e>5)xs+=0.8;else if(e<-5)xs-=0.8;}if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;sc+=xs*w;wTotal+=w;});
 let raw=wTotal>0?sc/wTotal:5;
-// Bonus diversification
 if(n>=6)raw+=0.3;else if(n>=4)raw+=0.1;
-// Pénalité concentration extrême
 const maxPoids=Math.max(...p.positions.map(x=>x.poids));
 if(maxPoids>60)raw-=1;else if(maxPoids>45)raw-=0.5;
-// P&L global poche
 const plPct=p.investi>0?(p.pl/p.investi*100):0;
 if(plPct>20)raw+=0.5;else if(plPct<-15)raw-=0.5;
 p.sante=Math.max(1,Math.min(10,raw)).toFixed(1).replace('.',',');
@@ -116,11 +122,12 @@ p.sante=Math.max(1,Math.min(10,raw)).toFixed(1).replace('.',',');
 // ══════════════ SYNC (JSONBIN) ══════════════
 async function createBin(){
   try{
-    const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":JSONBIN_KEY,"X-Bin-Name":"portfolio","X-Bin-Private":"false"},body:JSON.stringify({data:D,hist:H})});
+    const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN,"X-Bin-Name":"portfolio","X-Bin-Private":"false"},body:JSON.stringify({data:D,hist:H})});
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     BIN_ID=j.metadata.id;
-    localStorage.setItem("pf-bin-id",BIN_ID);
+    API_KEYS.BIN_ID=BIN_ID;
+    localStorage.setItem("pf-api-keys", JSON.stringify(API_KEYS));
     console.log("Bin créé:",BIN_ID);
     return true;
   }catch(e){console.error("createBin:",e);return false}
@@ -134,7 +141,7 @@ async function pushToBin(){
   _isSyncing=true;
   let ok=false;
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":JSONBIN_KEY},body:JSON.stringify({data:D,hist:H.slice(-300)})});
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN},body:JSON.stringify({data:D,hist:H.slice(-300)})});
     st.sync=r.ok;ok=r.ok;
   }catch(e){console.error("push:",e);st.sync=false}
   finally{_isSyncing=false}
@@ -145,7 +152,7 @@ async function pushToBin(){
 async function pullFromBin(){
   if(!BIN_ID)return false;
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":JSONBIN_KEY}});
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEYS.JSONBIN}});
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     if(j.record&&j.record.data){D=j.record.data;if(j.record.hist)H=j.record.hist;st.sync=true;return true}
@@ -207,7 +214,6 @@ async function fetchCrypto(){
 }
 
 async function fetchStocks(){
-  const FINNHUB_KEY="d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg";
   const tickers=new Set();
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
     const cur=pos.currency||CUR[pos.ticker];
@@ -218,7 +224,7 @@ async function fetchStocks(){
   const p={};
   for(const tkr of tickers){
     try{
-      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${tkr}&token=${FINNHUB_KEY}`);
+      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${tkr}&token=${API_KEYS.FINNHUB}`);
       if(r.ok){
         const j=await r.json();
         if(j.c&&j.c>0)p[tkr]=j.c;
@@ -231,7 +237,6 @@ async function fetchStocks(){
 }
 
 async function fetchEuStocks(){
-  const AV_KEYS=["9MFAHWQWJGM1IYKJ","1DV70SRK4XHZY3G4"];
   const KNOWN_EU={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA"};
   const tickerMap={};
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
@@ -245,11 +250,11 @@ async function fetchEuStocks(){
     const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");
     if(e.date===today)exhausted=e.keys||[];else{try{localStorage.removeItem("pf-av-exhausted")}catch{}exhausted=[]}
   }catch{}
-  const usableKeys=AV_KEYS.filter(k=>!exhausted.includes(k));
+  const usableKeys=API_KEYS.AV.filter(k=>!exhausted.includes(k));
   if(usableKeys.length===0){console.log("AV: all keys exhausted today");return {}}
   const p={};
   let kIdx=0,curKey=usableKeys[0];
-  console.log(`AV: using key ${curKey.slice(0,4)}... (${usableKeys.length}/${AV_KEYS.length} avail) for ${Object.keys(tickerMap).length} tickers`);
+  console.log(`AV: using key ${curKey.slice(0,4)}... (${usableKeys.length}/${API_KEYS.AV.length} avail) for ${Object.keys(tickerMap).length} tickers`);
   for(const [tkr,sym] of Object.entries(tickerMap)){
     let attempts=0;
     while(attempts<usableKeys.length){
@@ -309,30 +314,33 @@ async function refreshPrices(){
   st.loading=true;R();
   const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;console.warn("refreshPrices: timeout forcé");R();}},90000);
   let cnt=0,ok=false;
+  const nowMs = Date.now(); // AMÉLIORATION 4: Timestamp
+
   try{
     const nd=JSON.parse(JSON.stringify(D));
 
     try{
       const cp=await fetchCrypto();
-      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker];cnt++}});
+      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker]; p.lastUpd=nowMs; cnt++}});
       ok=true;
     }catch(e){console.log("crypto fail:",e)}
 
     try{
       const sp=await fetchStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-        if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker];cnt++}
+        if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker]; pos.lastUpd=nowMs; cnt++}
       }));
       ok=true;
     }catch(e){console.log("stocks fail:",e)}
 
+    // AMÉLIORATION 1: BUG CORRIGÉ (Double catch retiré)
     try{
-const eup=await fetchEuStocks();
-Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker];cnt++}
-}));
-if(Object.keys(eup).length>0)console.log("EU stocks: updated "+Object.keys(eup).join(","));
-}catch(e){console.log("EU stocks fail:",e)}catch(e){console.log("EU stocks fail:",e)}
+      const eup=await fetchEuStocks();
+      Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+        if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker]; pos.lastUpd=nowMs; cnt++}
+      }));
+      if(Object.keys(eup).length>0)console.log("EU stocks: updated "+Object.keys(eup).join(","));
+    }catch(e){console.log("EU stocks fail:",e)}
 
     try{const r=await fetchEurUsd();if(r)nd.eurUsd=Math.round(r*10000)/10000}catch{}
 
@@ -340,7 +348,7 @@ if(Object.keys(eup).length>0)console.log("EU stocks: updated "+Object.keys(eup).
       const gp=await fetchGold();
       if(gp&&nd.poches["Métaux"]){
         const coin=nd.poches["Métaux"].positions.find(p=>p.ticker==="50PESO");
-        if(coin){coin.cours=gp;cnt++}
+        if(coin){coin.cours=gp; coin.lastUpd=nowMs; cnt++}
       }
     }catch{}
 
@@ -483,11 +491,30 @@ function lc(data,k,col,w=300,h=140){if(data.length<2)return`<div style="text-ali
 
 function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
-// ══════════════ MODAL ══════════════
+// ══════════════ MODALS ══════════════
 let _pendingSale=null;
 function sm(h){document.getElementById("modal-root").innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`}
 function cm(){document.getElementById("modal-root").innerHTML="";_pendingSale=null}
 window.cm=cm;window.pn=pn;
+
+// AMÉLIORATION 3: Modal des paramètres
+window.eSettings=()=>{
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres API</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
+  <div class="field"><label>JSONBin Master Key</label><input id="k_jb" value="${API_KEYS.JSONBIN}"></div>
+  <div class="field"><label>JSONBin Bin ID</label><input id="k_bid" value="${API_KEYS.BIN_ID}"></div>
+  <div class="field"><label>Finnhub Token</label><input id="k_fh" value="${API_KEYS.FINNHUB}"></div>
+  <div class="field"><label>Alpha Vantage Keys (séparées par virgule)</label><input id="k_av" value="${API_KEYS.AV.join(',')}"></div>
+  <button class="btn btn-p" onclick="saveSettings()">Enregistrer</button>`);
+};
+window.saveSettings=()=>{
+  API_KEYS.JSONBIN = document.getElementById("k_jb").value.trim();
+  API_KEYS.BIN_ID = document.getElementById("k_bid").value.trim();
+  API_KEYS.FINNHUB = document.getElementById("k_fh").value.trim();
+  API_KEYS.AV = document.getElementById("k_av").value.split(',').map(s=>s.trim()).filter(Boolean);
+  localStorage.setItem('pf-api-keys', JSON.stringify(API_KEYS));
+  BIN_ID = API_KEYS.BIN_ID;
+  cm(); refreshPrices();
+};
 
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
 window.eImmo=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Immobilier</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Valeur estimée (€)</label><input id="iv" value="${D.immobilier.valeurEstimee}" inputmode="decimal"></div><div class="field"><label>Capital restant (€)</label><input id="ir" value="${D.immobilier.capitalRestant}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.immobilier.valeurEstimee=pn(document.getElementById('iv').value);D.immobilier.capitalRestant=pn(document.getElementById('ir').value);cm();save()">Enregistrer</button>`)};
@@ -618,11 +645,10 @@ window.srcStock=async()=>{
     }
   }catch(e){console.log("Yahoo fail:",e.message)}
 
-  const AV_KEYS=["9MFAHWQWJGM1IYKJ","1DV70SRK4XHZY3G4"];
   const today=new Date().toISOString().slice(0,10);
   let exhausted=[];
   try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{}
-  const key=AV_KEYS.find(k=>!exhausted.includes(k));
+  const key=API_KEYS.AV.find(k=>!exhausted.includes(k));
   if(!key){out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return}
   try{
     const r=await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(searchQuery)}&apikey=${key}`);
@@ -682,7 +708,7 @@ function R(){
 if(!D)return;
 const d=ga();const $=document.getElementById("app");let h="";
 
-// Status bar
+// Status bar avec le bouton Settings ⚙️
 h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
   <div style="display:flex;align-items:center;gap:6px">
     <div style="width:8px;height:8px;border-radius:50%;background:${st.loading?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${st.loading?'animation:bl 1s infinite':''}"></div>
@@ -690,7 +716,10 @@ h+=`<div style="display:flex;align-items:center;justify-content:space-between;ma
     ${!st.loading&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}
     ${st.sync===true?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}
   </div>
-  <button onclick="refreshPrices()" ${st.loading?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${st.loading?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button>
+  <div>
+    <button onclick="eSettings()" style="background:none;border:none;color:var(--dim);font-size:16px;padding:4px;cursor:pointer;margin-right:4px">⚙️</button>
+    <button onclick="refreshPrices()" ${st.loading?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${st.loading?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button>
+  </div>
 </div>`;
 
 if(tab==="home"){
@@ -718,8 +747,11 @@ h+=`<div class="fade"><button onclick="gt('home')" style="background:none;border
 ${(()=>{const hasUsd=p.positions.some(x=>CUR[x.ticker]==="USD");const eurUsd=D.eurUsd||1.1;const investiUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.pru:x.qty*x.pru*eurUsd),0);const valeurUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.cours:x.qty*x.cours*eurUsd),0);const plUsd=valeurUsd-investiUsd;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,hasUsd?fmt_(investiUsd)+" $":""],["Valeur",fmt_(p.valeur)+" €",null,hasUsd?fmt_(valeurUsd)+" $":""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",hasUsd?(plUsd>=0?"+":"")+fmt_(plUsd)+" $":""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:9px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})()}
 <div class="card" style="padding:4px 12px 6px">`;
 p.positions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="USD";const eurUsd=D.eurUsd||1.1;const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru);
+// AMÉLIORATION 4 : Avertissement de prix obsolète ⚠️
+const isStale = !x.lastUpd || (Date.now() - x.lastUpd > 86400000); // 24h
+const sw = isStale ? `<span title="Prix non mis à jour depuis plus de 24h" style="font-size:10px;margin-left:4px">⚠️</span>` : '';
 h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${esc(sel)}','${esc(x.ticker)}')">
-<div><div style="font-size:12px;font-weight:600">${esc(x.ticker)} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.cible){const e=(x.cours-x.cible)/x.cible*100;if(e>5)xs+=0.8;else if(e<-5)xs-=0.8;}if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div>
+<div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.cible){const e=(x.cours-x.cible)/x.cible*100;if(e>5)xs+=0.8;else if(e<-5)xs-=0.8;}if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div>
 <div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:9px;color:var(--mut)">${fmt_(valUsd)} $</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div>
 <div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:9px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:8px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} $</div>`:""}</div></div>`;});
 h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une position</div></div>`;}
@@ -859,4 +891,4 @@ window.refreshPrices=refreshPrices;
 init();
 </script>
 </body>
-</html> 
+</html>
