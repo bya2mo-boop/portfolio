@@ -39,17 +39,31 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .fade{animation:fu .3s ease both}.blink{animation:bl 2s infinite}
 .spin{animation:sp 1s linear infinite;display:inline-block}
 
-/* STYLE D'IMPRESSION PDF */
+/* STYLE GÉNÉRATEUR PDF PROFESSIONNEL */
+#print-report { display: none; }
 @media print {
-    @page { margin: 1cm; }
-    body { background: #fff !important; color: #000 !important; padding: 0 !important; max-width: 100% !important; }
-    .nav, .nav-btn, button, .add-btn, .modal-bg, #modal-root, .blink { display: none !important; }
-    .card { background: #fff !important; border: 1px solid #ddd !important; box-shadow: none !important; break-inside: avoid; color: #000 !important; margin-bottom: 15px !important; }
-    .mono, .section, span { color: #000 !important; }
-    .section { font-weight: 700 !important; color: #555 !important; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-    .chip { border: 1px solid #ccc !important; background: transparent !important; color: #000 !important; }
-    #app { padding-bottom: 0 !important; }
-    svg path { fill-opacity: 1 !important; }
+    @page { margin: 1cm; size: A4 portrait; }
+    body { background: #fff !important; color: #000 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important; }
+    
+    /* Masquer l'app web classique */
+    #app, .nav, .modal-bg, #modal-root { display: none !important; }
+    
+    /* Afficher et styliser le rapport PDF */
+    #print-report { display: block !important; width: 100%; }
+    .print-page { break-after: page; page-break-after: always; padding-bottom: 20px; }
+    .print-page:last-child { break-after: auto; page-break-after: auto; }
+    
+    .print-title { font-size: 24px; font-weight: bold; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .print-subtitle { font-size: 14px; color: #555; margin-bottom: 20px; }
+    
+    .print-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
+    .print-table th, .print-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+    .print-table th { background-color: #f8f9fa !important; font-weight: bold; color: #333; text-transform: uppercase; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    
+    .text-right { text-align: right !important; }
+    .text-green { color: #16a34a !important; }
+    .text-red { color: #dc2626 !important; }
+    
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style>
@@ -61,6 +75,8 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
     <div style="font-size:12px">Connexion aux API et synchronisation en cours</div>
   </div>
 </div>
+<div id="print-report"></div>
+
 <div class="nav"><div class="nav-inner" id="nav"></div></div>
 <div id="modal-root"></div>
 <script>
@@ -528,9 +544,79 @@ window.saveSettings=()=>{
   cm(); refreshPrices();
 };
 
-window.exportPDF=()=>{
-  cm(); // Fermer la modale
-  setTimeout(()=>{ window.print(); }, 300); // Lancer l'impression PDF (utilise le @media print CSS)
+window.exportPDF = () => {
+    cm(); // Fermer la modale
+    const d = ga();
+    let html = `
+        <div class="print-page">
+            <div class="print-title">Rapport de Portefeuille Global</div>
+            <div class="print-subtitle">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div>
+            <div style="font-size:18px; margin-bottom:10px;">Patrimoine Net : <b>${fmt_(d.tN)} €</b></div>
+            <div style="font-size:14px; margin-bottom:20px;">P&L Global : <b class="${d.tP >= 0 ? 'text-green' : 'text-red'}">${fL(d.tP)}</b></div>
+            
+            <table class="print-table">
+                <thead><tr><th>Enveloppe</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L</th></tr></thead>
+                <tbody>`;
+    
+    d.al.forEach(a => {
+        const isCash = a[0] === "Cash";
+        const p = isCash ? null : D.poches[a[0]];
+        const plStr = isCash ? "-" : `<span class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</span>`;
+        html += `<tr><td><b>${a[0]}</b></td><td class="text-right">${fmt_(a[1])} €</td><td class="text-right">${((a[1] / d.tF) * 100).toFixed(1)}%</td><td class="text-right">${plStr}</td></tr>`;
+    });
+    html += `</tbody></table>`;
+    
+    if (D.immobilier) {
+        html += `<div class="print-title" style="font-size:18px; border-bottom:1px solid #ccc;">Immobilier</div>
+        <table class="print-table" style="width:50%;">
+            <tr><td>Valeur Estimée</td><td class="text-right">${fmt_(D.immobilier.valeurEstimee)} €</td></tr>
+            <tr><td>Capital Restant</td><td class="text-right">${fmt_(D.immobilier.capitalRestant)} €</td></tr>
+            <tr><td><b>Capital Net (Equity)</b></td><td class="text-right"><b>${fmt_(D.immobilier.equityNette)} €</b></td></tr>
+        </table>`;
+    }
+    html += `</div>`; // Fin Page 1
+
+    // Une page par enveloppe
+    Object.entries(D.poches).forEach(([n, p]) => {
+        html += `<div class="print-page">
+            <div class="print-title">Détail : ${n}</div>
+            <div style="margin-bottom: 20px; font-size: 14px;">
+                Valeur Totale : <b>${fmt_(p.valeur)} €</b> &nbsp;|&nbsp; 
+                Investissement : ${fmt_(p.investi)} € &nbsp;|&nbsp; 
+                P&L : <b class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</b>
+            </div>`;
+            
+        if (p.positions.length > 0) {
+            html += `<table class="print-table">
+                <thead><tr><th>Nom de l'Actif</th><th>Ticker</th><th class="text-right">Qté</th><th class="text-right">PRU</th><th class="text-right">Cours Actuel</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L Latent</th></tr></thead>
+                <tbody>`;
+            p.positions.forEach(x => {
+                const cur = x.currency || CUR[x.ticker] || "EUR";
+                const prSym = cur === "USD" ? " $" : " €";
+                html += `<tr>
+                    <td>${esc(x.titre)}</td>
+                    <td>${esc(x.ticker)}</td>
+                    <td class="text-right">${x.qty}</td>
+                    <td class="text-right">${fmt2_(x.pru)}${prSym}</td>
+                    <td class="text-right">${fmt2_(x.cours)}${prSym}</td>
+                    <td class="text-right"><b>${fmt_(x.valeur)} €</b></td>
+                    <td class="text-right">${x.poids}%</td>
+                    <td class="text-right"><span class="${x.pl >= 0 ? 'text-green' : 'text-red'}">${fL(x.pl)}<br><span style="font-size:10px">${fP(x.plPct)}</span></span></td>
+                </tr>`;
+            });
+            html += `</tbody></table>`;
+        } else {
+            html += `<p style="font-size:12px; color:#555;">Aucune position active dans cette enveloppe.</p>`;
+        }
+        html += `</div>`;
+    });
+
+    // Création/Mise à jour de la div d'impression
+    let pr = document.getElementById("print-report");
+    pr.innerHTML = html;
+    
+    // Lancement de l'impression
+    setTimeout(() => { window.print(); }, 300);
 };
 
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
