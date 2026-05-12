@@ -112,8 +112,8 @@ Crypto:{sante:"5,3",positions:[{titre:"Solana",ticker:"SOL",qty:21.30,pru:130.52
 "Métaux":{sante:"8,0",positions:[{titre:"50 Pesos Mexicain (Or)",ticker:"50PESO",qty:1,pru:0,cours:5150}]}}};
 
 // ══════════════ STATE ══════════════
-let D=null,H=[],tab="home",sel=null;
-let st={loading:false,lastUp:null,ok:null,count:0,sync:null};
+let D=null,H=[],tab="home",sel=null,htf="tout";
+let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 
 // ══════════════ UTILS ══════════════
@@ -140,11 +140,62 @@ const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=9?"s":n>=7
 const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S";if(n>=7)return"A";if(n>=5)return"B";if(n>=3)return"C";return"D"};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
+function scorePos(pos, pocheName){
+  const isCrypto = pocheName === "Crypto" || CG[pos.ticker];
+  const isFund = pocheName === "Assurance Vie" || pocheName === "PEE";
+  let s=5; const crit=[];
+  const pl=pos.plPct||0;
+  const mult=isCrypto?1.5:isFund?0.7:1.0;
+  if(pl>=50*mult){s+=2.5;crit.push({n:"P&L",v:"+2.5",c:"g"})}
+  else if(pl>=25*mult){s+=1.5;crit.push({n:"P&L",v:"+1.5",c:"g"})}
+  else if(pl>=10*mult){s+=0.8;crit.push({n:"P&L",v:"+0.8",c:"g"})}
+  else if(pl>=-5*mult){crit.push({n:"P&L",v:"0",c:"a"})}
+  else if(pl>=-15*mult){s-=0.8;crit.push({n:"P&L",v:"-0.8",c:"r"})}
+  else if(pl>=-30*mult){s-=1.5;crit.push({n:"P&L",v:"-1.5",c:"r"})}
+  else{s-=2.5;crit.push({n:"P&L",v:"-2.5",c:"r"})}
+  const w=pos.poids||0;
+  if(w>=8&&w<=22){s+=0.5;crit.push({n:"Poids",v:"+0.5",c:"g"})}
+  else if((w>=5&&w<8)||(w>22&&w<=30)){crit.push({n:"Poids",v:"0",c:"a"})}
+  else if((w>=2&&w<5)||(w>30&&w<=40)){s-=0.5;crit.push({n:"Poids",v:"-0.5",c:"a"})}
+  else if(w<2){s-=1;crit.push({n:"Poids",v:"-1.0",c:"r"})}
+  else{s-=1.5;crit.push({n:"Poids",v:"-1.5",c:"r"})}
+  const div=pos.dividend||DIVS[pos.ticker]||0;
+  const yld=pos.cours>0?(div/pos.cours*100):0;
+  if(yld>5){s+=1;crit.push({n:"Div",v:"+1.0",c:"g"})}
+  else if(yld>3){s+=0.7;crit.push({n:"Div",v:"+0.7",c:"g"})}
+  else if(yld>1){s+=0.4;crit.push({n:"Div",v:"+0.4",c:"g"})}
+  else if(yld>0){s+=0.2;crit.push({n:"Div",v:"+0.2",c:"a"})}
+  if(pos.cours7j&&pos.cours7j>0){
+    const delta=(pos.cours-pos.cours7j)/pos.cours7j*100;
+    if(delta>10){s+=1;crit.push({n:"7j",v:"+1.0",c:"g"})}
+    else if(delta>3){s+=0.5;crit.push({n:"7j",v:"+0.5",c:"g"})}
+    else if(delta>-3){crit.push({n:"7j",v:"0",c:"a"})}
+    else if(delta>-10){s-=0.5;crit.push({n:"7j",v:"-0.5",c:"r"})}
+    else{s-=1;crit.push({n:"7j",v:"-1.0",c:"r"})}
+  }
+  return {score:Math.max(1,Math.min(10,Math.round(s*10)/10)),crit};
+}
+
+function downsampleH(){
+  if(H.length<2)return;
+  const now=Date.now();
+  const D7=7*24*3600*1000;
+  const D30=30*24*3600*1000;
+  const recent=H.filter(x=>now-x.t<D7);
+  const mid=H.filter(x=>now-x.t>=D7&&now-x.t<D30);
+  const old=H.filter(x=>now-x.t>=D30);
+  const midMap={};
+  mid.forEach(x=>{const k=new Date(x.t).toISOString().slice(0,10);midMap[k]=x});
+  const oldMap={};
+  old.forEach(x=>{const d=new Date(x.t);const wk=`${d.getFullYear()}-W${String(Math.ceil((d-new Date(d.getFullYear(),0,1))/604800000)).padStart(2,"0")}`;oldMap[wk]=x});
+  H=[...Object.values(oldMap),...Object.values(midMap),...recent].sort((a,b)=>a.t-b.t);
+}
+
 // Santé: point cible retiré
 function rc(d){
   if(!d||!d.poches)return d;
   const eurUsd=d.eurUsd||1.1;
-  Object.values(d.poches).forEach(p=>{
+  Object.entries(d.poches).forEach(([pocheName,p])=>{
     p.positions.forEach(x=>{
       const cur=x.currency||CUR[x.ticker];
       const rate=(cur==="USD")?eurUsd:1;
@@ -166,20 +217,13 @@ function rc(d){
     if(n===0){p.sante="5,0";return;}
     let sc=0,wTotal=0;
     p.positions.forEach(x=>{
-      const w=x.poids/100;
-      const xPl=x.plPct||0;
-      let xs=5;
-      if(xPl>15)xs+=1.5;
-      else if(xPl>5)xs+=0.8;
-      else if(xPl<-15)xs-=1.5;
-      else if(xPl<-5)xs-=0.8;
-      if(x.poids>40)xs-=1.5;
-      else if(x.poids>25)xs-=0.5;
-      sc+=xs*w;
-      wTotal+=w;
+      const w=(x.poids||0)/100;
+      const r=scorePos(x,pocheName);
+      x._score=r.score;x._crit=r.crit;
+      sc+=r.score*w;wTotal+=w;
     });
     let raw=wTotal>0?sc/wTotal:5;
-    if(n>=6)raw+=0.3;else if(n>=4)raw+=0.1;
+    if(n>=6)raw+=0.3;else if(n>=4)raw+=0.15;
     const maxPoids=Math.max(...p.positions.map(x=>x.poids));
     if(maxPoids>60)raw-=1;else if(maxPoids>45)raw-=0.5;
     const plPct=p.investi>0?(p.pl/p.investi*100):0;
@@ -194,7 +238,7 @@ function rc(d){
 // ══════════════ SYNC (JSONBIN) ══════════════
 async function createBin(){
   try{
-    const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN,"X-Bin-Name":"portfolio","X-Bin-Private":"false"},body:JSON.stringify({data:D,hist:H})});
+    const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN,"X-Bin-Name":"portfolio","X-Bin-Private":"true"},body:JSON.stringify({data:D,hist:H})});
     if(!r.ok)throw new Error(`HTTP ${r.status}`);
     const j=await r.json();
     BIN_ID=j.metadata.id;
@@ -212,7 +256,7 @@ async function pushToBin(){
   _isSyncing=true;
   let ok=false;
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN},body:JSON.stringify({data:D,hist:H.slice(-300)})});
+    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN},body:JSON.stringify({data:D,hist:H.slice(-1000)})});
     st.sync=r.ok;ok=r.ok;
   }catch(e){console.error("push:",e);st.sync=false}
   finally{_isSyncing=false}
@@ -234,7 +278,7 @@ async function pullFromBin(){
 const saveLocal=()=>{
   try{
     localStorage.setItem("pf-data",JSON.stringify(D));
-    localStorage.setItem("pf-hist",JSON.stringify(H.slice(-300)));
+    localStorage.setItem("pf-hist",JSON.stringify(H.slice(-1000)));
     st.localOk=true;
   }catch(e){
     console.error("LocalStorage save failed:",e);
@@ -374,8 +418,10 @@ async function fetchGold(){
 }
 
 async function refreshPrices(){
-  if(st.loading)return;
-  st.loading=true;R();
+  if(st.loading && Date.now()-st.loadingSince < 30000)return;
+  st.loading=true;
+  st.loadingSince=Date.now();
+  R();
   const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
   let cnt=0,ok=false;
   const nowMs = Date.now();
@@ -397,7 +443,6 @@ async function refreshPrices(){
       ok=true;
     }catch(e){}
 
-    // CORRECTION ECRAN NOIR : UN SEUL BLOC CATCH
     try{
       const eup=await fetchEuStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
@@ -406,6 +451,13 @@ async function refreshPrices(){
     }catch(e){console.log("EU stocks fail:",e)}
 
     try{const r=await fetchEurUsd();if(r)nd.eurUsd=Math.round(r*10000)/10000}catch{}
+
+    Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+      if(!pos.cours7jDate||(Date.now()-pos.cours7jDate)>7*86400000){
+        pos.cours7j=pos.cours;
+        pos.cours7jDate=Date.now();
+      }
+    }));
 
     try{
       const gp=await fetchGold();
@@ -423,7 +475,8 @@ async function refreshPrices(){
     const tv=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash;
     const tp=Object.values(D.poches).reduce((s,p)=>s+p.pl,0);
     H.push({t:now.getTime(),v:Math.round(tv),pl:Math.round(tp),h:ts.slice(0,5)});
-    if(H.length>300)H=H.slice(-300);
+    downsampleH();
+    if(H.length>1000)H=H.slice(-1000);
 
     saveLocal();R();pushToBin();
   }catch(e){console.error(e)}
@@ -470,6 +523,21 @@ function applyPortfolioMigrations(){
       D.sales.push({date:"2025-12-31",poche:"Historique",ticker:"HIST-2025",titre:"P&L réalisé 2025",qty:1,pru:0,net:722.40,brut:722.40,pl:722.40});
     }
     D.migV3=true; changed=true;
+  }
+  if(!D.migV4){
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
+      if(!pos.sector&&SECTORS[pos.ticker])pos.sector=SECTORS[pos.ticker];
+      if(!pos.dividend&&DIVS[pos.ticker])pos.dividend=DIVS[pos.ticker];
+    }));
+    D.migV4=true;changed=true;
+  }
+  if(!D.migV5){
+    const now=Date.now();
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
+      if(!pos.lastUpd)pos.lastUpd=now;
+      if(!pos.cours7j&&pos.cours){pos.cours7j=pos.cours;pos.cours7jDate=now;}
+    }));
+    D.migV5=true;changed=true;
   }
   return changed;
 }
@@ -669,29 +737,33 @@ ${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)
 window.confirmSale=()=>{
   if(!_pendingSale)return;
   const {pn:pn_,tk,qty,pru,mode,pendingEdit:pe}=_pendingSale;
-  const choice=document.querySelector('input[name="mo"]:checked').value;
-  const p=D.poches[pn_].positions.find(x=>x.ticker===tk);
-  if(!p)return;
-  if(choice==="sale"){
-    const net=pn(document.getElementById("saleNet").value);
-    if(!net||net<=0){
-      const inp=document.getElementById("saleNet");
-      if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir le montant net reçu";inp.focus()}
-      return;
+  try{
+    const choice=document.querySelector('input[name="mo"]:checked').value;
+    const p=D.poches[pn_].positions.find(x=>x.ticker===tk);
+    if(!p)return;
+    if(choice==="sale"){
+      const net=pn(document.getElementById("saleNet").value);
+      if(!net||net<=0){
+        const inp=document.getElementById("saleNet");
+        if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir le montant net reçu";inp.focus()}
+        return;
+      }
+      const brut=pn(document.getElementById("saleBrut").value)||net;
+      const pl=net-(qty*pru);
+      if(!D.sales)D.sales=[];
+      D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty,pru,net,brut,pl:Math.round(pl*100)/100});
     }
-    const brut=pn(document.getElementById("saleBrut").value)||net;
-    const pl=net-(qty*pru);
-    if(!D.sales)D.sales=[];
-    D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:brut,pl:Math.round(pl*100)/100});
+    if(mode==="full"){
+      D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk);
+    }else if(pe){
+      p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours;
+      if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible;
+    }
+    _pendingSale=null;cm();save();
+  }catch(e){
+    console.error("confirmSale:",e);
+    _pendingSale=null;cm();
   }
-  if(mode==="full"){
-    D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk);
-  }else if(pe){
-    p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours;
-    if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible;
-  }
-  _pendingSale=null;
-  cm();save();
 };
 
 window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pn_)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
@@ -700,8 +772,20 @@ window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;m
 <div id="srchRes" style="margin-top:8px"></div></div>
 <div style="text-align:center;color:var(--mut);font-size:10px;margin:6px 0">— ou saisir manuellement —</div>
 <div class="field"><label>Nom</label><input id="mt" placeholder="ex: Apple"></div><div class="field"><label>Ticker</label><input id="mk" placeholder="AAPL" oninput="this.value=this.value.toUpperCase()"></div>
+<div class="field"><label>Secteur</label><select id="ms">
+<option value="">— Choisir —</option>
+<option>Tech</option><option>Semi</option>
+<option>Space</option><option>Énergie</option>
+<option>Industrie</option><option>Défense</option>
+<option>Utilities</option><option>Services</option>
+<option>Construction</option><option>Crypto</option>
+<option>Fonds</option><option>Quantum</option>
+<option>Or</option><option>Autre</option>
+</select></div>
 <div class="row"><div class="field"><label>Quantité</label><input id="mq" placeholder="10" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" placeholder="150" inputmode="decimal"></div></div>
 <div class="row"><div class="field"><label>Cours</label><input id="mx" placeholder="155" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" placeholder="optionnel" inputmode="decimal"></div></div>
+<div class="field"><label>Dividende annuel (€) — optionnel</label>
+<input id="md" placeholder="ex: 3.20" inputmode="decimal"></div>
 <button class="btn btn-p" style="margin-top:8px" onclick="doA('${esc(pn_)}')">Ajouter</button>`);
 setTimeout(()=>{const s=document.getElementById("srch");if(s)s.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();srcStock()}})},100);
 };
@@ -776,6 +860,8 @@ window.pickStock=(idx)=>{
   document.getElementById("mt").value=name;
   const ticker=sym.includes(".")?sym.split(".")[0]:sym;
   document.getElementById("mk").value=ticker;
+  const msEl=document.getElementById("ms");
+  if(msEl && SECTORS[ticker]) msEl.value=SECTORS[ticker];
   const root=document.getElementById("modal-root");
   root.dataset.pickedSym=sym;
   root.dataset.pickedCur=cur;
@@ -801,6 +887,10 @@ window.doA=(pn_)=>{
   if(pickedSym&&pickedSym.includes("."))pos.avSymbol=pickedSym;
   const ci=document.getElementById("mi").value;
   if(ci)pos.cible=pn(ci);
+  const secVal=document.getElementById("ms")?.value;
+  if(secVal) pos.sector=secVal;
+  const divVal=document.getElementById("md")?.value;
+  if(divVal) pos.dividend=pn(divVal);
   D.poches[pn_].positions.push(pos);
   cm();
   save();
@@ -814,14 +904,14 @@ const d=ga();const $=document.getElementById("app");let h="";
 // Status bar + Bouton paramètre
 h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
   <div style="display:flex;align-items:center;gap:6px">
-    <div style="width:8px;height:8px;border-radius:50%;background:${st.loading?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${st.loading?'animation:bl 1s infinite':''}"></div>
-    <span class="mono" style="font-size:11px;color:var(--dim)">${st.loading?"Mise à jour…":st.lastUp||"—"}</span>
-    ${!st.loading&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}
+    <div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div>
+    <span class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span>
+    ${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}
     ${st.sync===true?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}
   </div>
   <div>
     <button onclick="eSettings()" style="background:none;border:none;color:var(--dim);font-size:16px;padding:4px;cursor:pointer;margin-right:4px">⚙️</button>
-    <button onclick="refreshPrices()" ${st.loading?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${st.loading?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button>
+    <button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button>
   </div>
 </div>`;
 
@@ -858,39 +948,24 @@ h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-i
 h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une position</div></div>`;}
 
 if(tab==="analyse"){const d=ga();
-const sm_={};d.ap.forEach(p=>{const s=SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
+const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
 const cm_={EUR:D.cash,USD:0};d.ap.forEach(p=>{const c=CUR[p.ticker]||"EUR";cm_[c]=(cm_[c]||0)+p.valeur});const cdat=Object.entries(cm_).map(([n,v])=>[n,Math.round(v)]);const ct=cdat.reduce((s,x)=>s+x[1],0)||1;
 const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/d.tF*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
-const dp=d.ap.filter(p=>DIVS[p.ticker]>0).map(p=>({...p,dv:DIVS[p.ticker],dt:p.qty*DIVS[p.ticker],yd:DIVS[p.ticker]/p.cours*100}));const td=dp.reduce((s,p)=>s+p.dt,0);
+const dp=d.ap.map(p=>{const dv=p.dividend||DIVS[p.ticker]||0;return{...p,dv,dt:p.qty*dv,yd:p.cours>0?dv/p.cours*100:0}}).filter(p=>p.dv>0);const td=dp.reduce((s,p)=>s+p.dt,0);
 const sc2=d.ap.map(p=>{
-  let s=5;
-  const crit=[];
-  if(p.plPct>30){s+=2.5;crit.push({n:"P&L",v:"+2.5",c:"g"})}
-  else if(p.plPct>15){s+=1.5;crit.push({n:"P&L",v:"+1.5",c:"g"})}
-  else if(p.plPct>5){s+=0.8;crit.push({n:"P&L",v:"+0.8",c:"g"})}
-  else if(p.plPct<-20){s-=2.5;crit.push({n:"P&L",v:"-2.5",c:"r"})}
-  else if(p.plPct<-10){s-=1.5;crit.push({n:"P&L",v:"-1.5",c:"r"})}
-  else if(p.plPct<-5){s-=0.8;crit.push({n:"P&L",v:"-0.8",c:"r"})}
-  else{crit.push({n:"P&L",v:"0",c:"a"})}
-  
-  if(p.poids>40){s-=1.5;crit.push({n:"Poids",v:"-1.5",c:"r"})}
-  else if(p.poids>25){s-=0.5;crit.push({n:"Poids",v:"-0.5",c:"a"})}
-  else if(p.poids<5){s+=0.3;crit.push({n:"Poids",v:"+0.3",c:"g"})}
-  else{crit.push({n:"Poids",v:"0",c:"g"})}
-  
-  const dy=DIVS[p.ticker]?DIVS[p.ticker]/p.cours*100:0;
-  if(dy>4){s+=1;crit.push({n:"Div",v:"+1.0",c:"g"})}
-  else if(dy>2){s+=0.5;crit.push({n:"Div",v:"+0.5",c:"g"})}
-  else if(dy>0){crit.push({n:"Div",v:"+0.2",c:"a"})}
-  
-  if(p.pru>0){const ratio=p.cours/p.pru;if(ratio>1.5){s+=0.5;crit.push({n:"Mom",v:"+0.5",c:"g"})}else if(ratio<0.7){s-=1;crit.push({n:"Mom",v:"-1.0",c:"r"})}else if(ratio<0.9){s-=0.3;crit.push({n:"Mom",v:"-0.3",c:"r"})}else{crit.push({n:"Mom",v:"0",c:"a"})}}
-  return{...p,sc:Math.max(1,Math.min(10,Math.round(s*10)/10)),crit};
+  if(p._score!=null&&p._crit!=null)return{...p,sc:p._score,crit:p._crit};
+  const res=scorePos(p,"");
+  return{...p,sc:res.score,crit:res.crit};
 }).sort((a,b)=>b.sc-a.sc);
 
 const pocheScores=Object.entries(D.poches).map(([n,p])=>{const sc=parseFloat(String(p.sante||5).replace(',','.'));const cl=sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)";return{n,sc,cl,val:p.valeur};}).sort((a,b)=>b.sc-a.sc);
 const avgScore=pocheScores.length?pocheScores.reduce((s,x)=>s+x.sc,0)/pocheScores.length:5;
 const avgCl=avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
+<div class="card" style="margin-bottom:10px">
+  <div class="section">Évolution récente</div>
+  ${lc(H.slice(-30).length>=2?H.slice(-30):[{t:0,v:0,h:""}],"v","#6c8cff",300,80)}
+</div>
 <div class="card" style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section" style="margin:0">Score global portefeuille</div>
@@ -945,21 +1020,30 @@ ab.forEach(a=>{h+=`<div class="card"><div style="display:flex;justify-content:sp
 if(!d.alerts.length)h+=`<div style="text-align:center;color:var(--mut);padding:40px">Aucune cible définie</div>`;
 h+=`</div>`;}
 
-if(tab==="history"){const r=H.slice(-60);
-h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Historique & Transactions</h2>
-<div class="card"><div class="section">Valeur</div>${lc(r,"v","#6c8cff")}</div>
-<div class="card"><div class="section">P&L</div>${lc(r,"pl","#34d399")}</div>`;
-if(D.sales&&D.sales.length){
-  h+=`<div class="card"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
-  [...D.sales].reverse().forEach((s,i)=>{
-    h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
-      <div><div style="font-size:13px;font-weight:700">${s.ticker}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche}</div></div>
-      <div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div>
-    </div>`;
-  });
-  h+=`</div></div>`;
-}else{h+=`<div style="text-align:center;color:var(--mut);padding:40px;font-size:13px">Aucune transaction enregistrée.</div>`;}
-h+=`</div>`;}
+if(tab==="history"){
+  const now=Date.now();
+  const cutoffs={"1j":now-86400000,"1s":now-604800000,"1m":now-2592000000,"3m":now-7776000000,"tout":0};
+  const cut=cutoffs[htf]||0;
+  const r=H.filter(x=>x.t>=cut);
+  const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"#6c8cff22":"transparent"};color:${htf===v?"var(--acc)":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
+  h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
+  <div style="display:flex;gap:6px;margin-bottom:12px">${tfBtns}</div>
+  <div class="card"><div class="section">Valeur</div>${lc(r.length>=2?r:[{t:0,v:0,h:""}],"v","#6c8cff")}</div>
+  <div class="card"><div class="section">P&L</div>${lc(r.length>=2?r:[{t:0,pl:0,h:""}],"pl","#34d399")}</div>`;
+  
+  // Section conservée pour ne pas perdre l'affichage des transactions
+  if(D.sales&&D.sales.length){
+    h+=`<div class="card"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
+    [...D.sales].reverse().forEach((s,i)=>{
+      h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
+        <div><div style="font-size:13px;font-weight:700">${s.ticker}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche}</div></div>
+        <div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div>
+      </div>`;
+    });
+    h+=`</div></div>`;
+  }else{h+=`<div style="text-align:center;color:var(--mut);padding:40px;font-size:13px">Aucune transaction enregistrée.</div>`;}
+  h+=`</div>`;
+}
 
 $.innerHTML=h;
 const tabs=[["home","Vue"],["analyse","Analyse"],["alerts","Alertes"],["history","Hist."]];
@@ -994,6 +1078,7 @@ window.oP=n=>{
 };
 
 window.aEnv=()=>{const n=prompt("Nom de la nouvelle enveloppe:");if(!n)return;if(D.poches[n])return alert("Existe déjà");D.poches[n]={sante:"7,0",positions:[]};save()};
+window.setHtf=v=>{htf=v;R()};
 window.refreshPrices=refreshPrices;
 
 // ══════════════ START ══════════════
