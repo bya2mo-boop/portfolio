@@ -107,13 +107,21 @@ const CUR={GOOGL:"USD",NVDA:"USD",NBIS:"USD",ASTS:"USD",RKLB:"USD",TSM:"USD",KRK
 const DIVS={AI:3.20,SU:3.90,VIE:1.35,WKL:2.19,VU:0.90,NVDA:0.04,TSM:2.17};
 const CG={SOL:"solana",BTC:"bitcoin",HYPE:"hyperliquid"};
 
-const DEF={updatedAt:"15/04/2026",eurUsd:1.10,cash:6000,targetAlloc:{CTO:40,PEA:25,"Assurance Vie":5,PEE:10,Crypto:8,"Métaux":2,Cash:10},immobilier:{valeurEstimee:184400,capitalRestant:151752.90},poches:{
-CTO:{sante:"7,1",positions:[{titre:"Alphabet",ticker:"GOOGL",qty:20,pru:237.34,cours:319.73,cible:275},{titre:"NVIDIA",ticker:"NVDA",qty:30,pru:180.03,cours:188.45,cible:175},{titre:"Nebius Group",ticker:"NBIS",qty:30,pru:90.73,cours:158.01,cible:105},{titre:"AST SpaceMobile",ticker:"ASTS",qty:45,pru:84.87,cours:98.50,cible:85},{titre:"Rocket Lab",ticker:"RKLB",qty:40,pru:73.10,cours:70.89,cible:65},{titre:"TSMC",ticker:"TSM",qty:5,pru:287.60,cours:370.60,cible:315},{titre:"Kraken Robotics",ticker:"KRKNF",qty:200,pru:5.82,cours:6.23,cible:5.10},{titre:"Oklo Inc.",ticker:"OKLO",qty:20,pru:64.06,cours:52.87},{titre:"Navitas Semi.",ticker:"NVTS",qty:100,pru:9.24,cours:9.76},{titre:"Redwire",ticker:"RDW",qty:100,pru:10.03,cours:9.76},{titre:"Ondas Holdings",ticker:"ONDS",qty:100,pru:10.39,cours:9.38},{titre:"D-Wave Quantum",ticker:"QBTS",qty:35,pru:17.25,cours:14.47}]},
-PEA:{sante:"8,6",positions:[{titre:"Air Liquide",ticker:"AI",qty:30,pru:176.17,cours:187.50,cible:160},{titre:"Schneider Electric",ticker:"SU",qty:15,pru:244.39,cours:260.30,cible:225},{titre:"Vicat",ticker:"VCT",qty:25,pru:65.27,cours:66.00,cible:57.50},{titre:"Veolia",ticker:"VIE",qty:35,pru:32.10,cours:34.54,cible:32.20},{titre:"Wolters Kluwer",ticker:"WKL",qty:15,pru:64.23,cours:63.54,cible:55}]},
-"Assurance Vie":{sante:"7,7",positions:[{titre:"DPAM B NewGems",ticker:"DPAM",qty:3.64,pru:267.99,cours:308.39},{titre:"GemEquity R",ticker:"GEM",qty:4.19,pru:233.04,cours:223.00},{titre:"BDL Rempart C",ticker:"BDL",qty:2.44,pru:206.43,cours:258.54}]},
-PEE:{sante:"10,0",positions:[{titre:"CDC Monde ISR",ticker:"CDC-M",qty:209.63,pru:7.16,cours:15.22},{titre:"CDC Diversifié ISR",ticker:"CDC-D",qty:234.23,pru:6.40,cours:13.15},{titre:"CDC Euro ISR",ticker:"CDC-E",qty:113.54,pru:13.21,cours:17.28}]},
-Crypto:{sante:"5,3",positions:[{titre:"Solana",ticker:"SOL",qty:21.30,pru:130.52,cours:81.88,cible:70},{titre:"Bitcoin",ticker:"BTC",qty:0.0212,pru:68213.68,cours:72331.85,cible:60000},{titre:"HyperEVM",ticker:"HYPE",qty:25.53,pru:40.22,cours:38.98}]},
-"Métaux":{sante:"8,0",positions:[{titre:"50 Pesos Mexicain (Or)",ticker:"50PESO",qty:1,pru:0,cours:5150}]}}};
+const DEF = {
+  updatedAt: new Date().toLocaleDateString("fr-FR"),
+  eurUsd: 1.10,
+  cash: 0,
+  targetAlloc: { CTO: 40, PEA: 25, "Assurance Vie": 5, PEE: 10, Crypto: 8, "Métaux": 2, Cash: 10 },
+  immobilier: { valeurEstimee: 0, capitalRestant: 0 },
+  poches: {
+    CTO: { sante: "5,0", positions: [] },
+    PEA: { sante: "5,0", positions: [] },
+    "Assurance Vie": { sante: "5,0", positions: [] },
+    PEE: { sante: "5,0", positions: [] },
+    Crypto: { sante: "5,0", positions: [] },
+    "Métaux": { sante: "5,0", positions: [] }
+  }
+};
 
 // ══════════════ STATE ══════════════
 let D=null,H=[],tab="home",sel=null,htf="tout";
@@ -281,7 +289,6 @@ async function pullFromSupabase() {
           newD.poches[pos.poche] = {sante: "5,0", positions: []};
         }
         
-        // Récupération intelligente des métadonnées locales (momentum, alertes) qui ne sont pas sur Supabase
         const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
         
         newD.poches[pos.poche].positions.push({
@@ -342,7 +349,7 @@ async function pushToSupabase() {
         const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
         const payload = {
           portfolio_id: window.currentPfId,
-          user_id: currentUser.id,
+          // user_id a été supprimé ici car la colonne n'existe pas dans la table positions
           poche: pocheName,
           ticker: pos.ticker,
           titre: pos.titre,
@@ -375,7 +382,7 @@ async function pushToSupabase() {
   }catch(e){console.error("pushToSupabase:",e);st.sync=false}
   finally{
     _isSyncing=false;
-    R(); // Mise à jour de l'icône de synchronisation instantanée
+    R();
   }
   if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
   return ok;
@@ -419,8 +426,8 @@ async function migrateToSupabase() {
     Object.entries(D.poches).forEach(([pocheName, p]) => {
       p.positions.forEach(pos => {
         posToInsert.push({
-          user_id: currentUser.id,
           portfolio_id: pfId,
+          // user_id a été supprimé ici car la colonne n'existe pas dans la table positions
           poche: pocheName,
           ticker: pos.ticker,
           titre: pos.titre,
@@ -658,7 +665,7 @@ async function refreshPrices(){
     clearTimeout(_rpTimeout);
     st.loading=false;
     cd=900;
-    R(); // Mise à jour immédiate de l'UI pour faire disparaître "Mise à jour..."
+    R();
   }
 }
 
