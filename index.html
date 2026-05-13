@@ -248,7 +248,7 @@ function rc(d){
   return d;
 }
 
-// ══════════════ SYNC (JSONBIN) ══════════════
+// ══════════════ SYNC (JSONBIN & MIGRATION) ══════════════
 async function createBin(){
   try{
     const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN,"X-Bin-Name":"portfolio","X-Bin-Private":"true"},body:JSON.stringify({data:D,hist:H})});
@@ -286,6 +286,68 @@ async function pullFromBin(){
     if(j.record&&j.record.data){D=j.record.data;if(j.record.hist)H=j.record.hist;st.sync=true;return true}
   }catch(e){console.error("pull:",e);st.sync=false}
   return false;
+}
+
+// BATCH 2: Fonction de migration Supabase
+async function migrateToSupabase() {
+  if(!sb || !currentUser) return;
+  if(localStorage.getItem('sb-migrated') === 'true') return;
+  
+  try {
+    // Vérifier si l'utilisateur a déjà un portfolio pour éviter les doublons
+    const { data: existing, error: fetchErr } = await sb.from('portfolios').select('id').limit(1);
+    if (fetchErr) throw fetchErr;
+    
+    if (existing && existing.length > 0) {
+      // Déjà migré (par exemple depuis un autre appareil)
+      localStorage.setItem('sb-migrated', 'true');
+      return;
+    }
+
+    // Création de la ligne portfolio avec les variables globales D et H
+    const { data: newPf, error: insertErr } = await sb.from('portfolios').insert([{
+      cash: D.cash || 0,
+      eur_usd: D.eurUsd || 1.1,
+      immobilier: D.immobilier || {},
+      target_alloc: D.targetAlloc || {},
+      sales: D.sales || [],
+      hist: H || []
+    }]).select();
+    
+    if (insertErr) throw insertErr;
+    const pfId = newPf[0].id;
+
+    // Préparation de la liste massive des positions à insérer
+    const posToInsert = [];
+    Object.entries(D.poches).forEach(([pocheName, p]) => {
+      p.positions.forEach(pos => {
+        posToInsert.push({
+          portfolio_id: pfId,
+          poche: pocheName,
+          ticker: pos.ticker,
+          titre: pos.titre,
+          qty: pos.qty,
+          pru: pos.pru,
+          cours: pos.cours,
+          cible: pos.cible || null,
+          sector: pos.sector || null,
+          dividend: pos.dividend || null
+        });
+      });
+    });
+
+    if (posToInsert.length > 0) {
+      const { error: posErr } = await sb.from('positions').insert(posToInsert);
+      if (posErr) throw posErr;
+    }
+
+    localStorage.setItem('sb-migrated', 'true');
+    alert("Migration vers Supabase réussie avec succès !");
+    
+  } catch (err) {
+    console.error("Migration error:", err);
+    alert("Erreur lors de la migration des données vers Supabase : " + err.message);
+  }
 }
 
 const saveLocal=()=>{
@@ -618,7 +680,7 @@ window.eSettings=()=>{
     ${currentUser 
       ? `<div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div>
          <button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button>` 
-      : `<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Système de comptes en cours de déploiement. Les données restent sur JSONBin pour l'instant.</div>
+      : `<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Le système de comptes enregistre vos données en sécurité.</div>
          <div style="display:flex;gap:6px">
            <button class="btn" style="flex:1;background:var(--acc);color:#fff" onclick="cm();showAuth('login')">Se connecter</button>
            <button class="btn" style="flex:1;background:#34d399;color:#fff" onclick="cm();showAuth('signup')">S'inscrire</button>
@@ -961,6 +1023,10 @@ window.doSignIn = async () => {
   const { data, error } = await sb.auth.signInWithPassword({email, password: pwd});
   if(error) return alert('Erreur connexion : ' + error.message);
   currentUser = data.user;
+  
+  // Lancement de la migration après connexion réussie
+  await migrateToSupabase();
+  
   cm();
   R();
 };
