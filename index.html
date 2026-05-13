@@ -44,26 +44,18 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 @media print {
     @page { margin: 1cm; size: A4 portrait; }
     body { background: #fff !important; color: #000 !important; padding: 0 !important; max-width: 100% !important; margin: 0 !important; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif !important; }
-    
-    /* Masquer l'app web classique */
     #app, .nav, .modal-bg, #modal-root { display: none !important; }
-    
-    /* Afficher et styliser le rapport PDF */
     #print-report { display: block !important; width: 100%; }
     .print-page { break-after: page; page-break-after: always; padding-bottom: 20px; }
     .print-page:last-child { break-after: auto; page-break-after: auto; }
-    
     .print-title { font-size: 24px; font-weight: bold; border-bottom: 2px solid #000; margin-bottom: 20px; padding-bottom: 10px; margin-top: 10px; text-transform: uppercase; letter-spacing: 1px; }
     .print-subtitle { font-size: 14px; color: #555; margin-bottom: 20px; }
-    
     .print-table { width: 100%; border-collapse: collapse; margin-bottom: 30px; font-size: 12px; }
     .print-table th, .print-table td { border: 1px solid #ddd; padding: 10px; text-align: left; }
     .print-table th { background-color: #f8f9fa !important; font-weight: bold; color: #333; text-transform: uppercase; font-size: 10px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    
     .text-right { text-align: right !important; }
     .text-green { color: #16a34a !important; }
     .text-red { color: #dc2626 !important; }
-    
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style>
@@ -99,7 +91,7 @@ if(!API_KEYS.SUPABASE_ANON) API_KEYS.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cC
 
 let sb = null;
 let currentUser = null;
-window.currentPfId = null; // Store internal Supabase Portfolio ID
+window.currentPfId = null;
 
 if(window.supabase && API_KEYS.SUPABASE_URL && API_KEYS.SUPABASE_ANON){
   try{
@@ -264,6 +256,8 @@ async function pullFromSupabase() {
     const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
     if (posErr) throw posErr;
 
+    const localD = loadLocal().D || {};
+
     let newD = {
       updatedAt: new Date().toLocaleDateString("fr-FR")+" "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),
       eurUsd: pf.eur_usd || 1.10,
@@ -271,7 +265,11 @@ async function pullFromSupabase() {
       targetAlloc: pf.target_alloc || {},
       immobilier: pf.immobilier || {},
       sales: pf.sales || [],
-      poches: {}
+      poches: {},
+      migV2: localD.migV2,
+      migV3: localD.migV3,
+      migV4: localD.migV4,
+      migV5: localD.migV5
     };
 
     const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
@@ -282,6 +280,10 @@ async function pullFromSupabase() {
         if (!newD.poches[pos.poche]) {
           newD.poches[pos.poche] = {sante: "5,0", positions: []};
         }
+        
+        // Récupération intelligente des métadonnées locales (momentum, alertes) qui ne sont pas sur Supabase
+        const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
+        
         newD.poches[pos.poche].positions.push({
           ticker: pos.ticker,
           titre: pos.titre,
@@ -290,7 +292,12 @@ async function pullFromSupabase() {
           cours: pos.cours,
           cible: pos.cible,
           sector: pos.sector,
-          dividend: pos.dividend
+          dividend: pos.dividend,
+          cours7j: oldPos ? oldPos.cours7j : pos.cours,
+          cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(),
+          lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
+          currency: oldPos ? oldPos.currency : null,
+          avSymbol: oldPos ? oldPos.avSymbol : null
         });
       });
     }
@@ -368,7 +375,7 @@ async function pushToSupabase() {
   }catch(e){console.error("pushToSupabase:",e);st.sync=false}
   finally{
     _isSyncing=false;
-    R(); // Mise à jour de l'icône de synchronisation
+    R(); // Mise à jour de l'icône de synchronisation instantanée
   }
   if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
   return ok;
@@ -651,7 +658,7 @@ async function refreshPrices(){
     clearTimeout(_rpTimeout);
     st.loading=false;
     cd=900;
-    R(); // Mise à jour de l'interface pour retirer "Mise à jour..."
+    R(); // Mise à jour immédiate de l'UI pour faire disparaître "Mise à jour..."
   }
 }
 
@@ -1151,6 +1158,7 @@ window.doSignOut = async () => {
   if(!sb) return;
   await sb.auth.signOut();
   currentUser = null;
+  window.currentPfId = null; 
   R();
 };
 
