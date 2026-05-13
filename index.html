@@ -89,8 +89,6 @@ if ('serviceWorker' in navigator) {
 
 // ══════════════ CONFIG ══════════════
 let API_KEYS = JSON.parse(localStorage.getItem('pf-api-keys')) || {
-  JSONBIN: "$2a$10$IZBWT5RYzP4kWGucKxhcBO8rif3aIYR3cn5QSsyNv7TdLSNCT4QSu",
-  BIN_ID: "69f1c55d856a68218986c9bb",
   FINNHUB: "d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg",
   AV: ["9MFAHWQWJGM1IYKJ", "1DV70SRK4XHZY3G4"],
   SUPABASE_URL: "https://skpoxnjrryivehcbykho.supabase.co",
@@ -98,10 +96,11 @@ let API_KEYS = JSON.parse(localStorage.getItem('pf-api-keys')) || {
 };
 if(!API_KEYS.SUPABASE_URL) API_KEYS.SUPABASE_URL = "https://skpoxnjrryivehcbykho.supabase.co";
 if(!API_KEYS.SUPABASE_ANON) API_KEYS.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw";
-let BIN_ID = API_KEYS.BIN_ID;
 
 let sb = null;
 let currentUser = null;
+window.currentPfId = null; // Store internal Supabase Portfolio ID
+
 if(window.supabase && API_KEYS.SUPABASE_URL && API_KEYS.SUPABASE_ANON){
   try{
     sb = window.supabase.createClient(API_KEYS.SUPABASE_URL, API_KEYS.SUPABASE_ANON);
@@ -248,57 +247,150 @@ function rc(d){
   return d;
 }
 
-// ══════════════ SYNC (JSONBIN & MIGRATION) ══════════════
-async function createBin(){
-  try{
-    const r=await fetch("https://api.jsonbin.io/v3/b",{method:"POST",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN,"X-Bin-Name":"portfolio","X-Bin-Private":"true"},body:JSON.stringify({data:D,hist:H})});
-    if(!r.ok)throw new Error(`HTTP ${r.status}`);
-    const j=await r.json();
-    BIN_ID=j.metadata.id;
-    API_KEYS.BIN_ID=BIN_ID;
-    localStorage.setItem("pf-api-keys", JSON.stringify(API_KEYS));
-    return true;
-  }catch(e){console.error("createBin:",e);return false}
-}
-
+// ══════════════ SUPABASE SYNC (MOTEUR PRINCIPAL) ══════════════
 let _isSyncing=false;
 let _syncPending=false;
-async function pushToBin(){
-  if(!BIN_ID){const ok=await createBin();return ok}
-  if(_isSyncing){_syncPending=true;return false}
+
+async function pullFromSupabase() {
+  if (!sb || !currentUser) return false;
+  try {
+    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1);
+    if (pfErr) throw pfErr;
+    if (!pfData || pfData.length === 0) return false;
+
+    const pf = pfData[0];
+    window.currentPfId = pf.id;
+
+    const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
+    if (posErr) throw posErr;
+
+    let newD = {
+      updatedAt: new Date().toLocaleDateString("fr-FR")+" "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),
+      eurUsd: pf.eur_usd || 1.10,
+      cash: pf.cash || 0,
+      targetAlloc: pf.target_alloc || {},
+      immobilier: pf.immobilier || {},
+      sales: pf.sales || [],
+      poches: {}
+    };
+
+    const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
+    defaultPoches.forEach(p => newD.poches[p] = {sante: "5,0", positions: []});
+
+    if (posData) {
+      posData.forEach(pos => {
+        if (!newD.poches[pos.poche]) {
+          newD.poches[pos.poche] = {sante: "5,0", positions: []};
+        }
+        newD.poches[pos.poche].positions.push({
+          ticker: pos.ticker,
+          titre: pos.titre,
+          qty: pos.qty,
+          pru: pos.pru,
+          cours: pos.cours,
+          cible: pos.cible,
+          sector: pos.sector,
+          dividend: pos.dividend
+        });
+      });
+    }
+
+    D = newD;
+    H = pf.hist || [];
+    st.sync = true;
+    return true;
+  } catch(e) {
+    console.error("pullFromSupabase:", e);
+    st.sync = false;
+    return false;
+  }
+}
+
+async function pushToSupabase() {
+  if(!sb || !currentUser || !window.currentPfId) return false;
+  if(_isSyncing){_syncPending=true;return false;}
   _isSyncing=true;
   let ok=false;
   try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`,{method:"PUT",headers:{"Content-Type":"application/json","X-Master-Key":API_KEYS.JSONBIN},body:JSON.stringify({data:D,hist:H.slice(-1000)})});
-    st.sync=r.ok;ok=r.ok;
-  }catch(e){console.error("push:",e);st.sync=false}
-  finally{_isSyncing=false}
-  if(_syncPending){_syncPending=false;setTimeout(pushToBin,0)}
+    const { error: pfErr } = await sb.from('portfolios').update({
+      cash: D.cash || 0,
+      eur_usd: D.eurUsd || 1.1,
+      immobilier: D.immobilier || {},
+      target_alloc: D.targetAlloc || {},
+      sales: D.sales || [],
+      hist: H.slice(-1000)
+    }).eq('id', window.currentPfId);
+    
+    if(pfErr) throw pfErr;
+
+    const { data: dbPos, error: fetchErr } = await sb.from('positions').select('id, poche, ticker').eq('portfolio_id', window.currentPfId);
+    if(fetchErr) throw fetchErr;
+
+    let toUpdate = [];
+    let toInsert = [];
+    let keptIds = new Set();
+
+    Object.entries(D.poches).forEach(([pocheName, p]) => {
+      p.positions.forEach(pos => {
+        const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
+        const payload = {
+          portfolio_id: window.currentPfId,
+          user_id: currentUser.id,
+          poche: pocheName,
+          ticker: pos.ticker,
+          titre: pos.titre,
+          qty: pos.qty,
+          pru: pos.pru,
+          cours: pos.cours,
+          cible: pos.cible || null,
+          sector: pos.sector || null,
+          dividend: pos.dividend || null
+        };
+        if(dbMatch) {
+          toUpdate.push({ id: dbMatch.id, ...payload });
+          keptIds.add(dbMatch.id);
+        } else {
+          toInsert.push(payload);
+        }
+      });
+    });
+
+    const idsToDelete = dbPos.filter(x => !keptIds.has(x.id)).map(x => x.id);
+    
+    if(idsToDelete.length > 0) await sb.from('positions').delete().in('id', idsToDelete);
+    if(toInsert.length > 0) await sb.from('positions').insert(toInsert);
+    for(const item of toUpdate) {
+        const { id, ...data } = item;
+        await sb.from('positions').update(data).eq('id', id);
+    }
+
+    st.sync=true; ok=true;
+  }catch(e){console.error("pushToSupabase:",e);st.sync=false}
+  finally{
+    _isSyncing=false;
+    R(); // Mise à jour de l'icône de synchronisation
+  }
+  if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
   return ok;
 }
 
-async function pullFromBin(){
-  if(!BIN_ID)return false;
-  try{
-    const r=await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`,{headers:{"X-Master-Key":API_KEYS.JSONBIN}});
-    if(!r.ok)throw new Error(`HTTP ${r.status}`);
-    const j=await r.json();
-    if(j.record&&j.record.data){D=j.record.data;if(j.record.hist)H=j.record.hist;st.sync=true;return true}
-  }catch(e){console.error("pull:",e);st.sync=false}
-  return false;
-}
-
-// BATCH 2: Fonction de migration Supabase
 async function migrateToSupabase() {
   if(!sb || !currentUser) return;
-  if(localStorage.getItem('sb-migrated') === 'true') return;
+  if(localStorage.getItem('sb-migrated') === 'true') {
+     if(!window.currentPfId) {
+        const { data } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).limit(1);
+        if(data && data.length > 0) window.currentPfId = data[0].id;
+     }
+     return;
+  }
   
   try {
-    const { data: existing, error: fetchErr } = await sb.from('portfolios').select('id').limit(1);
+    const { data: existing, error: fetchErr } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).limit(1);
     if (fetchErr) throw fetchErr;
     
     if (existing && existing.length > 0) {
       localStorage.setItem('sb-migrated', 'true');
+      window.currentPfId = existing[0].id;
       return;
     }
 
@@ -314,6 +406,7 @@ async function migrateToSupabase() {
     
     if (insertErr) throw insertErr;
     const pfId = newPf[0].id;
+    window.currentPfId = pfId;
 
     const posToInsert = [];
     Object.entries(D.poches).forEach(([pocheName, p]) => {
@@ -344,7 +437,7 @@ async function migrateToSupabase() {
     
   } catch (err) {
     console.error("Migration error:", err);
-    alert("Erreur lors de la migration des données vers Supabase : " + err.message);
+    alert("Erreur lors de la migration : " + err.message);
   }
 }
 
@@ -360,7 +453,7 @@ const saveLocal=()=>{
 };
 const loadLocal=()=>{try{const d=localStorage.getItem("pf-data");const h=localStorage.getItem("pf-hist");return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]}}catch(e){return{D:null,H:[]}}};
 
-async function save(){rc(D);saveLocal();R();pushToBin();}
+async function save(){rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
 
 // ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
@@ -551,12 +644,14 @@ async function refreshPrices(){
     downsampleH();
     if(H.length>1000)H=H.slice(-1000);
 
-    saveLocal();R();pushToBin();
+    saveLocal();
+    if(currentUser) pushToSupabase();
   }catch(e){console.error(e)}
   finally{
     clearTimeout(_rpTimeout);
     st.loading=false;
     cd=900;
+    R(); // Mise à jour de l'interface pour retirer "Mise à jour..."
   }
 }
 
@@ -571,18 +666,31 @@ async function init(){
     }catch(e){console.error("Supabase getSession failed:", e)}
   }
 
-  const pulled=await Promise.race([pullFromBin(),new Promise(r=>setTimeout(()=>r(false),8000))]);
+  let pulled = false;
+  if(currentUser) {
+    pulled = await pullFromSupabase();
+  }
+
   if(!pulled){
     if(loc.D){D=loc.D;H=loc.H||[]}
     else{D=JSON.parse(JSON.stringify(DEF));H=[]}
   }
+
   applyMortgagePayments();
   const migrated=applyPortfolioMigrations();
   rc(D);R();
-  if(migrated)pushToBin();
+  
+  if (currentUser && !pulled) {
+    await migrateToSupabase();
+  }
+
+  if(migrated || (currentUser && !pulled)) {
+     if(currentUser) pushToSupabase();
+  }
+
   refreshPrices();
   setInterval(refreshPrices,900000);
-  setInterval(()=>{if(applyMortgagePayments()){rc(D);R();pushToBin()}},3600000);
+  setInterval(()=>{if(applyMortgagePayments()){rc(D);R();if(currentUser) pushToSupabase()}},3600000);
   if(cdTimer)clearInterval(cdTimer);
   cd=900;
   cdTimer=setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
@@ -674,7 +782,7 @@ window.cm=cm;window.pn=pn;
 window.eSettings=()=>{
   sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
   <div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px">
-    <div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (beta)</div>
+    <div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div>
     ${currentUser 
       ? `<div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div>
          <button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button>` 
@@ -685,8 +793,6 @@ window.eSettings=()=>{
          </div>`
     }
   </div>
-  <div class="field"><label>JSONBin Master Key</label><input id="k_jb" value="${API_KEYS.JSONBIN}"></div>
-  <div class="field"><label>JSONBin Bin ID</label><input id="k_bid" value="${API_KEYS.BIN_ID}"></div>
   <div class="field"><label>Finnhub Token</label><input id="k_fh" value="${API_KEYS.FINNHUB}"></div>
   <div class="field"><label>Alpha Vantage Keys (séparées par virgule)</label><input id="k_av" value="${API_KEYS.AV.join(',')}"></div>
   <button class="btn btn-p" onclick="saveSettings()" style="margin-bottom:15px">Enregistrer les clés</button>
@@ -696,12 +802,9 @@ window.eSettings=()=>{
 };
 
 window.saveSettings=()=>{
-  API_KEYS.JSONBIN=document.getElementById("k_jb").value.trim();
-  API_KEYS.BIN_ID=document.getElementById("k_bid").value.trim();
   API_KEYS.FINNHUB=document.getElementById("k_fh").value.trim();
   API_KEYS.AV=document.getElementById("k_av").value.split(',').map(s=>s.trim()).filter(Boolean);
   localStorage.setItem('pf-api-keys', JSON.stringify(API_KEYS));
-  BIN_ID=API_KEYS.BIN_ID;
   cm(); refreshPrices();
 };
 
@@ -1023,11 +1126,13 @@ window.doSignIn = async () => {
   if(error) return alert('Erreur connexion : ' + error.message);
   currentUser = data.user;
   
-  // Lancement de la migration après connexion réussie
-  await migrateToSupabase();
+  const pulled = await pullFromSupabase();
+  if(!pulled) {
+      await migrateToSupabase();
+  }
   
   cm();
-  R();
+  refreshPrices();
 };
 
 window.doSignUp = async () => {
