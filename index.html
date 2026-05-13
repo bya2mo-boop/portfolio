@@ -349,7 +349,6 @@ async function pushToSupabase() {
         const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
         const payload = {
           portfolio_id: window.currentPfId,
-          // user_id a été supprimé ici car la colonne n'existe pas dans la table positions
           poche: pocheName,
           ticker: pos.ticker,
           titre: pos.titre,
@@ -427,7 +426,6 @@ async function migrateToSupabase() {
       p.positions.forEach(pos => {
         posToInsert.push({
           portfolio_id: pfId,
-          // user_id a été supprimé ici car la colonne n'existe pas dans la table positions
           poche: pocheName,
           ticker: pos.ticker,
           titre: pos.titre,
@@ -712,6 +710,8 @@ async function init(){
 
 function applyPortfolioMigrations(){
   if(!D||!D.poches||!D.poches.PEA)return false;
+  if(D.poches.PEA.positions.length === 0 && D.cash === 0) return false;
+
   let changed=false;
   if(!D.migV2){
     if(!D.sales)D.sales=[];
@@ -747,6 +747,8 @@ function applyPortfolioMigrations(){
 
 function applyMortgagePayments(){
   if(!D||!D.immobilier)return false;
+  if(D.immobilier.valeurEstimee === 0) return false; 
+  
   if(!D.immobilier.mortgage){
     D.immobilier.mortgage={ptzCapital:29514.90,ptzMensualite:104.30,mainCapital:122238.00,mainMensualite:654.65,mainTaux:0.038,lastPayment:"2026-04-01"};
   }
