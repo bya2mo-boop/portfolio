@@ -303,6 +303,7 @@ async function migrateToSupabase() {
     }
 
     const { data: newPf, error: insertErr } = await sb.from('portfolios').insert([{
+      user_id: currentUser.id,
       cash: D.cash || 0,
       eur_usd: D.eurUsd || 1.1,
       immobilier: D.immobilier || {},
@@ -318,6 +319,7 @@ async function migrateToSupabase() {
     Object.entries(D.poches).forEach(([pocheName, p]) => {
       p.positions.forEach(pos => {
         posToInsert.push({
+          user_id: currentUser.id,
           portfolio_id: pfId,
           poche: pocheName,
           ticker: pos.ticker,
@@ -1159,7 +1161,7 @@ h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14
         <div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden">
           <div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div>
         </div>
-        <span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":sc>=3?"C":"D"}</span>
+        <span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div>
     </div>`;
