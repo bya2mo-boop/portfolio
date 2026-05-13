@@ -67,6 +67,7 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
     * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
 }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 <div id="app">
@@ -91,9 +92,21 @@ let API_KEYS = JSON.parse(localStorage.getItem('pf-api-keys')) || {
   JSONBIN: "$2a$10$IZBWT5RYzP4kWGucKxhcBO8rif3aIYR3cn5QSsyNv7TdLSNCT4QSu",
   BIN_ID: "69f1c55d856a68218986c9bb",
   FINNHUB: "d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg",
-  AV: ["9MFAHWQWJGM1IYKJ", "1DV70SRK4XHZY3G4"]
+  AV: ["9MFAHWQWJGM1IYKJ", "1DV70SRK4XHZY3G4"],
+  SUPABASE_URL: "https://skpoxnjrryivehcbykho.supabase.co",
+  SUPABASE_ANON: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw"
 };
+if(!API_KEYS.SUPABASE_URL) API_KEYS.SUPABASE_URL = "https://skpoxnjrryivehcbykho.supabase.co";
+if(!API_KEYS.SUPABASE_ANON) API_KEYS.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw";
 let BIN_ID = API_KEYS.BIN_ID;
+
+let sb = null;
+let currentUser = null;
+if(window.supabase && API_KEYS.SUPABASE_URL && API_KEYS.SUPABASE_ANON){
+  try{
+    sb = window.supabase.createClient(API_KEYS.SUPABASE_URL, API_KEYS.SUPABASE_ANON);
+  }catch(e){console.error("Supabase init failed:", e)}
+}
 
 const DCOL=["#6c8cff","#34d399","#a78bfa","#f87171","#fbbf24","#38bdf8","#f472b6","#fb923c","#4ade80","#c084fc","#22d3ee","#e879f9"];
 const PCOL={CTO:"#6c8cff",PEA:"#34d399","Assurance Vie":"#a78bfa",PEE:"#fbbf24",Crypto:"#fb923c","Métaux":"#eab308",Cash:"#4a4d5e"};
@@ -443,7 +456,6 @@ async function refreshPrices(){
       ok=true;
     }catch(e){}
 
-    // CORRECTION ECRAN NOIR : UN SEUL BLOC CATCH
     try{
       const eup=await fetchEuStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
@@ -491,6 +503,14 @@ async function refreshPrices(){
 // ══════════════ INIT ══════════════
 async function init(){
   const loc=loadLocal();
+  
+  if(sb){
+    try{
+      const { data: { session } } = await sb.auth.getSession();
+      if(session) currentUser = session.user;
+    }catch(e){console.error("Supabase getSession failed:", e)}
+  }
+
   const pulled=await Promise.race([pullFromBin(),new Promise(r=>setTimeout(()=>r(false),8000))]);
   if(!pulled){
     if(loc.D){D=loc.D;H=loc.H||[]}
@@ -593,6 +613,18 @@ window.cm=cm;window.pn=pn;
 
 window.eSettings=()=>{
   sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
+  <div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px">
+    <div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (beta)</div>
+    ${currentUser 
+      ? `<div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div>
+         <button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button>` 
+      : `<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Système de comptes en cours de déploiement. Les données restent sur JSONBin pour l'instant.</div>
+         <div style="display:flex;gap:6px">
+           <button class="btn" style="flex:1;background:var(--acc);color:#fff" onclick="cm();showAuth('login')">Se connecter</button>
+           <button class="btn" style="flex:1;background:#34d399;color:#fff" onclick="cm();showAuth('signup')">S'inscrire</button>
+         </div>`
+    }
+  </div>
   <div class="field"><label>JSONBin Master Key</label><input id="k_jb" value="${API_KEYS.JSONBIN}"></div>
   <div class="field"><label>JSONBin Bin ID</label><input id="k_bid" value="${API_KEYS.BIN_ID}"></div>
   <div class="field"><label>Finnhub Token</label><input id="k_fh" value="${API_KEYS.FINNHUB}"></div>
@@ -614,7 +646,7 @@ window.saveSettings=()=>{
 };
 
 window.exportPDF = () => {
-    cm(); // Fermer la modale
+    cm();
     const d = ga();
     let html = `
         <div class="print-page">
@@ -643,9 +675,8 @@ window.exportPDF = () => {
             <tr><td><b>Capital Net (Equity)</b></td><td class="text-right"><b>${fmt_(D.immobilier.equityNette)} €</b></td></tr>
         </table>`;
     }
-    html += `</div>`; // Fin Page 1
+    html += `</div>`;
 
-    // Une page par enveloppe
     Object.entries(D.poches).forEach(([n, p]) => {
         html += `<div class="print-page">
             <div class="print-title">Détail : ${n}</div>
@@ -680,11 +711,8 @@ window.exportPDF = () => {
         html += `</div>`;
     });
 
-    // Création/Mise à jour de la div d'impression
     let pr = document.getElementById("print-report");
     pr.innerHTML = html;
-    
-    // Lancement de l'impression
     setTimeout(() => { window.print(); }, 300);
 };
 
@@ -913,6 +941,49 @@ window.doA=(pn_)=>{
   save();
 };
 
+window.showAuth = (mode) => {
+  mode = mode || 'login';
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px">
+    <h3 style="font-size:17px;font-weight:700">${mode==='login'?'Connexion':'Inscription'}</h3>
+    <button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button>
+  </div>
+  <div class="field"><label>Email</label><input id="au_email" type="email" placeholder="ton@email.com" autocomplete="email"></div>
+  <div class="field"><label>Mot de passe</label><input id="au_pwd" type="password" placeholder="min 8 caractères" autocomplete="${mode==='login'?'current-password':'new-password'}"></div>
+  <button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:8px">${mode==='login'?'Se connecter':"S'inscrire"}</button>
+  <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--acc);cursor:pointer" onclick="showAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Pas de compte ? S'inscrire":'Déjà inscrit ? Se connecter'}</div>`);
+};
+
+window.doSignIn = async () => {
+  if(!sb) return alert('Supabase non initialisé.');
+  const email = document.getElementById('au_email').value.trim();
+  const pwd = document.getElementById('au_pwd').value;
+  if(!email || !pwd) return alert('Email et mot de passe requis');
+  const { data, error } = await sb.auth.signInWithPassword({email, password: pwd});
+  if(error) return alert('Erreur connexion : ' + error.message);
+  currentUser = data.user;
+  cm();
+  R();
+};
+
+window.doSignUp = async () => {
+  if(!sb) return alert('Supabase non initialisé.');
+  const email = document.getElementById('au_email').value.trim();
+  const pwd = document.getElementById('au_pwd').value;
+  if(!email || !pwd) return alert('Email et mot de passe requis');
+  if(pwd.length < 8) return alert('Mot de passe : minimum 8 caractères');
+  const { data, error } = await sb.auth.signUp({email, password: pwd});
+  if(error) return alert('Erreur inscription : ' + error.message);
+  alert("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter.");
+  cm();
+};
+
+window.doSignOut = async () => {
+  if(!sb) return;
+  await sb.auth.signOut();
+  currentUser = null;
+  R();
+};
+
 // ══════════════ RENDER ══════════════
 function R(){
 if(!D)return;
@@ -924,6 +995,7 @@ h+=`<div style="display:flex;align-items:center;justify-content:space-between;ma
     <div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div>
     <span class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span>
     ${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}
+    ${currentUser ? '<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#a78bfa22;color:#a78bfa" title="'+esc(currentUser.email||"")+'">👤 ' + esc((currentUser.email||"?").split("@")[0]) + '</span>' : ""}
     ${st.sync===true?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:9px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}
   </div>
   <div>
@@ -950,14 +1022,13 @@ h+=`<div class="add-btn" onclick="aEnv()">+ Ajouter une enveloppe</div>`;
 h+=`<div class="card card-tap" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px" onclick="eCash()"><span style="font-size:14px;font-weight:700">Liquidités <span style="color:var(--acc);font-size:11px">✎</span></span><span class="mono" style="font-size:18px;font-weight:700">${fmt_(D.cash)} €</span></div></div>`;
 }
 
-if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}const ip=p.pl>=0;const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
+if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}const ip=p.pl>=0;const dd=p.positions.map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
 h+=`<div class="fade"><button onclick="gt('home')" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button>
 <div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${PCOL[sel]||'var(--mut)'}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2><span class="chip chip-${sC(p.sante)} mono" title="${p.sante}/10">${sGrade(p.sante)}</span></div>
 <div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:7px;height:7px;border-radius:50%;background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${((d[1]/dt)*100).toFixed(1)}%</span></div>`).join("")}</div></div>
 ${(()=>{const hasUsd=p.positions.some(x=>CUR[x.ticker]==="USD");const eurUsd=D.eurUsd||1.1;const investiUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.pru:x.qty*x.pru*eurUsd),0);const valeurUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.cours:x.qty*x.cours*eurUsd),0);const plUsd=valeurUsd-investiUsd;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,hasUsd?fmt_(investiUsd)+" $":""],["Valeur",fmt_(p.valeur)+" €",null,hasUsd?fmt_(valeurUsd)+" $":""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",hasUsd?(plUsd>=0?"+":"")+fmt_(plUsd)+" $":""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:9px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})()}
 <div class="card" style="padding:4px 12px 6px">`;
-const sortedPositions=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0));
-sortedPositions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="USD";const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru);
+p.positions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="USD";const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru);
 const isStale = !x.lastUpd || (Date.now() - x.lastUpd > 86400000); const sw = isStale ? `<span title="Prix non mis à jour depuis plus de 24h" style="font-size:10px;margin-left:4px">⚠️</span>` : '';
 h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${esc(sel)}','${esc(x.ticker)}')">
 <div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div>
