@@ -65,7 +65,7 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 <div id="app">
   <div style="padding:40px 20px;text-align:center;color:var(--dim)" class="blink">
     <div class="mono" style="font-size:18px;font-weight:600;margin-bottom:10px;color:var(--acc)">Chargement...</div>
-    <div style="font-size:12px">Connexion aux API et synchronisation en cours</div>
+    <div style="font-size:12px">Connexion sécurisée en cours...</div>
   </div>
 </div>
 <div id="print-report"></div>
@@ -80,14 +80,12 @@ if ('serviceWorker' in navigator) {
 }
 
 // ══════════════ CONFIG ══════════════
-let API_KEYS = JSON.parse(localStorage.getItem('pf-api-keys')) || {
+let API_KEYS = {
   FINNHUB: "d7ocg9hr01qsb7bedtj0d7ocg9hr01qsb7bedtjg",
   AV: ["9MFAHWQWJGM1IYKJ", "1DV70SRK4XHZY3G4"],
   SUPABASE_URL: "https://skpoxnjrryivehcbykho.supabase.co",
   SUPABASE_ANON: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw"
 };
-if(!API_KEYS.SUPABASE_URL) API_KEYS.SUPABASE_URL = "https://skpoxnjrryivehcbykho.supabase.co";
-if(!API_KEYS.SUPABASE_ANON) API_KEYS.SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw";
 
 let sb = null;
 let currentUser = null;
@@ -389,7 +387,7 @@ async function pushToSupabase() {
 
 async function migrateToSupabase() {
   if(!sb || !currentUser) return;
-  if(localStorage.getItem('sb-migrated') === 'true') {
+  if(localStorage.getItem('sb-migrated-'+currentUser.id) === 'true') {
      if(!window.currentPfId) {
         const { data } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).limit(1);
         if(data && data.length > 0) window.currentPfId = data[0].id;
@@ -402,7 +400,7 @@ async function migrateToSupabase() {
     if (fetchErr) throw fetchErr;
     
     if (existing && existing.length > 0) {
-      localStorage.setItem('sb-migrated', 'true');
+      localStorage.setItem('sb-migrated-'+currentUser.id, 'true');
       window.currentPfId = existing[0].id;
       return;
     }
@@ -444,26 +442,33 @@ async function migrateToSupabase() {
       if (posErr) throw posErr;
     }
 
-    localStorage.setItem('sb-migrated', 'true');
-    alert("Migration vers Supabase réussie avec succès !");
+    localStorage.setItem('sb-migrated-'+currentUser.id, 'true');
     
   } catch (err) {
     console.error("Migration error:", err);
-    alert("Erreur lors de la migration : " + err.message);
   }
 }
 
 const saveLocal=()=>{
+  if(!currentUser) return;
   try{
-    localStorage.setItem("pf-data",JSON.stringify(D));
-    localStorage.setItem("pf-hist",JSON.stringify(H.slice(-1000)));
+    localStorage.setItem("pf-data-"+currentUser.id,JSON.stringify(D));
+    localStorage.setItem("pf-hist-"+currentUser.id,JSON.stringify(H.slice(-1000)));
     st.localOk=true;
   }catch(e){
     console.error("LocalStorage save failed:",e);
     st.localOk=false;
   }
 };
-const loadLocal=()=>{try{const d=localStorage.getItem("pf-data");const h=localStorage.getItem("pf-hist");return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]}}catch(e){return{D:null,H:[]}}};
+
+const loadLocal=()=>{
+  if(!currentUser) return {D:null,H:[]};
+  try{
+    const d=localStorage.getItem("pf-data-"+currentUser.id);
+    const h=localStorage.getItem("pf-hist-"+currentUser.id);
+    return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]}
+  }catch(e){return{D:null,H:[]}}
+};
 
 async function save(){rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
 
@@ -667,10 +672,8 @@ async function refreshPrices(){
   }
 }
 
-// ══════════════ INIT ══════════════
+// ══════════════ INIT & AUTH ══════════════
 async function init(){
-  const loc=loadLocal();
-  
   if(sb){
     try{
       const { data: { session } } = await sb.auth.getSession();
@@ -678,11 +681,18 @@ async function init(){
     }catch(e){console.error("Supabase getSession failed:", e)}
   }
 
-  let pulled = false;
-  if(currentUser) {
-    pulled = await pullFromSupabase();
+  if (!currentUser) {
+    R(); // Affichera l'écran de connexion bloquant
+    return;
   }
+  
+  await loadUserEnv();
+}
 
+async function loadUserEnv() {
+  const loc = loadLocal();
+  let pulled = await pullFromSupabase();
+  
   if(!pulled){
     if(loc.D){D=loc.D;H=loc.H||[]}
     else{D=JSON.parse(JSON.stringify(DEF));H=[]}
@@ -690,22 +700,25 @@ async function init(){
 
   applyMortgagePayments();
   const migrated=applyPortfolioMigrations();
-  rc(D);R();
+  rc(D);
+  cm(); // Ferme les modales éventuelles
+  R();
   
-  if (currentUser && !pulled) {
+  if (!pulled) {
     await migrateToSupabase();
   }
 
-  if(migrated || (currentUser && !pulled)) {
-     if(currentUser) pushToSupabase();
+  if(migrated || !pulled) {
+     pushToSupabase();
   }
 
   refreshPrices();
-  setInterval(refreshPrices,900000);
-  setInterval(()=>{if(applyMortgagePayments()){rc(D);R();if(currentUser) pushToSupabase()}},3600000);
-  if(cdTimer)clearInterval(cdTimer);
-  cd=900;
-  cdTimer=setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
+  if(!window._intervalsSet) {
+      setInterval(refreshPrices,900000);
+      setInterval(()=>{if(applyMortgagePayments()){rc(D);R();pushToSupabase()}},3600000);
+      setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
+      window._intervalsSet = true;
+  }
 }
 
 function applyPortfolioMigrations(){
@@ -792,36 +805,22 @@ function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cas
 // ══════════════ MODALS ET EXPORT PDF ══════════════
 let _pendingSale=null;
 function sm(h){document.getElementById("modal-root").innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`}
-function cm(){document.getElementById("modal-root").innerHTML="";_pendingSale=null}
+function cm(){
+  if(!currentUser) return; // Empêche de fermer la fenêtre d'accueil si non connecté
+  document.getElementById("modal-root").innerHTML="";
+  _pendingSale=null;
+}
 window.cm=cm;window.pn=pn;
 
 window.eSettings=()=>{
   sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
   <div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px">
     <div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div>
-    ${currentUser 
-      ? `<div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div>
-         <button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button>` 
-      : `<div style="font-size:11px;color:var(--dim);margin-bottom:8px">Le système de comptes enregistre vos données en sécurité.</div>
-         <div style="display:flex;gap:6px">
-           <button class="btn" style="flex:1;background:var(--acc);color:#fff" onclick="cm();showAuth('login')">Se connecter</button>
-           <button class="btn" style="flex:1;background:#34d399;color:#fff" onclick="cm();showAuth('signup')">S'inscrire</button>
-         </div>`
-    }
+    <div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div>
+    <button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button>
   </div>
-  <div class="field"><label>Finnhub Token</label><input id="k_fh" value="${API_KEYS.FINNHUB}"></div>
-  <div class="field"><label>Alpha Vantage Keys (séparées par virgule)</label><input id="k_av" value="${API_KEYS.AV.join(',')}"></div>
-  <button class="btn btn-p" onclick="saveSettings()" style="margin-bottom:15px">Enregistrer les clés</button>
-  <div style="height:1px;background:var(--bdr);margin:15px 0"></div>
   <label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label>
   <button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button>`);
-};
-
-window.saveSettings=()=>{
-  API_KEYS.FINNHUB=document.getElementById("k_fh").value.trim();
-  API_KEYS.AV=document.getElementById("k_av").value.split(',').map(s=>s.trim()).filter(Boolean);
-  localStorage.setItem('pf-api-keys', JSON.stringify(API_KEYS));
-  cm(); refreshPrices();
 };
 
 window.exportPDF = () => {
@@ -1065,7 +1064,6 @@ window.pickStock=async(idx)=>{
   const ticker=sym.includes(".")?sym.split(".")[0]:sym;
   document.getElementById("mk").value=ticker;
   
-  // Remplissage auto du secteur si connu dans la liste locale
   const msEl=document.getElementById("ms");
   const mdEl=document.getElementById("md");
   if(msEl && SECTORS[ticker]) msEl.value=SECTORS[ticker];
@@ -1076,7 +1074,6 @@ window.pickStock=async(idx)=>{
   items.forEach(x=>x.style.background="#1a1b25");
   el.style.background="#34d39922";
   
-  // Fetch AlphaVantage pour récupérer le Secteur et le Dividende magiquement
   const today=new Date().toISOString().slice(0,10);
   let exhausted=[];
   try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{}
@@ -1121,16 +1118,19 @@ window.doA=(pn_)=>{
   save();
 };
 
-window.showAuth = (mode) => {
-  mode = mode || 'login';
-  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px">
-    <h3 style="font-size:17px;font-weight:700">${mode==='login'?'Connexion':'Inscription'}</h3>
-    <button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button>
-  </div>
-  <div class="field"><label>Email</label><input id="au_email" type="email" placeholder="ton@email.com" autocomplete="email"></div>
-  <div class="field"><label>Mot de passe</label><input id="au_pwd" type="password" placeholder="min 8 caractères" autocomplete="${mode==='login'?'current-password':'new-password'}"></div>
-  <button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:8px">${mode==='login'?'Se connecter':"S'inscrire"}</button>
-  <div style="text-align:center;margin-top:6px;font-size:11px;color:var(--acc);cursor:pointer" onclick="showAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Pas de compte ? S'inscrire":'Déjà inscrit ? Se connecter'}</div>`);
+window.requireAuth = (mode = 'login') => {
+  document.getElementById("modal-root").innerHTML = `
+  <div class="modal-bg" style="background:var(--bg); align-items:center;">
+    <div class="modal" style="max-height:none; border-radius:20px; border:1px solid var(--bdr); text-align:center; padding:30px 20px;">
+      <div style="font-size:24px; font-weight:800; margin-bottom:10px; color:var(--acc);">Portfolio</div>
+      <div style="font-size:13px; color:var(--dim); margin-bottom:24px; line-height:1.4;">Gérez et analysez votre patrimoine<br>en toute simplicité.</div>
+      <h3 style="font-size:17px; font-weight:700; margin-bottom:16px; text-align:left;">${mode==='login'?'Connexion':'Inscription'}</h3>
+      <div class="field" style="text-align:left;"><label>Email</label><input id="au_email" type="email" placeholder="ton@email.com"></div>
+      <div class="field" style="text-align:left;"><label>Mot de passe</label><input id="au_pwd" type="password" placeholder="min 8 caractères"></div>
+      <button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:12px; height:44px;">${mode==='login'?'Se connecter':"S'inscrire"}</button>
+      <div style="font-size:12px; color:var(--acc); cursor:pointer; font-weight:600;" onclick="requireAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Créer un compte":"Déjà inscrit ? Se connecter"}</div>
+    </div>
+  </div>`;
 };
 
 window.doSignIn = async () => {
@@ -1141,14 +1141,7 @@ window.doSignIn = async () => {
   const { data, error } = await sb.auth.signInWithPassword({email, password: pwd});
   if(error) return alert('Erreur connexion : ' + error.message);
   currentUser = data.user;
-  
-  const pulled = await pullFromSupabase();
-  if(!pulled) {
-      await migrateToSupabase();
-  }
-  
-  cm();
-  refreshPrices();
+  await loadUserEnv();
 };
 
 window.doSignUp = async () => {
@@ -1160,7 +1153,6 @@ window.doSignUp = async () => {
   const { data, error } = await sb.auth.signUp({email, password: pwd});
   if(error) return alert('Erreur inscription : ' + error.message);
   alert("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter.");
-  cm();
 };
 
 window.doSignOut = async () => {
@@ -1168,11 +1160,22 @@ window.doSignOut = async () => {
   await sb.auth.signOut();
   currentUser = null;
   window.currentPfId = null; 
+  D = null;
+  H = [];
+  cm();
   R();
 };
 
 // ══════════════ RENDER ══════════════
 function R(){
+if (!currentUser) {
+  document.getElementById("app").innerHTML = "";
+  document.querySelector('.nav').style.display = 'none';
+  requireAuth('login');
+  return;
+}
+document.querySelector('.nav').style.display = 'block';
+
 if(!D)return;
 const d=ga();const $=document.getElementById("app");let h="";
 
