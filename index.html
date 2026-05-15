@@ -541,32 +541,21 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
 
-  // NOUVEAU SYSTÈME ROBUSTE (Fallback proxies)
-  const targetUrl = `https://query1.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&_t=${Date.now()}`;
-  const proxies = [
-    `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`
-  ];
+  // 🔥 Ton backend Cloudflare personnel, fiable à 100% 🔥
+  const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${symbols}&_t=${Date.now()}`;
 
-  let j = null;
-  for (const proxyUrl of proxies) {
-    try {
-      const r = await fetch(proxyUrl);
-      if (r.ok) {
-        j = await r.json();
-        break; // On s'arrête au premier proxy qui fonctionne !
-      }
-    } catch (e) {
-      console.warn("Proxy échoué, passage au suivant:", proxyUrl);
+  try {
+    const r = await fetch(targetUrl);
+    if(r.ok) {
+       const j = await r.json();
+       if(j.quoteResponse && j.quoteResponse.result) {
+          j.quoteResponse.result.forEach(res => {
+             const tkr = Object.keys(tickerMap).find(k => tickerMap[k] === res.symbol);
+             if(tkr && res.regularMarketPrice) p[tkr] = res.regularMarketPrice;
+          });
+       }
     }
-  }
-
-  if (j && j.quoteResponse && j.quoteResponse.result) {
-    j.quoteResponse.result.forEach(res => {
-       const tkr = Object.keys(tickerMap).find(k => tickerMap[k] === res.symbol);
-       if(tkr && res.regularMarketPrice) p[tkr] = res.regularMarketPrice;
-    });
-  }
+  } catch(e) { console.error("Cloudflare Worker fetch error:", e); }
   return p;
 }
 
