@@ -541,8 +541,8 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
 
-  // 🔥 Ton backend Cloudflare personnel, fiable à 100% 🔥
-  const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${symbols}&_t=${Date.now()}`;
+  // 🔥 Ton backend Cloudflare personnel, avec encodeURIComponent sécurisé 🔥
+  const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
 
   try {
     const r = await fetch(targetUrl);
