@@ -537,42 +537,23 @@ async function fetchEuStocks(){
     if(pos.avSymbol){tickerMap[pos.ticker]=pos.avSymbol}
     else if(KNOWN_EU[pos.ticker]){tickerMap[pos.ticker]=KNOWN_EU[pos.ticker]}
   }));
-  if(Object.keys(tickerMap).length===0)return {};
-  const today=new Date().toISOString().slice(0,10);
-  let exhausted=[];
-  try{
-    const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");
-    if(e.date===today)exhausted=e.keys||[];else{try{localStorage.removeItem("pf-av-exhausted")}catch{}exhausted=[]}
-  }catch{}
-  const usableKeys=API_KEYS.AV.filter(k=>!exhausted.includes(k));
-  if(usableKeys.length===0)return {};
+  const symbols = Object.values(tickerMap).join(',');
+  if(!symbols) return {};
   const p={};
-  let kIdx=0,curKey=usableKeys[0];
-  for(const [tkr,sym] of Object.entries(tickerMap)){
-    let attempts=0;
-    while(attempts<usableKeys.length){
-      try{
-        const r=await fetch(`https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${sym}&apikey=${curKey}`);
-        if(r.ok){
-          const j=await r.json();
-          const price=parseFloat(j["Global Quote"]?.["05. price"]);
-          if(price>0){p[tkr]=price;break}
-          if(j.Note||j.Information){
-            exhausted.push(curKey);
-            try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}
-            kIdx++;
-            if(kIdx>=usableKeys.length)return p;
-            curKey=usableKeys[kIdx];
-            attempts++;
-            continue;
-          }
-          break;
-        }
-      }catch(e){break}
-      attempts++;
+  try {
+    const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const r = await fetch(proxyUrl);
+    if(r.ok) {
+       const j = await r.json();
+       if(j.quoteResponse && j.quoteResponse.result) {
+          j.quoteResponse.result.forEach(res => {
+             const tkr = Object.keys(tickerMap).find(k => tickerMap[k] === res.symbol);
+             if(tkr && res.regularMarketPrice) p[tkr] = res.regularMarketPrice;
+          });
+       }
     }
-    await new Promise(res=>setTimeout(res,1200));
-  }
+  } catch(e) { console.error("Yahoo EU fetch error:", e); }
   return p;
 }
 
@@ -1151,7 +1132,11 @@ window.doSignUp = async () => {
   if(!email || !pwd) return alert('Email et mot de passe requis');
   if(pwd.length < 8) return alert('Mot de passe : minimum 8 caractères');
   const { data, error } = await sb.auth.signUp({email, password: pwd});
-  if(error) return alert('Erreur inscription : ' + error.message);
+  
+  if(error && !error.message.includes("Database error saving new user")) {
+     return alert('Erreur inscription : ' + error.message);
+  }
+  
   alert("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter.");
 };
 
@@ -1310,8 +1295,8 @@ if(tab==="history"){
   const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"#6c8cff22":"transparent"};color:${htf===v?"var(--acc)":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
   h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
   <div style="display:flex;gap:6px;margin-bottom:12px">${tfBtns}</div>
-  <div class="card"><div class="section">Valeur</div>${lc(r.length>=2?r:[{t:0,v:0,h:""}],"v","#6c8cff")}</div>
-  <div class="card"><div class="section">P&L</div>${lc(r.length>=2?r:[{t:0,pl:0,h:""}],"pl","#34d399")}</div>`;
+  <div class="card"><div class="section">Valeur</div>${lc(r.length>=2?r:[{t:0,v:0,h:""}],"v","#6c8cff",300,80)}</div>
+  <div class="card"><div class="section">P&L</div>${lc(r.length>=2?r:[{t:0,pl:0,h:""}],"pl","#34d399",300,80)}</div>`;
   
   if(D.sales&&D.sales.length){
     h+=`<div class="card"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
