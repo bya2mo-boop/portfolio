@@ -541,7 +541,7 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
   try {
-    const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}`;
+    const targetUrl = `https://query2.finance.yahoo.com/v7/finance/quote?symbols=${symbols}&_t=${Date.now()}`;
     const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
     const r = await fetch(proxyUrl);
     if(r.ok) {
