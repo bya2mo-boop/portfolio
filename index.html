@@ -122,7 +122,7 @@ const DEF = {
 };
 
 // ══════════════ STATE ══════════════
-let D=null,H=[],tab="home",sel=null,htf="tout";
+let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v";
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 
@@ -244,7 +244,7 @@ function rc(d){
   return d;
 }
 
-// ══════════════ SUPABASE SYNC (MOTEUR PRINCIPAL) ══════════════
+// ══════════════ SUPABASE SYNC ══════════════
 let _isSyncing=false;
 let _syncPending=false;
 
@@ -540,7 +540,6 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
 
-  // 🔥 Worker Cloudflare Proxy avec encodage sécurisé 🔥
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
 
   try {
@@ -780,7 +779,7 @@ function updateCountdown(){
 // ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-function lc(data, k, w=300, h=160) {
+function lc(data, k, w=300, h=180) {
   if(data.length<2) return`<div style="text-align:center;color:var(--dim);padding:40px 0;font-size:12px">Données insuffisantes</div>`;
   
   const vs = data.map(d=>d[k]);
@@ -1218,6 +1217,11 @@ window.doSignOut = async () => {
   R();
 };
 
+window.setHMode = (mode) => {
+  hMode = mode;
+  R();
+};
+
 // ══════════════ RENDER ══════════════
 function R(){
 if (!currentUser) {
@@ -1292,7 +1296,6 @@ const sc2=d.ap.map(p=>{
   return{...p,sc:res.score,crit:res.crit};
 }).sort((a,b)=>b.sc-a.sc);
 
-// 🔥 MOYENNE PONDÉRÉE DU SCORE GLOBAL 🔥
 const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
 const pocheScores = activePoches.map(([n,p]) => {
   const sc = parseFloat(String(p.sante||5).replace(',','.'));
@@ -1309,7 +1312,6 @@ if (totalActiveVal > 0) {
 }
 const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 
-// 🔥 FILTRAGE MONTH-TO-DATE (MTD) 🔥
 const startOfM = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
 let filteredH = H.filter(x => x.t >= startOfM);
 if(filteredH.length < 2) {
@@ -1385,12 +1387,19 @@ if(tab==="history"){
   const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"var(--acc)":"transparent"};color:${htf===v?"#fff":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
   
   h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
-  <div style="display:flex;gap:6px;margin-bottom:12px">${tfBtns}</div>
-  <div class="card"><div class="section" style="margin-bottom:0">Valeur Patrimoniale</div>${lc(r.length>=2?r:[{t:Date.now(),v:0},{t:Date.now(),v:0}],"v",300,160)}</div>
-  <div class="card"><div class="section" style="margin-bottom:0">P&L Global Latent</div>${lc(r.length>=2?r:[{t:Date.now(),pl:0},{t:Date.now(),pl:0}],"pl",300,160)}</div>`;
+  <div style="display:flex;gap:6px;margin-bottom:16px">${tfBtns}</div>
+  
+  <div style="display:flex; background:var(--card); border-radius:10px; padding:4px; margin-bottom:12px; border:1px solid var(--bdr)">
+    <button onclick="setHMode('v')" style="flex:1; padding:8px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'#2a2b38':'transparent'}; color:${hMode==='v'?'var(--txt)':'var(--dim)'}; transition:all 0.2s">Valeur Patrimoniale</button>
+    <button onclick="setHMode('pl')" style="flex:1; padding:8px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'#2a2b38':'transparent'}; color:${hMode==='pl'?'var(--txt)':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
+  </div>
+  
+  <div class="card" style="padding:16px 12px 12px">
+    ${lc(r.length>=2?r:[{t:Date.now(),v:0,pl:0},{t:Date.now(),v:0,pl:0}], hMode, 300, 180)}
+  </div>`;
   
   if(D.sales&&D.sales.length){
-    h+=`<div class="card"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
+    h+=`<div class="card" style="margin-top:16px"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
     [...D.sales].reverse().forEach((s,i)=>{
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
         <div><div style="font-size:13px;font-weight:700">${s.ticker}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche}</div></div>
