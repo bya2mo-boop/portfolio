@@ -540,7 +540,7 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
 
-  // 🔥 Worker Cloudflare avec encodeURIComponent sécurisé 🔥
+  // 🔥 Worker Cloudflare Proxy avec encodage sécurisé 🔥
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
 
   try {
@@ -615,7 +615,7 @@ async function refreshPrices(){
       }));
     }catch(e){console.log("EU stocks fail:",e)}
 
-    try{const r=await fetchEurUsd();if(r)nd.eurUsd=Math.round(r*10000)/10000}catch{}
+    try{const r=await fetch( "https://api.exchangerate-api.com/v4/latest/EUR").then(res=>res.json());if(r&&r.rates?.USD)nd.eurUsd=Math.round(r.rates.USD*10000)/10000}catch{}
 
     try{
       const gp=await fetchGold();
@@ -660,11 +660,11 @@ async function init(){
     try{
       const { data: { session } } = await sb.auth.getSession();
       if(session) currentUser = session.user;
-    }catch(e){console.error("Supabase getSession failed:", e)}
+    }catch(e){console.error("Supabase init failed:", e)}
   }
 
   if (!currentUser) {
-    R(); // Affichera l'écran de connexion bloquant
+    R(); 
     return;
   }
   
@@ -683,7 +683,7 @@ async function loadUserEnv() {
   applyMortgagePayments();
   const migrated=applyPortfolioMigrations();
   rc(D);
-  cm(); // Ferme les modales éventuelles
+  cm(); 
   R();
   
   if (!pulled) {
@@ -777,10 +777,9 @@ function updateCountdown(){
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
 }
 
-// ══════════════ GRAPHIQUES & DONUT (NOUVEAU MOTEUR) ══════════════
+// ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// Moteur de graphique Ninja (Robinhood Style)
 function lc(data, k, w=300, h=160) {
   if(data.length<2) return`<div style="text-align:center;color:var(--dim);padding:40px 0;font-size:12px">Données insuffisantes</div>`;
   
@@ -788,11 +787,9 @@ function lc(data, k, w=300, h=160) {
   let mn = Math.min(...vs), mx = Math.max(...vs);
   if (mn === mx) { mn -= 1; mx += 1; }
   
-  // Padding Y pour que la courbe respire (10% en haut et en bas)
   const pad = (mx - mn) * 0.1; 
   const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
   
-  // Marges internes du SVG
   const pdX = 0, pt = 38, pb = 20; 
   const cw = w - pdX * 2, ch = h - pt - pb; 
   
@@ -800,7 +797,6 @@ function lc(data, k, w=300, h=160) {
   const diff = endVal - startVal;
   const isPos = diff >= 0;
   
-  // Couleur dynamique : Vert si gain sur la période, Rouge si perte
   const col = isPos ? "#34d399" : "#f87171"; 
 
   let ptLine="", ptArea="";
@@ -816,16 +812,15 @@ function lc(data, k, w=300, h=160) {
   const diffPct = startVal !== 0 ? (diff / Math.abs(startVal) * 100) : 0;
   const diffSign = isPos ? "+" : "";
   
-  // Formatage de la date (Affiche l'heure si aujourd'hui, sinon la date JJ/MM)
   const formatT = (ms) => {
     if(!ms) return "";
     const d = new Date(ms), nw = new Date();
-    if(d.getDate() === nw.getDate() && d.getMonth() === nw.getMonth()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
     return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
   };
 
   const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
-  const uid = Math.random().toString(36).substring(2,9); // ID unique pour le gradient
+  const uid = Math.random().toString(36).substring(2,9); 
 
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block">
     <defs>
@@ -1297,13 +1292,35 @@ const sc2=d.ap.map(p=>{
   return{...p,sc:res.score,crit:res.crit};
 }).sort((a,b)=>b.sc-a.sc);
 
-const pocheScores=Object.entries(D.poches).map(([n,p])=>{const sc=parseFloat(String(p.sante||5).replace(',','.'));const cl=sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)";return{n,sc,cl,val:p.valeur};}).sort((a,b)=>b.sc-a.sc);
-const avgScore=pocheScores.length?pocheScores.reduce((s,x)=>s+x.sc,0)/pocheScores.length:5;
-const avgCl=avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
+// 🔥 MOYENNE PONDÉRÉE DU SCORE GLOBAL 🔥
+const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
+const pocheScores = activePoches.map(([n,p]) => {
+  const sc = parseFloat(String(p.sante||5).replace(',','.'));
+  const cl = sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)";
+  return {n, sc, cl, val: p.valeur};
+}).sort((a,b) => b.sc-a.sc);
+
+const totalActiveVal = activePoches.reduce((s, [n,p]) => s + p.valeur, 0);
+let avgScore = 5;
+if (totalActiveVal > 0) {
+  avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0);
+} else if (pocheScores.length > 0) {
+  avgScore = pocheScores.reduce((s,x) => s + x.sc, 0) / pocheScores.length;
+}
+const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
+
+// 🔥 FILTRAGE MONTH-TO-DATE (MTD) 🔥
+const startOfM = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
+let filteredH = H.filter(x => x.t >= startOfM);
+if(filteredH.length < 2) {
+  const baseV = filteredH.length ? filteredH[0].v : d.tN;
+  filteredH = [{t: startOfM, v: baseV}, {t: Date.now(), v: d.tN}];
+}
+
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
 <div class="card" style="margin-bottom:10px">
-  <div class="section">Évolution récente</div>
-  ${lc(H.slice(-30).length>=2?H.slice(-30):[{t:Date.now(),v:0},{t:Date.now(),v:0}],"v",300,160)}
+  <div class="section">Évolution ce mois-ci</div>
+  ${lc(filteredH, "v", 300, 160)}
 </div>
 <div class="card" style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
