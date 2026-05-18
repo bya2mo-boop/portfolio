@@ -39,6 +39,10 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .fade{animation:fu .3s ease both}.blink{animation:bl 2s infinite}
 .spin{animation:sp 1s linear infinite;display:inline-block}
 
+/* Scroll horizontal invisible pour les boutons de filtre */
+.hide-scroll { -ms-overflow-style: none; scrollbar-width: none; white-space: nowrap; overflow-x: auto; }
+.hide-scroll::-webkit-scrollbar { display: none; }
+
 /* STYLE GÉNÉRATEUR PDF PROFESSIONNEL */
 #print-report { display: none; }
 @media print {
@@ -122,7 +126,7 @@ const DEF = {
 };
 
 // ══════════════ STATE ══════════════
-let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v";
+let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v";
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 
@@ -195,9 +199,9 @@ function downsampleH(){
   const mid=H.filter(x=>now-x.t>=D7&&now-x.t<D30);
   const old=H.filter(x=>now-x.t>=D30);
   const midMap={};
-  mid.forEach(x=>{const k=new Date(x.t).toISOString().slice(0,10);midMap[k]=x});
+  mid.forEach(x=>{const k=new Date(x.t).toISOString().slice(0,10);if(!midMap[k])midMap[k]=x;else Object.assign(midMap[k], x);});
   const oldMap={};
-  old.forEach(x=>{const d=new Date(x.t);const wk=`${d.getFullYear()}-W${String(Math.ceil((d-new Date(d.getFullYear(),0,1))/604800000)).padStart(2,"0")}`;oldMap[wk]=x});
+  old.forEach(x=>{const d=new Date(x.t);const wk=`${d.getFullYear()}-W${String(Math.ceil((d-new Date(d.getFullYear(),0,1))/604800000)).padStart(2,"0")}`;if(!oldMap[wk])oldMap[wk]=x;else Object.assign(oldMap[wk], x);});
   H=[...Object.values(oldMap),...Object.values(midMap),...recent].sort((a,b)=>a.t-b.t);
 }
 
@@ -244,6 +248,29 @@ function rc(d){
   return d;
 }
 
+// ══════════════ UTILS POUR LES FILTRES DE TEMPS ══════════════
+function getCutoffs() {
+   const nowD = new Date();
+   const now = nowD.getTime();
+   const day = nowD.getDay();
+   const diffDate = nowD.getDate() - day + (day === 0 ? -6 : 1);
+   const wtd = new Date(nowD.getFullYear(), nowD.getMonth(), diffDate).getTime();
+   const mtd = new Date(nowD.getFullYear(), nowD.getMonth(), 1).getTime();
+   const ytd = new Date(nowD.getFullYear(), 0, 1).getTime();
+   return { "1s":now-7*86400000, "wtd":wtd, "1m":now-30*86400000, "mtd":mtd, "1a":now-365*86400000, "ytd":ytd, "tout":0 };
+}
+
+function makeBtns(opts, active, fn, bdrBottom=false) {
+   return `<div class="hide-scroll" style="display:flex; gap:6px; padding-bottom:${bdrBottom?'8px':'4px'}; margin-bottom:${bdrBottom?'8px':'12px'}; ${bdrBottom?'border-bottom:1px solid var(--bdr);':''}">` + 
+   opts.map(o => {
+     const ac = active === o.v;
+     const bg = ac ? "var(--acc)" : "transparent";
+     const co = ac ? "#fff" : "var(--dim)";
+     const bd = ac ? "var(--acc)" : "var(--bdr)";
+     return `<button onclick="${fn}('${o.v}')" style="padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${bd}; background:${bg}; color:${co}; transition:all 0.2s; flex-shrink:0;">${esc(o.l)}</button>`;
+   }).join("") + `</div>`;
+}
+
 // ══════════════ SUPABASE SYNC ══════════════
 let _isSyncing=false;
 let _syncPending=false;
@@ -271,10 +298,7 @@ async function pullFromSupabase() {
       immobilier: pf.immobilier || {},
       sales: pf.sales || [],
       poches: {},
-      migV2: localD.migV2,
-      migV3: localD.migV3,
-      migV4: localD.migV4,
-      migV5: localD.migV5
+      migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5
     };
 
     const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
@@ -285,18 +309,11 @@ async function pullFromSupabase() {
         if (!newD.poches[pos.poche]) {
           newD.poches[pos.poche] = {sante: "5,0", positions: []};
         }
-        
         const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
         
         newD.poches[pos.poche].positions.push({
-          ticker: pos.ticker,
-          titre: pos.titre,
-          qty: pos.qty,
-          pru: pos.pru,
-          cours: pos.cours,
-          cible: pos.cible,
-          sector: pos.sector,
-          dividend: pos.dividend,
+          ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru, cours: pos.cours,
+          cible: pos.cible, sector: pos.sector, dividend: pos.dividend,
           cours7j: oldPos ? oldPos.cours7j : pos.cours,
           cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(),
           lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
@@ -306,15 +323,8 @@ async function pullFromSupabase() {
       });
     }
 
-    D = newD;
-    H = pf.hist || [];
-    st.sync = true;
-    return true;
-  } catch(e) {
-    console.error("pullFromSupabase:", e);
-    st.sync = false;
-    return false;
-  }
+    D = newD; H = pf.hist || []; st.sync = true; return true;
+  } catch(e) { console.error("pullFromSupabase:", e); st.sync = false; return false; }
 }
 
 async function pushToSupabase() {
@@ -324,12 +334,8 @@ async function pushToSupabase() {
   let ok=false;
   try{
     const { error: pfErr } = await sb.from('portfolios').update({
-      cash: D.cash || 0,
-      eur_usd: D.eurUsd || 1.1,
-      immobilier: D.immobilier || {},
-      target_alloc: D.targetAlloc || {},
-      sales: D.sales || [],
-      hist: H.slice(-1000)
+      cash: D.cash || 0, eur_usd: D.eurUsd || 1.1, immobilier: D.immobilier || {},
+      target_alloc: D.targetAlloc || {}, sales: D.sales || [], hist: H.slice(-1000)
     }).eq('id', window.currentPfId);
     
     if(pfErr) throw pfErr;
@@ -337,49 +343,31 @@ async function pushToSupabase() {
     const { data: dbPos, error: fetchErr } = await sb.from('positions').select('id, poche, ticker').eq('portfolio_id', window.currentPfId);
     if(fetchErr) throw fetchErr;
 
-    let toUpdate = [];
-    let toInsert = [];
-    let keptIds = new Set();
+    let toUpdate = []; let toInsert = []; let keptIds = new Set();
 
     Object.entries(D.poches).forEach(([pocheName, p]) => {
       p.positions.forEach(pos => {
         const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
         const payload = {
-          portfolio_id: window.currentPfId,
-          poche: pocheName,
-          ticker: pos.ticker,
-          titre: pos.titre,
-          qty: pos.qty,
-          pru: pos.pru,
-          cours: pos.cours,
-          cible: pos.cible || null,
-          sector: pos.sector || null,
-          dividend: pos.dividend || null
+          portfolio_id: window.currentPfId, poche: pocheName, ticker: pos.ticker, titre: pos.titre,
+          qty: pos.qty, pru: pos.pru, cours: pos.cours, cible: pos.cible || null,
+          sector: pos.sector || null, dividend: pos.dividend || null
         };
-        if(dbMatch) {
-          toUpdate.push({ id: dbMatch.id, ...payload });
-          keptIds.add(dbMatch.id);
-        } else {
-          toInsert.push(payload);
-        }
+        if(dbMatch) { toUpdate.push({ id: dbMatch.id, ...payload }); keptIds.add(dbMatch.id); } 
+        else { toInsert.push(payload); }
       });
     });
 
     const idsToDelete = dbPos.filter(x => !keptIds.has(x.id)).map(x => x.id);
-    
     if(idsToDelete.length > 0) await sb.from('positions').delete().in('id', idsToDelete);
     if(toInsert.length > 0) await sb.from('positions').insert(toInsert);
     for(const item of toUpdate) {
         const { id, ...data } = item;
         await sb.from('positions').update(data).eq('id', id);
     }
-
     st.sync=true; ok=true;
   }catch(e){console.error("pushToSupabase:",e);st.sync=false}
-  finally{
-    _isSyncing=false;
-    R();
-  }
+  finally{ _isSyncing=false; R(); }
   if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
   return ok;
 }
@@ -405,33 +393,19 @@ async function migrateToSupabase() {
     }
 
     const { data: newPf, error: insertErr } = await sb.from('portfolios').insert([{
-      user_id: currentUser.id,
-      cash: D.cash || 0,
-      eur_usd: D.eurUsd || 1.1,
-      immobilier: D.immobilier || {},
-      target_alloc: D.targetAlloc || {},
-      sales: D.sales || [],
-      hist: H || []
+      user_id: currentUser.id, cash: D.cash || 0, eur_usd: D.eurUsd || 1.1,
+      immobilier: D.immobilier || {}, target_alloc: D.targetAlloc || {}, sales: D.sales || [], hist: H || []
     }]).select();
     
     if (insertErr) throw insertErr;
-    const pfId = newPf[0].id;
-    window.currentPfId = pfId;
+    const pfId = newPf[0].id; window.currentPfId = pfId;
 
     const posToInsert = [];
     Object.entries(D.poches).forEach(([pocheName, p]) => {
       p.positions.forEach(pos => {
         posToInsert.push({
-          portfolio_id: pfId,
-          poche: pocheName,
-          ticker: pos.ticker,
-          titre: pos.titre,
-          qty: pos.qty,
-          pru: pos.pru,
-          cours: pos.cours,
-          cible: pos.cible || null,
-          sector: pos.sector || null,
-          dividend: pos.dividend || null
+          portfolio_id: pfId, poche: pocheName, ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru,
+          cours: pos.cours, cible: pos.cible || null, sector: pos.sector || null, dividend: pos.dividend || null
         });
       });
     });
@@ -440,12 +414,8 @@ async function migrateToSupabase() {
       const { error: posErr } = await sb.from('positions').insert(posToInsert);
       if (posErr) throw posErr;
     }
-
     localStorage.setItem('sb-migrated-'+currentUser.id, 'true');
-    
-  } catch (err) {
-    console.error("Migration error:", err);
-  }
+  } catch (err) { console.error("Migration error:", err); }
 }
 
 const saveLocal=()=>{
@@ -454,10 +424,7 @@ const saveLocal=()=>{
     localStorage.setItem("pf-data-"+currentUser.id,JSON.stringify(D));
     localStorage.setItem("pf-hist-"+currentUser.id,JSON.stringify(H.slice(-1000)));
     st.localOk=true;
-  }catch(e){
-    console.error("LocalStorage save failed:",e);
-    st.localOk=false;
-  }
+  }catch(e){console.error("LocalStorage save failed:",e);st.localOk=false;}
 };
 
 const loadLocal=()=>{
@@ -473,8 +440,7 @@ async function save(){rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
 
 // ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
-  const ids=Object.values(CG).join(",");
-  const got={};
+  const ids=Object.values(CG).join(","); const got={};
   try{
     const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
     if(!r.ok)throw new Error("CG "+r.status);
@@ -485,24 +451,12 @@ async function fetchCrypto(){
   const COINBASE={SOL:"SOL-USD",BTC:"BTC-USD"};
   for(const [tkr,pair] of Object.entries(COINBASE)){
     if(got[tkr])continue;
-    try{
-      const r=await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
-      if(r.ok){
-        const j=await r.json();
-        if(j.price)got[tkr]=parseFloat(j.price);
-      }
-    }catch(e){}
+    try{ const r=await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`); if(r.ok){ const j=await r.json(); if(j.price)got[tkr]=parseFloat(j.price); } }catch(e){}
   }
   const BINANCE={SOL:"SOLUSDT",BTC:"BTCUSDT",HYPE:"HYPEUSDT"};
   for(const [tkr,sym] of Object.entries(BINANCE)){
     if(got[tkr])continue;
-    try{
-      const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`);
-      if(r.ok){
-        const j=await r.json();
-        if(j.price)got[tkr]=parseFloat(j.price);
-      }
-    }catch(e){}
+    try{ const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`); if(r.ok){ const j=await r.json(); if(j.price)got[tkr]=parseFloat(j.price); } }catch(e){}
   }
   return got;
 }
@@ -511,19 +465,11 @@ async function fetchStocks(){
   const tickers=new Set();
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
     const cur=pos.currency||CUR[pos.ticker];
-    if(cur==="USD"&&!pos.ticker.includes(".")&&!CG[pos.ticker]&&pos.ticker!=="50PESO"){
-      tickers.add(pos.ticker);
-    }
+    if(cur==="USD"&&!pos.ticker.includes(".")&&!CG[pos.ticker]&&pos.ticker!=="50PESO") tickers.add(pos.ticker);
   }));
   const p={};
   for(const tkr of tickers){
-    try{
-      const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${tkr}&token=${API_KEYS.FINNHUB}`);
-      if(r.ok){
-        const j=await r.json();
-        if(j.c&&j.c>0)p[tkr]=j.c;
-      }
-    }catch(e){}
+    try{ const r=await fetch(`https://finnhub.io/api/v1/quote?symbol=${tkr}&token=${API_KEYS.FINNHUB}`); if(r.ok){ const j=await r.json(); if(j.c&&j.c>0)p[tkr]=j.c; } }catch(e){}
     await new Promise(res=>setTimeout(res,100));
   }
   return p;
@@ -533,15 +479,13 @@ async function fetchEuStocks(){
   const KNOWN_EU={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA"};
   const tickerMap={};
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
-    if(pos.avSymbol){tickerMap[pos.ticker]=pos.avSymbol}
-    else if(KNOWN_EU[pos.ticker]){tickerMap[pos.ticker]=KNOWN_EU[pos.ticker]}
+    if(pos.avSymbol){tickerMap[pos.ticker]=pos.avSymbol} else if(KNOWN_EU[pos.ticker]){tickerMap[pos.ticker]=KNOWN_EU[pos.ticker]}
   }));
   const symbols = Object.values(tickerMap).join(',');
   if(!symbols) return {};
   const p={};
 
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
-
   try {
     const r = await fetch(targetUrl);
     if(r.ok) {
@@ -558,10 +502,7 @@ async function fetchEuStocks(){
 }
 
 async function fetchEurUsd(){
-  try{
-    const r=await fetch("https://api.exchangerate-api.com/v4/latest/EUR");
-    if(r.ok){const j=await r.json();return j.rates?.USD}
-  }catch{}
+  try{ const r=await fetch("https://api.exchangerate-api.com/v4/latest/EUR"); if(r.ok){const j=await r.json();return j.rates?.USD} }catch{}
   return null;
 }
 
@@ -571,9 +512,7 @@ async function fetchGold(){
     if(r.ok){
       const j=await r.json();
       if(j.price){
-        const usdPerOz=j.price;
-        const eurUsd=D.eurUsd||1.1;
-        const eurPerCoin=(usdPerOz*1.2056)/eurUsd;
+        const usdPerOz=j.price; const eurUsd=D.eurUsd||1.1; const eurPerCoin=(usdPerOz*1.2056)/eurUsd;
         return Math.round(eurPerCoin);
       }
     }
@@ -583,90 +522,50 @@ async function fetchGold(){
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
-  st.loading=true;
-  st.loadingSince=Date.now();
-  R();
+  st.loading=true; st.loadingSince=Date.now(); R();
   const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
-  let cnt=0,ok=false;
-  const nowMs = Date.now();
+  let cnt=0,ok=false; const nowMs = Date.now();
 
   try{
     const nd=JSON.parse(JSON.stringify(D));
 
-    try{
-      const cp=await fetchCrypto();
-      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker]; p.lastUpd=nowMs; cnt++}});
-      ok=true;
-    }catch(e){}
-
-    try{
-      const sp=await fetchStocks();
-      Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-        if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker]; pos.lastUpd=nowMs; cnt++}
-      }));
-      ok=true;
-    }catch(e){}
-
-    try{
-      const eup=await fetchEuStocks();
-      Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-        if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker]; pos.lastUpd=nowMs; cnt++}
-      }));
-    }catch(e){console.log("EU stocks fail:",e)}
-
-    try{const r=await fetch( "https://api.exchangerate-api.com/v4/latest/EUR").then(res=>res.json());if(r&&r.rates?.USD)nd.eurUsd=Math.round(r.rates.USD*10000)/10000}catch{}
-
-    try{
-      const gp=await fetchGold();
-      if(gp&&nd.poches["Métaux"]){
-        const coin=nd.poches["Métaux"].positions.find(p=>p.ticker==="50PESO");
-        if(coin){coin.cours=gp; coin.lastUpd=nowMs; cnt++}
-      }
-    }catch{}
+    try{ const cp=await fetchCrypto(); if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker]; p.lastUpd=nowMs; cnt++}}); ok=true; }catch(e){}
+    try{ const sp=await fetchStocks(); Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{ if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker]; pos.lastUpd=nowMs; cnt++} })); ok=true; }catch(e){}
+    try{ const eup=await fetchEuStocks(); Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{ if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker]; pos.lastUpd=nowMs; cnt++} })); }catch(e){console.log("EU stocks fail:",e)}
+    try{ const r=await fetch( "https://api.exchangerate-api.com/v4/latest/EUR").then(res=>res.json());if(r&&r.rates?.USD)nd.eurUsd=Math.round(r.rates.USD*10000)/10000 }catch{}
+    try{ const gp=await fetchGold(); if(gp&&nd.poches["Métaux"]){ const coin=nd.poches["Métaux"].positions.find(p=>p.ticker==="50PESO"); if(coin){coin.cours=gp; coin.lastUpd=nowMs; cnt++} } }catch{}
 
     Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-      if(!pos.cours7jDate||(Date.now()-pos.cours7jDate)>7*86400000){
-        pos.cours7j=pos.cours;
-        pos.cours7jDate=Date.now();
-      }
+      if(!pos.cours7jDate||(Date.now()-pos.cours7jDate)>7*86400000){ pos.cours7j=pos.cours; pos.cours7jDate=Date.now(); }
     }));
 
     D=rc(nd);
     const now=new Date();
     const ts=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    st.lastUp=ts;st.ok=ok;st.count=cnt;
+    st.lastUp=ts; st.ok=ok; st.count=cnt;
 
-    const tv=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash;
-    const tp=Object.values(D.poches).reduce((s,p)=>s+p.pl,0);
-    H.push({t:now.getTime(),v:Math.round(tv),pl:Math.round(tp),h:ts.slice(0,5)});
+    const immoEq = nd.immobilier ? nd.immobilier.equityNette || 0 : 0;
+    const tv = Object.values(nd.poches).reduce((s,p)=>s+p.valeur,0) + nd.cash + immoEq;
+    const tp = Object.values(nd.poches).reduce((s,p)=>s+p.pl,0);
+    
+    const envData = { "Cash": Math.round(nd.cash), "Immobilier": Math.round(immoEq) };
+    Object.entries(nd.poches).forEach(([n,p]) => { envData[n] = Math.round(p.valeur); });
+    
+    H.push({t:now.getTime(), v:Math.round(tv), pl:Math.round(tp), h:ts.slice(0,5), env: envData});
+    
     downsampleH();
     if(H.length>1000)H=H.slice(-1000);
 
     saveLocal();
     if(currentUser) pushToSupabase();
   }catch(e){console.error(e)}
-  finally{
-    clearTimeout(_rpTimeout);
-    st.loading=false;
-    cd=900;
-    R();
-  }
+  finally{ clearTimeout(_rpTimeout); st.loading=false; cd=900; R(); }
 }
 
 // ══════════════ INIT & AUTH ══════════════
 async function init(){
-  if(sb){
-    try{
-      const { data: { session } } = await sb.auth.getSession();
-      if(session) currentUser = session.user;
-    }catch(e){console.error("Supabase init failed:", e)}
-  }
-
-  if (!currentUser) {
-    R(); 
-    return;
-  }
-  
+  if(sb){ try{ const { data: { session } } = await sb.auth.getSession(); if(session) currentUser = session.user; }catch(e){console.error("Supabase init failed:", e)} }
+  if (!currentUser) { R(); return; }
   await loadUserEnv();
 }
 
@@ -674,24 +573,14 @@ async function loadUserEnv() {
   const loc = loadLocal();
   let pulled = await pullFromSupabase();
   
-  if(!pulled){
-    if(loc.D){D=loc.D;H=loc.H||[]}
-    else{D=JSON.parse(JSON.stringify(DEF));H=[]}
-  }
+  if(!pulled){ if(loc.D){D=loc.D;H=loc.H||[]} else{D=JSON.parse(JSON.stringify(DEF));H=[]} }
 
   applyMortgagePayments();
   const migrated=applyPortfolioMigrations();
-  rc(D);
-  cm(); 
-  R();
+  rc(D); cm(); R();
   
-  if (!pulled) {
-    await migrateToSupabase();
-  }
-
-  if(migrated || !pulled) {
-     pushToSupabase();
-  }
+  if (!pulled) { await migrateToSupabase(); }
+  if(migrated || !pulled) { pushToSupabase(); }
 
   refreshPrices();
   if(!window._intervalsSet) {
@@ -709,31 +598,21 @@ function applyPortfolioMigrations(){
   let changed=false;
   if(!D.migV2){
     if(!D.sales)D.sales=[];
-    if(!D.sales.some(s=>s.ticker==="CDC-D"&&Math.abs(s.qty-141.13)<0.01)){
-      D.sales.push({date:"2026-04-24",poche:"PEE",ticker:"CDC-D",titre:"CDC Diversifié ISR",qty:141.13,pru:6.40,net:1807.40,brut:1909.24,pl:904.17});
-    }
+    if(!D.sales.some(s=>s.ticker==="CDC-D"&&Math.abs(s.qty-141.13)<0.01)){ D.sales.push({date:"2026-04-24",poche:"PEE",ticker:"CDC-D",titre:"CDC Diversifié ISR",qty:141.13,pru:6.40,net:1807.40,brut:1909.24,pl:904.17}); }
     D.migV2=true; changed=true;
   }
   if(!D.migV3){
     if(!D.sales)D.sales=[];
-    if(!D.sales.some(s=>s.ticker==="HIST-2025")){
-      D.sales.push({date:"2025-12-31",poche:"Historique",ticker:"HIST-2025",titre:"P&L réalisé 2025",qty:1,pru:0,net:722.40,brut:722.40,pl:722.40});
-    }
+    if(!D.sales.some(s=>s.ticker==="HIST-2025")){ D.sales.push({date:"2025-12-31",poche:"Historique",ticker:"HIST-2025",titre:"P&L réalisé 2025",qty:1,pru:0,net:722.40,brut:722.40,pl:722.40}); }
     D.migV3=true; changed=true;
   }
   if(!D.migV4){
-    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
-      if(!pos.sector&&SECTORS[pos.ticker])pos.sector=SECTORS[pos.ticker];
-      if(!pos.dividend&&DIVS[pos.ticker])pos.dividend=DIVS[pos.ticker];
-    }));
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.sector&&SECTORS[pos.ticker])pos.sector=SECTORS[pos.ticker]; if(!pos.dividend&&DIVS[pos.ticker])pos.dividend=DIVS[pos.ticker]; }));
     D.migV4=true;changed=true;
   }
   if(!D.migV5){
     const now=Date.now();
-    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
-      if(!pos.lastUpd)pos.lastUpd=now;
-      if(!pos.cours7j&&pos.cours){pos.cours7j=pos.cours;pos.cours7jDate=now;}
-    }));
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.lastUpd)pos.lastUpd=now; if(!pos.cours7j&&pos.cours){pos.cours7j=pos.cours;pos.cours7jDate=now;} }));
     D.migV5=true;changed=true;
   }
   return changed;
@@ -742,20 +621,15 @@ function applyPortfolioMigrations(){
 function applyMortgagePayments(){
   if(!D||!D.immobilier)return false;
   if(D.immobilier.valeurEstimee === 0) return false; 
-  
-  if(!D.immobilier.mortgage){
-    D.immobilier.mortgage={ptzCapital:29514.90,ptzMensualite:104.30,mainCapital:122238.00,mainMensualite:654.65,mainTaux:0.038,lastPayment:"2026-04-01"};
-  }
+  if(!D.immobilier.mortgage){ D.immobilier.mortgage={ptzCapital:29514.90,ptzMensualite:104.30,mainCapital:122238.00,mainMensualite:654.65,mainTaux:0.038,lastPayment:"2026-04-01"}; }
   const m=D.immobilier.mortgage;
   const now=new Date();
   const parts=String(m.lastPayment||"").split("-").map(Number);
   const last=parts.length===3?new Date(parts[0],parts[1]-1,parts[2]):new Date(NaN);
   if(isNaN(last.getTime())){m.lastPayment=now.toISOString().slice(0,10);return false;}
-  let applied=false;
-  let safety=0; 
+  let applied=false; let safety=0; 
   while(safety<600){
-    safety++;
-    const next=new Date(last.getFullYear(),last.getMonth()+1,1);
+    safety++; const next=new Date(last.getFullYear(),last.getMonth()+1,1);
     if(isNaN(next.getTime())||next>now)break;
     const ptzPay=Math.min(m.ptzMensualite,m.ptzCapital);
     m.ptzCapital=Math.max(0,m.ptzCapital-ptzPay);
@@ -764,9 +638,7 @@ function applyMortgagePayments(){
     m.mainCapital=Math.max(0,m.mainCapital-capitalPart);
     D.immobilier.capitalRestant=Math.round((m.ptzCapital+m.mainCapital)*100)/100;
     const yy=next.getFullYear(),mm=String(next.getMonth()+1).padStart(2,"0"),dd=String(next.getDate()).padStart(2,"0");
-    m.lastPayment=`${yy}-${mm}-${dd}`;
-    last.setTime(next.getTime());
-    applied=true;
+    m.lastPayment=`${yy}-${mm}-${dd}`; last.setTime(next.getTime()); applied=true;
   }
   return applied;
 }
@@ -776,11 +648,23 @@ function updateCountdown(){
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
 }
 
-// ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
+// ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
+// Moteur de Graphique Ninja avec message d'attente
 function lc(data, k, w=300, h=180) {
-  if(data.length<2) return`<div style="text-align:center;color:var(--dim);padding:40px 0;font-size:12px">Données insuffisantes</div>`;
+  const endVal = data.length > 0 ? data[data.length-1][k] : 0;
+
+  // Si on n'a pas au moins 2 points (l'état initial), on affiche un message propre et on cache la ligne
+  if(data.length < 2) {
+    return `<div style="height:${h}px; position:relative; display:flex; flex-direction:column;">
+      <div class="mono" style="font-size:16px; font-weight:bold; color:var(--txt); padding-top:14px;">${fmt_(endVal)}</div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--mut); font-size:11px; text-align:center; padding-bottom:10px;">
+        <div style="font-size:20px; margin-bottom:8px; opacity:0.5;">📈</div>
+        Acquisition en cours...<br>La courbe apparaîtra au prochain relevé.
+      </div>
+    </div>`;
+  }
   
   const vs = data.map(d=>d[k]);
   let mn = Math.min(...vs), mx = Math.max(...vs);
@@ -789,10 +673,10 @@ function lc(data, k, w=300, h=180) {
   const pad = (mx - mn) * 0.1; 
   const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
   
-  const pdX = 0, pt = 38, pb = 20; 
+  const pdX = 0, pt = 42, pb = 20; 
   const cw = w - pdX * 2, ch = h - pt - pb; 
   
-  const startVal = vs[0], endVal = vs[vs.length-1];
+  const startVal = vs[0];
   const diff = endVal - startVal;
   const isPos = diff >= 0;
   
@@ -814,8 +698,8 @@ function lc(data, k, w=300, h=180) {
   const formatT = (ms) => {
     if(!ms) return "";
     const d = new Date(ms), nw = new Date();
-    if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
+    if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth() && d.getFullYear()===nw.getFullYear()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:d.getFullYear()!==nw.getFullYear()?"2-digit":undefined});
   };
 
   const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
@@ -829,8 +713,8 @@ function lc(data, k, w=300, h=180) {
       </linearGradient>
     </defs>
     
-    <text x="0" y="12" font-size="14" font-weight="bold" fill="var(--txt)" font-family="monospace">${fmt_(endVal)}</text>
-    <text x="0" y="27" font-size="11" font-weight="600" fill="${col}" font-family="monospace">${diffSign}${fmt_(diff)} (${diffSign}${diffPct.toFixed(1)}%)</text>
+    <text x="0" y="14" font-size="16" font-weight="bold" fill="var(--txt)" font-family="monospace">${fmt_(endVal)}</text>
+    <text x="0" y="32" font-size="12" font-weight="600" fill="${col}" font-family="monospace">${diffSign}${fmt_(diff)} (${diffSign}${diffPct.toFixed(1)}%)</text>
     
     <line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
     <line x1="0" y1="${pt+ch}" x2="${w}" y2="${pt+ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
@@ -1235,7 +1119,7 @@ document.querySelector('.nav').style.display = 'block';
 if(!D)return;
 const d=ga();const $=document.getElementById("app");let h="";
 
-// Status bar + Bouton paramètre
+// Status bar
 h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
   <div style="display:flex;align-items:center;gap:6px">
     <div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div>
@@ -1286,44 +1170,45 @@ h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-i
 h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une position</div></div>`;}
 
 if(tab==="analyse"){const d=ga();
+const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
+
+// Filtrage pour le graphique de l'onglet Analyse
+let r = H.filter(x => x.t >= cut);
+let chartData = [];
+if(aEnvSel !== "tout") {
+  chartData = r.map(x => ({ t: x.t, v: x.env && x.env[aEnvSel] !== undefined ? x.env[aEnvSel] : null })).filter(x => x.v !== null);
+  if(chartData.length === 0) {
+    const immoEq = D.immobilier ? D.immobilier.equityNette || 0 : 0;
+    const val = aEnvSel === "Cash" ? D.cash : (aEnvSel === "Immobilier" ? immoEq : (D.poches[aEnvSel] ? D.poches[aEnvSel].valeur : 0));
+    chartData = [{t: Date.now(), v: val}];
+  }
+} else {
+  chartData = [...r];
+  if(chartData.length === 0) chartData = [{t: Date.now(), v: d.tN}];
+}
+
+const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+const envOpts = [{v:"tout", l:"TOUT"}, {v:"Cash", l:"CASH"}, {v:"Immobilier", l:"IMMO"}, ...Object.keys(D.poches).map(k=>({v:k, l:k.toUpperCase()}))];
+
 const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
 const cm_={EUR:D.cash,USD:0};d.ap.forEach(p=>{const c=CUR[p.ticker]||"EUR";cm_[c]=(cm_[c]||0)+p.valeur});const cdat=Object.entries(cm_).map(([n,v])=>[n,Math.round(v)]);const ct=cdat.reduce((s,x)=>s+x[1],0)||1;
 const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/d.tF*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
 const dp=d.ap.map(p=>{const dv=p.dividend||DIVS[p.ticker]||0;return{...p,dv,dt:p.qty*dv,yd:p.cours>0?dv/p.cours*100:0}}).filter(p=>p.dv>0);const td=dp.reduce((s,p)=>s+p.dt,0);
-const sc2=d.ap.map(p=>{
-  if(p._score!=null&&p._crit!=null)return{...p,sc:p._score,crit:p._crit};
-  const res=scorePos(p,"");
-  return{...p,sc:res.score,crit:res.crit};
-}).sort((a,b)=>b.sc-a.sc);
+const sc2=d.ap.map(p=>{ if(p._score!=null&&p._crit!=null)return{...p,sc:p._score,crit:p._crit}; const res=scorePos(p,""); return{...p,sc:res.score,crit:res.crit}; }).sort((a,b)=>b.sc-a.sc);
 
 const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
-const pocheScores = activePoches.map(([n,p]) => {
-  const sc = parseFloat(String(p.sante||5).replace(',','.'));
-  const cl = sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)";
-  return {n, sc, cl, val: p.valeur};
-}).sort((a,b) => b.sc-a.sc);
-
+const pocheScores = activePoches.map(([n,p]) => { const sc = parseFloat(String(p.sante||5).replace(',','.')); const cl = sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)"; return {n, sc, cl, val: p.valeur}; }).sort((a,b) => b.sc-a.sc);
 const totalActiveVal = activePoches.reduce((s, [n,p]) => s + p.valeur, 0);
-let avgScore = 5;
-if (totalActiveVal > 0) {
-  avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0);
-} else if (pocheScores.length > 0) {
-  avgScore = pocheScores.reduce((s,x) => s + x.sc, 0) / pocheScores.length;
-}
+let avgScore = 5; if (totalActiveVal > 0) { avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0); } else if (pocheScores.length > 0) { avgScore = pocheScores.reduce((s,x) => s + x.sc, 0) / pocheScores.length; }
 const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 
-const startOfM = new Date(new Date().getFullYear(), new Date().getMonth(), 1).getTime();
-let filteredH = H.filter(x => x.t >= startOfM);
-if(filteredH.length < 2) {
-  const baseV = filteredH.length ? filteredH[0].v : d.tN;
-  filteredH = [{t: startOfM, v: baseV}, {t: Date.now(), v: d.tN}];
-}
-
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
-<div class="card" style="margin-bottom:10px">
-  <div class="section">Évolution ce mois-ci</div>
-  ${lc(filteredH, "v", 300, 160)}
+<div class="card" style="margin-bottom:10px; padding:16px 12px 12px;">
+  ${makeBtns(timeOpts, htf, "setHtf", true)}
+  ${makeBtns(envOpts, aEnvSel, "setAEnv")}
+  ${lc(chartData, "v", 300, 160)}
 </div>
+
 <div class="card" style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
     <div class="section" style="margin:0">Score global portefeuille</div>
@@ -1379,23 +1264,22 @@ if(!d.alerts.length)h+=`<div style="text-align:center;color:var(--mut);padding:4
 h+=`</div>`;}
 
 if(tab==="history"){
-  const now=Date.now();
-  const cutoffs={"1j":now-86400000,"1s":now-604800000,"1m":now-2592000000,"3m":now-7776000000,"tout":0};
-  const cut=cutoffs[htf]||0;
-  const r=H.filter(x=>x.t>=cut);
+  const d=ga();
+  const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
   
-  const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"var(--acc)":"transparent"};color:${htf===v?"#fff":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
-  
+  let r = H.filter(x => x.t >= cut);
+  if(r.length === 0) r = [{t: Date.now(), v: d.tN, pl: d.tP}];
+
+  const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+
   h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
-  <div style="display:flex;gap:6px;margin-bottom:16px">${tfBtns}</div>
-  
-  <div style="display:flex; background:var(--card); border-radius:10px; padding:4px; margin-bottom:12px; border:1px solid var(--bdr)">
-    <button onclick="setHMode('v')" style="flex:1; padding:8px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'#2a2b38':'transparent'}; color:${hMode==='v'?'var(--txt)':'var(--dim)'}; transition:all 0.2s">Valeur Patrimoniale</button>
-    <button onclick="setHMode('pl')" style="flex:1; padding:8px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'#2a2b38':'transparent'}; color:${hMode==='pl'?'var(--txt)':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
-  </div>
-  
-  <div class="card" style="padding:16px 12px 12px">
-    ${lc(r.length>=2?r:[{t:Date.now(),v:0,pl:0},{t:Date.now(),v:0,pl:0}], hMode, 300, 180)}
+  <div class="card" style="padding:16px 12px 12px;">
+    ${makeBtns(timeOpts, htf, "setHtf", true)}
+    <div style="display:flex; background:#1a1b25; border-radius:8px; padding:4px; margin-bottom:12px;">
+      <button onclick="setHMode('v')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'var(--acc)':'transparent'}; color:${hMode==='v'?'#fff':'var(--dim)'}; transition:all 0.2s">Valeur</button>
+      <button onclick="setHMode('pl')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'var(--acc)':'transparent'}; color:${hMode==='pl'?'#fff':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
+    </div>
+    ${lc(r, hMode, 300, 180)}
   </div>`;
   
   if(D.sales&&D.sales.length){
@@ -1418,33 +1302,25 @@ document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab=
 
 window.addEventListener('popstate', (event) => {
   if (event.state) {
-    tab = event.state.tab;
-    sel = event.state.sel;
+    tab = event.state.tab; sel = event.state.sel;
   } else {
-    tab = "home";
-    sel = null;
+    tab = "home"; sel = null;
   }
   R();
 });
 
 window.gt=id=>{
   if(id==="home")sel=null;
-  tab=id;
-  history.pushState({tab: id, sel: sel}, "", `#${id}`);
-  R();
-  scrollTo(0,0);
+  tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0);
 };
 
 window.oP=n=>{
-  sel=n;
-  tab="detail";
-  history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`);
-  R();
-  scrollTo(0,0);
+  sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0);
 };
 
 window.aEnv=()=>{const n=prompt("Nom de la nouvelle enveloppe:");if(!n)return;if(D.poches[n])return alert("Existe déjà");D.poches[n]={sante:"7,0",positions:[]};save()};
 window.setHtf=v=>{htf=v;R()};
+window.setAEnv=v=>{aEnvSel=v;R()};
 window.refreshPrices=refreshPrices;
 
 // ══════════════ START ══════════════
