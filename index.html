@@ -201,7 +201,6 @@ function downsampleH(){
   H=[...Object.values(oldMap),...Object.values(midMap),...recent].sort((a,b)=>a.t-b.t);
 }
 
-// Santé: point cible retiré
 function rc(d){
   if(!d||!d.poches)return d;
   const eurUsd=d.eurUsd||1.1;
@@ -541,7 +540,7 @@ async function fetchEuStocks(){
   if(!symbols) return {};
   const p={};
 
-  // 🔥 Ton backend Cloudflare personnel, avec encodeURIComponent sécurisé 🔥
+  // 🔥 Ton backend Cloudflare personnel, fiable à 100% avec encodage sécurisé 🔥
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
 
   try {
@@ -778,10 +777,56 @@ function updateCountdown(){
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
 }
 
-// ══════════════ DONUT ══════════════
+// ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-function lc(data,k,col,w=300,h=140){if(data.length<2)return`<div style="text-align:center;color:var(--dim);padding:30px;font-size:13px">En attente…</div>`;const vs=data.map(d=>d[k]),mn=Math.min(...vs),mx=Math.max(...vs),rg=mx-mn||1,pd=20,cw=w-pd*2,ch=h-pd*2;let pt="";vs.forEach((v,i)=>{const x=pd+(i/(vs.length-1))*cw,y=pd+ch-((v-mn)/rg*ch);pt+=(i?"L":"M")+x.toFixed(1)+","+y.toFixed(1)});const z=k==="pl"?pd+ch-((0-mn)/rg*ch):"";return`<svg width="100%" viewBox="0 0 ${w} ${h}">${z?`<line x1="${pd}" y1="${z}" x2="${w-pd}" y2="${z}" stroke="var(--mut)" stroke-dasharray="3 3"/>`:""}<path d="${pt}" fill="none" stroke="${col}" stroke-width="2" stroke-linecap="round"/><text x="${pd}" y="${h-2}" font-size="9" fill="var(--mut)">${data[0].h||""}</text><text x="${w-pd}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${data[data.length-1].h||""}</text><text x="${pd}" y="${pd-4}" font-size="9" fill="var(--mut)">${fmt_(mx)}</text></svg>`;}
+function lc(data,k,col,w=300,h=140){
+  if(data.length<2)return`<div style="text-align:center;color:var(--dim);padding:40px 0;font-size:12px">Données insuffisantes</div>`;
+  const vs=data.map(d=>d[k]);
+  const mn=Math.min(...vs);
+  const mx=Math.max(...vs);
+  const rg=mx-mn||1;
+  const pd=25; 
+  const pb=20; 
+  const cw=w-pd*2;
+  const ch=h-pd-pb;
+  
+  let zeroLine="";
+  if(k==="pl" && mn<0 && mx>0){
+    const zy=pd+ch-((0-mn)/rg*ch);
+    zeroLine=`<line x1="${pd}" y1="${zy}" x2="${w-pd}" y2="${zy}" stroke="var(--mut)" stroke-dasharray="2 4" opacity="0.5"/>`;
+  }
+  
+  let pt="";
+  vs.forEach((v,i)=>{
+    const x=pd+(i/(vs.length-1))*cw;
+    const y=pd+ch-((v-mn)/rg*ch);
+    pt+=(i?"L":"M")+x.toFixed(1)+","+y.toFixed(1);
+  });
+  
+  const formatT=(ms)=>{
+    if(!ms) return "";
+    const d=new Date(ms), nw=new Date();
+    if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
+  };
+  
+  const tStart=formatT(data[0].t);
+  const tEnd=formatT(data[data.length-1].t);
+  const curVal=vs[vs.length-1];
+  const curY = pd+ch-((curVal-mn)/rg*ch);
+  
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}">
+    ${zeroLine}
+    <path d="${pt}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="${pd}" y="${pd-8}" font-size="10" fill="var(--dim)" font-family="monospace">${fmt_(mx)}</text>
+    <text x="${pd}" y="${h-pb-4}" font-size="10" fill="var(--dim)" font-family="monospace">${fmt_(mn)}</text>
+    <circle cx="${pd+cw}" cy="${curY}" r="3" fill="${col}"/>
+    <text x="${w-pd}" y="${pd-8}" font-size="11" fill="${col}" font-weight="bold" font-family="monospace" text-anchor="end">${fmt_(curVal)}</text>
+    <text x="${pd}" y="${h-4}" font-size="9" fill="var(--mut)">${tStart}</text>
+    <text x="${w-pd}" y="${h-4}" font-size="9" fill="var(--mut)" text-anchor="end">${tEnd}</text>
+  </svg>`;
+}
 
 function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
@@ -1233,7 +1278,7 @@ const avgCl=avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
 <div class="card" style="margin-bottom:10px">
   <div class="section">Évolution récente</div>
-  ${lc(H.slice(-30).length>=2?H.slice(-30):[{t:0,v:0,h:""}],"v","#6c8cff",300,80)}
+  ${lc(H.slice(-30).length>=2?H.slice(-30):[{t:Date.now(),v:0},{t:Date.now(),v:0}],"v","#6c8cff",300,120)}
 </div>
 <div class="card" style="margin-bottom:10px">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -1294,11 +1339,17 @@ if(tab==="history"){
   const cutoffs={"1j":now-86400000,"1s":now-604800000,"1m":now-2592000000,"3m":now-7776000000,"tout":0};
   const cut=cutoffs[htf]||0;
   const r=H.filter(x=>x.t>=cut);
-  const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"#6c8cff22":"transparent"};color:${htf===v?"var(--acc)":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
+  
+  // Boutons de filtre plus visibles
+  const tfBtns=["1j","1s","1m","3m","tout"].map(v=>`<button onclick="setHtf('${v}')" style="padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===v?"var(--acc)":"var(--bdr)"};background:${htf===v?"var(--acc)":"transparent"};color:${htf===v?"#fff":"var(--dim)"}">${v.toUpperCase()}</button>`).join("");
+  
+  const vCol = "#6c8cff";
+  const plCol = (r.length && r[r.length-1].pl >= 0) ? "#34d399" : "#f87171";
+
   h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
   <div style="display:flex;gap:6px;margin-bottom:12px">${tfBtns}</div>
-  <div class="card"><div class="section">Valeur</div>${lc(r.length>=2?r:[{t:0,v:0,h:""}],"v","#6c8cff",300,80)}</div>
-  <div class="card"><div class="section">P&L</div>${lc(r.length>=2?r:[{t:0,pl:0,h:""}],"pl","#34d399",300,80)}</div>`;
+  <div class="card"><div class="section">Valeur</div>${lc(r.length>=2?r:[{t:Date.now(),v:0},{t:Date.now(),v:0}],"v",vCol,300,140)}</div>
+  <div class="card"><div class="section">P&L</div>${lc(r.length>=2?r:[{t:Date.now(),pl:0},{t:Date.now(),pl:0}],"pl",plCol,300,140)}</div>`;
   
   if(D.sales&&D.sales.length){
     h+=`<div class="card"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
