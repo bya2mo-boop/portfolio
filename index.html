@@ -7,6 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Portfolio">
 <meta name="theme-color" content="#0a0b0f">
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Portfolio%22%2C%22short_name%22%3A%22Portfolio%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230a0b0f%22%2C%22theme_color%22%3A%22%230a0b0f%22%7D">
 <title>Portfolio</title>
 <style>
 :root{--bg:#0a0b0f;--card:#12131a;--bdr:#1e2030;--txt:#e8e9ed;--dim:#7a7d8e;--mut:#4a4d5e;--acc:#6c8cff;--grn:#34d399;--red:#f87171;--amb:#fbbf24}
@@ -40,8 +41,7 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; white-space: nowrap; overflow-x: auto; }
 .hide-scroll::-webkit-scrollbar { display: none; }
 
-.chart-touch { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
-
+/* STYLE GÉNÉRATEUR PDF PROFESSIONNEL */
 #print-report { display: none; }
 @media print {
     @page { margin: 1cm; size: A4 portrait; }
@@ -124,31 +124,26 @@ const DEF = {
 };
 
 // ══════════════ STATE ══════════════
-let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v";
-let benchmarkData = null; window.cashflows = [];
+let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v", benchmarkData=null;
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
+window.cashflows = [];
 
-// FIX CLAUDE #2 : Déclaration de _pendingSale en mode strict globalement
 let _pendingSale=null;
-
-// FIX CLAUDE #1 : Réintégration de la fonction sm() manquante
-function sm(h){
-  document.getElementById("modal-root").innerHTML = `<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`;
-}
+function sm(h){document.getElementById("modal-root").innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`}
 function cm(){
   if(!currentUser) return; 
   document.getElementById("modal-root").innerHTML="";
   _pendingSale=null;
 }
-window.cm=cm;
+window.cm=cm;window.pn=pn;
 
 // ══════════════ UTILS ══════════════
 const fmt_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
 const fmt2_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2}).format(n||0);
 const fP=n=>(n>0?"+":"")+(n||0).toFixed(1)+"%";
 const fL=n=>(n>=0?"+":"")+fmt_(n)+" €";
-const pn=s=>{
+function pn(s){
   const str=String(s||0).replace(/\s/g,"");
   const lastComma=str.lastIndexOf(",");
   const lastDot=str.lastIndexOf(".");
@@ -162,7 +157,7 @@ const pn=s=>{
     cleaned=str;
   }
   return parseFloat(cleaned)||0;
-};
+}
 const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=9?"s":n>=7?"a":n>=5?"b":"c"};
 const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S";if(n>=7)return"A";if(n>=5)return"B";if(n>=3)return"C";return"D"};
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
@@ -300,7 +295,7 @@ async function pullFromSupabase() {
     const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
     if (posErr) throw posErr;
 
-    // PATCH CLAUDE 1 : Récupération des Cashflows
+    // PATCH CASHFLOW : Fetch des données
     const { data: cfData, error: cfErr } = await sb.from('cashflows').select('*').eq('portfolio_id', pf.id).order('date', { ascending: true });
     if (cfErr) console.warn('cashflows fetch error', cfErr);
     window.cashflows = cfData || [];
@@ -315,8 +310,7 @@ async function pullFromSupabase() {
       immobilier: pf.immobilier || {},
       sales: pf.sales || [],
       poches: {},
-      migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5,
-      migV6: localD.migV6
+      migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6
     };
 
     const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
@@ -420,7 +414,7 @@ async function pushToSupabase() {
   }catch(e){console.error("pushToSupabase:",e);st.sync=false}
   finally{
     _isSyncing=false;
-    if(typeof R === "function") R();
+    R();
   }
   if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
   return ok;
@@ -662,11 +656,10 @@ async function fetchBenchmark(ticker = "CW8.PA") {
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
-  fetchBenchmark();
   st.loading=true;
   st.loadingSince=Date.now();
-  if(typeof R === "function") R();
-  const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;if(typeof R === "function") R();}},90000);
+  R();
+  const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
   let cnt=0,ok=false;
   const nowMs = Date.now();
 
@@ -736,11 +729,65 @@ async function refreshPrices(){
     clearTimeout(_rpTimeout);
     st.loading=false;
     cd=900;
-    if(typeof R === "function") R();
+    R();
   }
 }
 
-// FIX CLAUDE #5 : Migration V6 appelée après l'initialisation de l'ID
+// ══════════════ INIT & AUTH ══════════════
+// PATCH CLAUDE #5 : Sécurité de chargement
+async function loadUserEnv() {
+  try {
+    const loc = loadLocal();
+    let pulled = await pullFromSupabase();
+    
+    if(!pulled){
+      if(loc.D){D=loc.D;H=loc.H||[]}
+      else{D=JSON.parse(JSON.stringify(DEF));H=[]}
+    }
+
+    applyMortgagePayments();
+    const migrated = await applyPortfolioMigrations();
+    rc(D);
+    cm(); 
+    R();
+    
+    if (!pulled) {
+      await migrateToSupabase();
+      const migratedAgain = await applyPortfolioMigrations();
+      if (migratedAgain) { saveLocal(); pushToSupabase(); }
+    } else if(migrated) {
+      pushToSupabase();
+    }
+
+    fetchBenchmark();
+    refreshPrices();
+    if(!window._intervalsSet) {
+        setInterval(refreshPrices,900000);
+        setInterval(()=>{if(applyMortgagePayments()){rc(D);R();pushToSupabase()}},3600000);
+        setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
+        window._intervalsSet = true;
+    }
+  } catch (err) {
+    document.getElementById("app").innerHTML = `<div style="padding:40px; color:var(--red); text-align:center;">Erreur fatale au chargement :<br>${err.message}</div>`;
+  }
+}
+
+async function init(){
+  if(sb){
+    try{
+      const { data: { session } } = await sb.auth.getSession();
+      if(session) currentUser = session.user;
+    }catch(e){console.error("Supabase init failed:", e)}
+  }
+
+  if (!currentUser) {
+    R(); 
+    return;
+  }
+  
+  await loadUserEnv();
+}
+
 async function applyPortfolioMigrations(){
   if(!D||!D.poches||!D.poches.PEA)return false;
   if(D.poches.PEA.positions.length === 0 && D.cash === 0) return false;
@@ -794,7 +841,11 @@ async function applyPortfolioMigrations(){
       if (!insErr) {
         D.migV6 = true;
         changed = true;
-        const { data: cfData } = await sb.from('cashflows').select('*').eq('portfolio_id', window.currentPfId).order('date', { ascending: true });
+        const { data: cfData } = await sb
+          .from('cashflows')
+          .select('*')
+          .eq('portfolio_id', window.currentPfId)
+          .order('date', { ascending: true });
         window.cashflows = cfData || [];
       }
     } catch (e) {
@@ -842,64 +893,10 @@ function updateCountdown(){
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
 }
 
-// ══════════════ INIT & AUTH ══════════════
-// LA SÉCURITÉ ANTI-ÉCRAN NOIR EST ICI
-async function loadUserEnv() {
-  try {
-    const loc = loadLocal();
-    let pulled = await pullFromSupabase();
-    
-    if(!pulled){
-      if(loc.D){D=loc.D;H=loc.H||[]}
-      else{D=JSON.parse(JSON.stringify(DEF));H=[]}
-    }
-
-    applyMortgagePayments();
-    const migrated = await applyPortfolioMigrations();
-    rc(D);
-    cm(); 
-    if(typeof R === "function") R();
-    
-    if (!pulled) {
-      await migrateToSupabase();
-      const migratedAgain = await applyPortfolioMigrations();
-      if (migratedAgain) { saveLocal(); pushToSupabase(); }
-    } else if (migrated) {
-      pushToSupabase();
-    }
-
-    fetchBenchmark();
-    refreshPrices();
-    if(!window._intervalsSet) {
-        setInterval(refreshPrices,900000);
-        setInterval(()=>{if(applyMortgagePayments()){rc(D);if(typeof R === "function") R();pushToSupabase()}},3600000);
-        setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000);
-        window._intervalsSet = true;
-    }
-  } catch (err) {
-    document.getElementById("app").innerHTML = `<div style="padding:40px; color:var(--red); text-align:center;">Erreur fatale au chargement :<br>${err.message}</div>`;
-  }
-}
-
-async function init(){
-  if(sb){
-    try{
-      const { data: { session } } = await sb.auth.getSession();
-      if(session) currentUser = session.user;
-    }catch(e){console.error("Supabase init failed:", e)}
-  }
-
-  if (!currentUser) {
-    if(typeof R === "function") R(); 
-    return;
-  }
-  await loadUserEnv();
-}
-
 // ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// FIX CLAUDE #4 : Marqueurs Cashflows + SVG temporel
+// PATCH CLAUDE #4 : Marqueurs de cashflows espacés
 function lc(data, config, w = 300, h = 180) {
   if (data.length < 2) return `<div style="height:${h}px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:11px;">Acquisition en cours...</div>`;
   let vs = []; const startObj = data[0]; const tMin = data[0].t, tMax = data[data.length - 1].t; const tRange = tMax - tMin || 1;
@@ -953,7 +950,7 @@ function lc(data, config, w = 300, h = 180) {
       const colCf = isIn ? "#34d399" : "#f87171"; const arrow = isIn ? "↓" : "↑";
       cfMarkers += `<g class="cf-mark" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all">
         <circle cx="${x.toFixed(1)}" cy="${yMark}" r="10" fill="transparent"/>
-        <text x="${x.toFixed(1)}" y="${yMark + 3}" text-anchor="middle" font-size="11" fill="${colCf}" style="pointer-events:none">${arrow}</text>
+        <text x="${x.toFixed(1)}" y="${yMark + 3}" text-anchor="middle" font-size="11" font-weight="bold" fill="${colCf}" style="pointer-events:none">${arrow}</text>
       </g>`;
     });
   }
@@ -973,7 +970,7 @@ function lc(data, config, w = 300, h = 180) {
 
 function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
-// FIX CLAUDE #3 : Interactions Graphiques (gestion de la ligne vide stat-bar)
+// ══════════════ INTERACTIONS GRAPHIQUES (POINTER EVENTS OPTIMISÉ) ══════════════
 window.bindInteraction = () => {
   const svgEl = document.querySelector('.chart-touch svg');
   if(!svgEl || !window._chartData || window._chartData.length < 2) return;
@@ -1024,10 +1021,10 @@ window.bindInteraction = () => {
         if (elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData ? benchmarkData.ticker : 'Bench'} : ${interpPct>=0?'+':''}${interpPct.toFixed(2)}%`; }
         const diffPts = valY - interpPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
         if (elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
-        if (elDeltaPct) elDeltaPct.style.display = 'none'; 
+        if (elDeltaPct) elDeltaPct.style.display = 'none'; // PATCH CLAUDE #3
     } else { 
         chBenchDot.style.display = 'none'; if(elBench) elBench.style.display = 'none'; if(elDiff) elDiff.style.display = 'none';
-        if(elDeltaPct) elDeltaPct.style.display = ''; 
+        if(elDeltaPct) elDeltaPct.style.display = ''; // PATCH CLAUDE #3
     }
 
     ch.style.display = '';
@@ -1085,6 +1082,7 @@ window.bindCashflowMarkers = function (svgRoot) {
     setText('sb-value', labelFor(cf));
     setText('sb-deltaE', fmtEur(amt));
     
+    // PATCH CLAUDE #3 : Masquage propre
     const elPct = document.getElementById('sb-deltaPct'); if(elPct) elPct.style.display = 'none';
     const elBench = document.getElementById('sb-bench'); if(elBench) elBench.style.display = 'none';
     const elDiff = document.getElementById('sb-diff'); 
@@ -1123,6 +1121,7 @@ window.renderOverview = () => {
        const elBench = document.getElementById('sb-bench');
        const elDiff = document.getElementById('sb-diff');
 
+       // PATCH CLAUDE #3
        if (hMode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
            const startT = r.length > 0 ? r[0].t : Date.now();
            let baseClose = null;
@@ -1237,7 +1236,7 @@ if(tab==="history"){
   h+=`</div>`;
 }
 
-$.innerHTML=h;
+if($) $.innerHTML=h;
 const tabs=[["home","Vue"],["analyse","Analyse"],["alerts","Alertes"],["history","Hist."]];
 document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]==="home");return`<button class="nav-btn${ac?" active":""}" onclick="gt('${t[0]}')"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
 
