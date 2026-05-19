@@ -41,7 +41,6 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; white-space: nowrap; overflow-x: auto; }
 .hide-scroll::-webkit-scrollbar { display: none; }
 
-/* RECO CLAUDE: Fluidité tactile pour le SVG */
 .chart-touch { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 
 #print-report { display: none; }
@@ -104,7 +103,6 @@ if(window.supabase && API_KEYS.SUPABASE_URL && API_KEYS.SUPABASE_ANON){
 const DCOL=["#6c8cff","#34d399","#a78bfa","#f87171","#fbbf24","#38bdf8","#f472b6","#fb923c","#4ade80","#c084fc","#22d3ee","#e879f9"];
 const PCOL={CTO:"#6c8cff",PEA:"#34d399","Assurance Vie":"#a78bfa",PEE:"#fbbf24",Crypto:"#fb923c","Métaux":"#eab308",Cash:"#4a4d5e"};
 const SECTORS={GOOGL:"Tech",NVDA:"Semi",NBIS:"Tech",ASTS:"Space",RKLB:"Space",TSM:"Semi",KRKNF:"Défense",OKLO:"Énergie",NVTS:"Semi",RDW:"Space",ONDS:"Défense",QBTS:"Quantum",AI:"Industrie",SU:"Industrie",VCT:"Construction",VIE:"Utilities",WKL:"Services",VU:"Tech",DPAM:"Fonds",GEM:"Fonds",BDL:"Fonds","CDC-M":"Fonds","CDC-D":"Fonds","CDC-E":"Fonds",SOL:"Crypto",BTC:"Crypto",HYPE:"Crypto","50PESO":"Or"};
-const SCOL={"Tech":"#6c8cff","Semi":"#38bdf8","Space":"#a78bfa","Énergie":"#fbbf24","Industrie":"#34d399","Défense":"#f87171","Utilities":"#22d3ee","Services":"#f472b6","Construction":"#fb923c","Crypto":"#fb923c","Fonds":"#c084fc","Quantum":"#e879f9","Or":"#eab308"};
 const CUR={GOOGL:"USD",NVDA:"USD",NBIS:"USD",ASTS:"USD",RKLB:"USD",TSM:"USD",KRKNF:"USD",OKLO:"USD",NVTS:"USD",RDW:"USD",ONDS:"USD",QBTS:"USD",AI:"EUR",SU:"EUR",VCT:"EUR",VIE:"EUR",WKL:"EUR",VU:"EUR",DPAM:"EUR",GEM:"EUR",BDL:"EUR","CDC-M":"EUR","CDC-D":"EUR","CDC-E":"EUR",SOL:"USD",BTC:"USD",HYPE:"USD","50PESO":"EUR"};
 const DIVS={AI:3.20,SU:3.90,VIE:1.35,WKL:2.19,VU:0.90,NVDA:0.04,TSM:2.17};
 const CG={SOL:"solana",BTC:"bitcoin",HYPE:"hyperliquid"};
@@ -130,6 +128,7 @@ let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v";
 let benchmarkData=null; window.cashflows = [];
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
+let _pendingSale=null; // FIX #2: Déclaration globale pour éviter les crashs strict mode
 
 // ══════════════ UTILS ══════════════
 const fmt_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
@@ -249,7 +248,6 @@ function rc(d){
   return d;
 }
 
-// ══════════════ UTILS POUR LES FILTRES DE TEMPS ══════════════
 function getCutoffs() {
    const nowD = new Date();
    const now = nowD.getTime();
@@ -289,7 +287,6 @@ async function pullFromSupabase() {
     const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
     if (posErr) throw posErr;
 
-    // PATCH CLAUDE 1 : FETCH DES CASHFLOWS
     const { data: cfData, error: cfErr } = await sb
       .from('cashflows')
       .select('*')
@@ -654,7 +651,7 @@ async function fetchBenchmark(ticker = "CW8.PA") {
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
-  fetchBenchmark(); // PATCH CLAUDE
+  fetchBenchmark();
   st.loading=true;
   st.loadingSince=Date.now();
   R();
@@ -759,20 +756,23 @@ async function loadUserEnv() {
   }
 
   applyMortgagePayments();
-  const migrated = await applyPortfolioMigrations(); // PATCH CLAUDE
+  const migrated = await applyPortfolioMigrations();
   rc(D);
   cm(); 
   R();
   
   if (!pulled) {
     await migrateToSupabase();
+    // FIX #5 : On re-tente la migration une fois le currentPfId obtenu pour les nouveaux users
+    const migratedAgain = await applyPortfolioMigrations();
+    if (migratedAgain) { saveLocal(); pushToSupabase(); }
   }
 
   if(migrated || !pulled) {
      pushToSupabase();
   }
 
-  fetchBenchmark(); // PATCH CLAUDE
+  fetchBenchmark();
   refreshPrices();
   if(!window._intervalsSet) {
       setInterval(refreshPrices,900000);
@@ -782,9 +782,8 @@ async function loadUserEnv() {
   }
 }
 
-// PATCH CLAUDE : Migration V6
 async function applyPortfolioMigrations(){
-  if(!D||!D.poches||!D.poches.PEA)return false;
+  if(!D||!D.poches||!D.poches.PEA) return false;
   if(D.poches.PEA.positions.length === 0 && D.cash === 0) return false;
 
   let changed=false;
@@ -818,7 +817,6 @@ async function applyPortfolioMigrations(){
     D.migV5=true;changed=true;
   }
 
-  // --- V6 : migration des ventes historiques (D.sales) vers la table cashflows ---
   if (!D.migV6 && sb && window.currentPfId && Array.isArray(D.sales) && D.sales.length > 0) {
     try {
       const rows = D.sales.map(s => ({
@@ -894,7 +892,6 @@ function updateCountdown(){
 // ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// PATCH CLAUDE 2 : lc() COMPLET RECRIT (Axe X temporel + Ancrage + Markers)
 function lc(data, config, w = 300, h = 180) {
   if (data.length < 2) return `<div style="height:${h}px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:11px;">Acquisition en cours...</div>`;
   let vs = []; const startObj = data[0]; const tMin = data[0].t, tMax = data[data.length - 1].t; const tRange = tMax - tMin || 1;
@@ -939,14 +936,18 @@ function lc(data, config, w = 300, h = 180) {
 
   if (benchVs.length > 0) { benchVs.forEach((b, i) => { const x = pdX + ((b.t - tMin) / tRange) * cw; const y = pt + ch - ((b.pct - dMin) / rg * ch); benchPath += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }); }
 
+  // FIX #4: Positionnement des marqueurs ajusté à pt+ch+2 avec hit-area invisible
   let cfMarkers = "";
   if (config.interactive && Array.isArray(window.cashflows) && window.cashflows.length) {
-    const yMark = pt + ch + 12;
+    const yMark = pt + ch + 2; 
     window.cashflows.forEach((cf, i) => {
       const tCf = new Date(cf.date).getTime(); if (tCf < tMin || tCf > tMax) return;
       const x = pdX + ((tCf - tMin) / tRange) * cw; const isIn = (cf.type === 'buy' || cf.type === 'deposit' || cf.type === 'dividend');
       const colCf = isIn ? "#34d399" : "#f87171"; const arrow = isIn ? "↓" : "↑";
-      cfMarkers += `<text x="${x.toFixed(1)}" y="${yMark}" text-anchor="middle" font-size="10" fill="${colCf}" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all" class="cf-mark">${arrow}</text>`;
+      cfMarkers += `<g class="cf-mark" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all">
+        <circle cx="${x.toFixed(1)}" cy="${yMark}" r="10" fill="transparent"/>
+        <text x="${x.toFixed(1)}" y="${yMark + 3}" text-anchor="middle" font-size="11" font-weight="bold" fill="${colCf}" style="pointer-events:none">${arrow}</text>
+      </g>`;
     });
   }
 
@@ -962,6 +963,8 @@ function lc(data, config, w = 300, h = 180) {
 
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block"><defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs><line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/><line x1="0" y1="${pt + ch}" x2="${w}" y2="${pt + ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}<path d="${ptArea}" fill="url(#g-${uid})"/><path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${cfMarkers}${crosshair}<text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text><text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text><text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text><text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text></svg>`;
 }
+
+function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
 // ══════════════ INTERACTIONS GRAPHIQUES (POINTER EVENTS OPTIMISÉ) ══════════════
 window.bindInteraction = () => {
@@ -1016,7 +1019,13 @@ window.bindInteraction = () => {
         
         const diffPts = valY - interpPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
         elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`;
-    } else { chBenchDot.style.display = 'none'; elBench.style.display = 'none'; elDiff.style.display = 'none'; }
+        
+        // FIX #3: Ligne vide
+        if (elDeltaPct) elDeltaPct.style.display = 'none';
+    } else { 
+        chBenchDot.style.display = 'none'; elBench.style.display = 'none'; elDiff.style.display = 'none';
+        if (elDeltaPct) elDeltaPct.style.display = ''; 
+    }
 
     ch.style.display = '';
 
@@ -1029,11 +1038,13 @@ window.bindInteraction = () => {
     elValue.textContent = isPct ? valY.toFixed(2)+'%' : fmt_(valY)+' €';
     elDeltaE.textContent = `${sgn}${fmt_(deltaE)} €`; elDeltaE.style.color = cCol;
     
-    if (isPct) { elDeltaPct.textContent = ""; } 
+    if (isPct) { if (elDeltaPct) elDeltaPct.textContent = ""; } 
     else {
         const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
         const deltaPct = ((d.pl - startObj.pl) / baseCap) * 100;
-        elDeltaPct.textContent = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%`; elDeltaPct.style.color = deltaPct>=0?"var(--grn)":"var(--red)";
+        if (elDeltaPct) {
+            elDeltaPct.textContent = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%`; elDeltaPct.style.color = deltaPct>=0?"var(--grn)":"var(--red)";
+        }
     }
   };
   
@@ -1048,7 +1059,6 @@ window.bindInteraction = () => {
   svgEl.addEventListener('pointerdown', onDown); svgEl.addEventListener('pointermove', onMove);
   svgEl.addEventListener('pointerup', onUp); svgEl.addEventListener('pointercancel', onUp);
 
-  // Appel de l'interaction des Cashflows
   window.bindCashflowMarkers(svgEl);
 };
 
@@ -1072,9 +1082,13 @@ window.bindCashflowMarkers = function (svgRoot) {
     setText('sb-label', new Date(cf.date).toLocaleDateString('fr-FR'));
     setText('sb-value', labelFor(cf));
     setText('sb-deltaE', fmtEur(amt));
-    setText('sb-deltaPct', '');
-    setText('sb-bench', '');
-    setText('sb-diff', cf.label || cf.poche || '');
+    
+    // FIX #3: Ligne vide masquée sur interaction avec CF
+    const elPct = document.getElementById('sb-deltaPct'); if(elPct) elPct.style.display = 'none';
+    const elBench = document.getElementById('sb-bench'); if(elBench) elBench.style.display = 'none';
+    
+    const elDiff = document.getElementById('sb-diff'); 
+    if(elDiff) { elDiff.style.display = ''; elDiff.style.color = 'var(--dim)'; elDiff.textContent = cf.label || cf.poche || ''; }
   };
 
   const release = () => { if (typeof window.renderOverview === 'function') window.renderOverview(); };
@@ -1121,20 +1135,30 @@ window.renderOverview = () => {
            const diffPts = deltaPct - benchPct;
            const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
            
-           elPct.textContent = "";
-           elBench.style.display = ''; elBench.textContent = `${benchmarkData.ticker} : ${benchPct>=0?'+':''}${benchPct.toFixed(2)}%`;
-           elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`;
+           // FIX #3: display none for elPct
+           if (elPct) { elPct.style.display = 'none'; elPct.textContent = ""; }
+           if (elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData.ticker} : ${benchPct>=0?'+':''}${benchPct.toFixed(2)}%`; }
+           if (elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
        } else {
-           elBench.style.display = 'none'; elDiff.style.display = 'none';
-           elPct.textContent = `${sgn}${deltaPct.toFixed(2)}%`; elPct.style.color = cCol;
+           if (elBench) elBench.style.display = 'none'; if (elDiff) elDiff.style.display = 'none';
+           if (elPct) { elPct.style.display = ''; elPct.textContent = `${sgn}${deltaPct.toFixed(2)}%`; elPct.style.color = cCol; }
        }
    }
 };
 
-window.cm=()=>{ if(!currentUser) return; document.getElementById("modal-root").innerHTML=""; _pendingSale=null; };
-window.pn=pn;
-
 // ══════════════ MODALS ET EXPORT PDF ══════════════
+// FIX #1: Re-déclaration de sm
+function sm(h){
+  document.getElementById("modal-root").innerHTML = `<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`;
+}
+
+function cm(){
+  if(!currentUser) return; 
+  document.getElementById("modal-root").innerHTML="";
+  _pendingSale=null;
+}
+window.cm=cm;window.pn=pn;
+
 window.eSettings=()=>{
   sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>
   <div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px">
