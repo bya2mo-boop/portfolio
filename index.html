@@ -130,12 +130,19 @@ let cd=900,cdTimer=null;
 window.cashflows = [];
 
 let _pendingSale=null;
+
+// ─── CORRECTION BUG #1 ───────────────────────────────────────────────────────
+// Suppression du guard `if(!currentUser) return` dans cm().
+// Sans cette correction, la modal de login ne pouvait jamais être fermée
+// (currentUser est null au moment où l'on affiche la page d'auth).
+// _pendingSale est vidé uniquement quand un utilisateur est connecté.
 function sm(h){document.getElementById("modal-root").innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`}
 function cm(){
-  if(!currentUser) return; 
   document.getElementById("modal-root").innerHTML="";
-  _pendingSale=null;
+  if(currentUser) _pendingSale=null; // ne vider _pendingSale que si connecté
 }
+// ─────────────────────────────────────────────────────────────────────────────
+
 window.cm=cm;window.pn=pn;
 
 // ══════════════ UTILS ══════════════
@@ -160,7 +167,29 @@ function pn(s){
 }
 const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=9?"s":n>=7?"a":n>=5?"b":"c"};
 const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S";if(n>=7)return"A";if(n>=5)return"B";if(n>=3)return"C";return"D"};
+
+// ─── CORRECTION BUG #2 ───────────────────────────────────────────────────────
+// Remplacement de esc() pour les attributs onclick HTML.
+// L'ancienne implémentation utilisait &#39; pour l'apostrophe, ce qui est
+// correct en HTML pur mais causait des injections JS dans les handlers
+// onclick="..." : le navigateur décode &#39; → ' avant d'exécuter le JS,
+// brisant les appels comme sP('Assurance Vie','AAPL') si la valeur
+// contenait une apostrophe (ex: poche "Assurance Vie" est safe, mais
+// tout nom custom avec apostrophe cassait silencieusement).
+// SOLUTION : esc() pour l'affichage HTML inchangé, escAttr() pour les
+// valeurs passées dans les callbacks onclick via JSON.stringify.
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+
+// escAttr: sérialise une valeur pour usage sûr dans un attribut onclick HTML.
+// JSON.stringify produit une chaîne entre guillemets doubles avec les
+// caractères spéciaux correctement échappés en \uXXXX.
+// On enveloppe ensuite dans des apostrophes pour l'attribut HTML.
+function escAttr(s){
+  // Retire les guillemets encadrants de JSON.stringify, remplace " par &quot;
+  // pour ne pas casser l'attribut HTML, puis entoure de simples quotes.
+  return JSON.stringify(String(s==null?"":s)).slice(1,-1).replace(/"/g,"&quot;");
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 function scorePos(pos, pocheName){
   const isCrypto = pocheName === "Crypto" || CG[pos.ticker];
@@ -295,7 +324,6 @@ async function pullFromSupabase() {
     const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
     if (posErr) throw posErr;
 
-    // PATCH CASHFLOW : Fetch des données
     const { data: cfData, error: cfErr } = await sb.from('cashflows').select('*').eq('portfolio_id', pf.id).order('date', { ascending: true });
     if (cfErr) console.warn('cashflows fetch error', cfErr);
     window.cashflows = cfData || [];
@@ -734,7 +762,6 @@ async function refreshPrices(){
 }
 
 // ══════════════ INIT & AUTH ══════════════
-// PATCH CLAUDE #5 : Sécurité de chargement
 async function loadUserEnv() {
   try {
     const loc = loadLocal();
@@ -893,10 +920,9 @@ function updateCountdown(){
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
 }
 
-// ══════════════ GRAPHIQUES & DONUT (MOTEUR PREMIUM NINJA) ══════════════
+// ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// PATCH CLAUDE #4 : Marqueurs de cashflows espacés
 function lc(data, config, w = 300, h = 180) {
   if (data.length < 2) return `<div style="height:${h}px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:11px;">Acquisition en cours...</div>`;
   let vs = []; const startObj = data[0]; const tMin = data[0].t, tMax = data[data.length - 1].t; const tRange = tMax - tMin || 1;
@@ -970,10 +996,26 @@ function lc(data, config, w = 300, h = 180) {
 
 function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
-// ══════════════ INTERACTIONS GRAPHIQUES (POINTER EVENTS OPTIMISÉ) ══════════════
+// ══════════════ INTERACTIONS GRAPHIQUES ══════════════
+// ─── CORRECTION BUG #3 ───────────────────────────────────────────────────────
+// Accumulation de listeners pointer sur le SVG du graphique.
+// Chaque appel à R() en onglet "history" appelait bindInteraction() qui
+// ajoutait de nouveaux listeners (pointerdown/pointermove/pointerup/pointercancel)
+// sans retirer les précédents → memory leak + comportement erratique
+// (plusieurs rendus simultanés, crosshair qui "saute", tooltips dupliqués).
+// SOLUTION : stocker les listeners actifs et les retirer avant d'en ajouter
+// de nouveaux via AbortController.
+// ─────────────────────────────────────────────────────────────────────────────
+let _chartAbortCtrl = null;
+
 window.bindInteraction = () => {
   const svgEl = document.querySelector('.chart-touch svg');
   if(!svgEl || !window._chartData || window._chartData.length < 2) return;
+
+  // Annuler les listeners précédents avant d'en créer de nouveaux
+  if(_chartAbortCtrl) _chartAbortCtrl.abort();
+  _chartAbortCtrl = new AbortController();
+  const sig = { signal: _chartAbortCtrl.signal };
   
   const data = window._chartData; const vs = window._chartVs; const benchVs = window._chartBenchVs || [];
   const scales = window._chartScales; const config = window._chartConfig;
@@ -1021,10 +1063,10 @@ window.bindInteraction = () => {
         if (elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData ? benchmarkData.ticker : 'Bench'} : ${interpPct>=0?'+':''}${interpPct.toFixed(2)}%`; }
         const diffPts = valY - interpPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
         if (elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
-        if (elDeltaPct) elDeltaPct.style.display = 'none'; // PATCH CLAUDE #3
+        if (elDeltaPct) elDeltaPct.style.display = 'none';
     } else { 
         chBenchDot.style.display = 'none'; if(elBench) elBench.style.display = 'none'; if(elDiff) elDiff.style.display = 'none';
-        if(elDeltaPct) elDeltaPct.style.display = ''; // PATCH CLAUDE #3
+        if(elDeltaPct) elDeltaPct.style.display = '';
     }
 
     ch.style.display = '';
@@ -1055,16 +1097,23 @@ window.bindInteraction = () => {
   const onDown = (e) => { rect = svgEl.getBoundingClientRect(); svgEl.setPointerCapture(e.pointerId); onMove(e); };
   const onUp = () => { rect = null; lastIdx = -1; ch.style.display = 'none'; if(typeof window.renderOverview === 'function') window.renderOverview(); };
   
-  svgEl.addEventListener('pointerdown', onDown); svgEl.addEventListener('pointermove', onMove);
-  svgEl.addEventListener('pointerup', onUp); svgEl.addEventListener('pointercancel', onUp);
+  svgEl.addEventListener('pointerdown', onDown, sig);
+  svgEl.addEventListener('pointermove', onMove, sig);
+  svgEl.addEventListener('pointerup', onUp, sig);
+  svgEl.addEventListener('pointercancel', onUp, sig);
 
-  if(typeof window.bindCashflowMarkers === 'function') window.bindCashflowMarkers(svgEl);
+  if(typeof window.bindCashflowMarkers === 'function') window.bindCashflowMarkers(svgEl, sig);
 };
 
-window.bindCashflowMarkers = function (svgRoot) {
+// ─── CORRECTION BUG #4 (partielle) ──────────────────────────────────────────
+// bindCashflowMarkers accepte maintenant le signal AbortController pour
+// que ses listeners soient aussi nettoyés lors du prochain bindInteraction().
+// ─────────────────────────────────────────────────────────────────────────────
+window.bindCashflowMarkers = function (svgRoot, listenerOpts) {
   if (!svgRoot) return;
   const marks = svgRoot.querySelectorAll('.cf-mark');
   if (!marks.length) return;
+  const opts = listenerOpts || {};
 
   const fmtEur = n => (n >= 0 ? "+" : "") + Math.round(n).toLocaleString('fr-FR') + " €";
   const labelFor = cf => {
@@ -1082,7 +1131,6 @@ window.bindCashflowMarkers = function (svgRoot) {
     setText('sb-value', labelFor(cf));
     setText('sb-deltaE', fmtEur(amt));
     
-    // PATCH CLAUDE #3 : Masquage propre
     const elPct = document.getElementById('sb-deltaPct'); if(elPct) elPct.style.display = 'none';
     const elBench = document.getElementById('sb-bench'); if(elBench) elBench.style.display = 'none';
     const elDiff = document.getElementById('sb-diff'); 
@@ -1092,9 +1140,11 @@ window.bindCashflowMarkers = function (svgRoot) {
   const release = () => { if (typeof window.renderOverview === 'function') window.renderOverview(); };
 
   marks.forEach(m => {
-    m.addEventListener('pointerdown', e => { e.stopPropagation(); showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); });
-    m.addEventListener('pointerenter', e => { showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); });
-    m.addEventListener('pointerup', release); m.addEventListener('pointerleave', release); m.addEventListener('pointercancel', release);
+    m.addEventListener('pointerdown', e => { e.stopPropagation(); showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }, opts);
+    m.addEventListener('pointerenter', e => { showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }, opts);
+    m.addEventListener('pointerup', release, opts);
+    m.addEventListener('pointerleave', release, opts);
+    m.addEventListener('pointercancel', release, opts);
   });
 };
 
@@ -1121,7 +1171,6 @@ window.renderOverview = () => {
        const elBench = document.getElementById('sb-bench');
        const elDiff = document.getElementById('sb-diff');
 
-       // PATCH CLAUDE #3
        if (hMode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
            const startT = r.length > 0 ? r[0].t : Date.now();
            let baseClose = null;
@@ -1147,24 +1196,104 @@ window.renderOverview = () => {
 };
 
 // ══════════════ ACTIONS MODALS ══════════════
-window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button>`); };
+window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button>`); };
 window.exportPDF = () => { cm(); const d = ga(); let html = `<div class="print-page"><div class="print-title">Rapport de Portefeuille Global</div><div class="print-subtitle">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div><div style="font-size:18px; margin-bottom:10px;">Patrimoine Net : <b>${fmt_(d.tN)} €</b></div><div style="font-size:14px; margin-bottom:20px;">P&L Global : <b class="${d.tP >= 0 ? 'text-green' : 'text-red'}">${fL(d.tP)}</b></div><table class="print-table"><thead><tr><th>Enveloppe</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L</th></tr></thead><tbody>`; d.al.forEach(a => { const isCash = a[0] === "Cash"; const p = isCash ? null : D.poches[a[0]]; const plStr = isCash ? "-" : `<span class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</span>`; html += `<tr><td><b>${a[0]}</b></td><td class="text-right">${fmt_(a[1])} €</td><td class="text-right">${((a[1] / d.tF) * 100).toFixed(1)}%</td><td class="text-right">${plStr}</td></tr>`; }); html += `</tbody></table>`; if (D.immobilier) { html += `<div class="print-title" style="font-size:18px; border-bottom:1px solid #ccc;">Immobilier</div><table class="print-table" style="width:50%;"><tr><td>Valeur Estimée</td><td class="text-right">${fmt_(D.immobilier.valeurEstimee)} €</td></tr><tr><td>Capital Restant</td><td class="text-right">${fmt_(D.immobilier.capitalRestant)} €</td></tr><tr><td><b>Capital Net (Equity)</b></td><td class="text-right"><b>${fmt_(D.immobilier.equityNette)} €</b></td></tr></table>`; } html += `</div>`; Object.entries(D.poches).forEach(([n, p]) => { html += `<div class="print-page"><div class="print-title">Détail : ${n}</div><div style="margin-bottom: 20px; font-size: 14px;">Valeur Totale : <b>${fmt_(p.valeur)} €</b> &nbsp;|&nbsp; Investissement : ${fmt_(p.investi)} € &nbsp;|&nbsp; P&L : <b class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</b></div>`; if (p.positions.length > 0) { const sortedPositions=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)); html += `<table class="print-table"><thead><tr><th>Nom de l'Actif</th><th>Ticker</th><th class="text-right">Qté</th><th class="text-right">PRU</th><th class="text-right">Cours Actuel</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L Latent</th></tr></thead><tbody>`; sortedPositions.forEach(x => { const cur = x.currency || CUR[x.ticker] || "EUR"; const prSym = cur === "USD" ? " $" : " €"; html += `<tr><td>${esc(x.titre)}</td><td>${esc(x.ticker)}</td><td class="text-right">${x.qty}</td><td class="text-right">${fmt2_(x.pru)}${prSym}</td><td class="text-right">${fmt2_(x.cours)}${prSym}</td><td class="text-right"><b>${fmt_(x.valeur)} €</b></td><td class="text-right">${x.poids}%</td><td class="text-right"><span class="${x.pl >= 0 ? 'text-green' : 'text-red'}">${fL(x.pl)}<br><span style="font-size:10px">${fP(x.plPct)}</span></span></td></tr>`; }); html += `</tbody></table>`; } else { html += `<p style="font-size:12px; color:#555;">Aucune position active dans cette enveloppe.</p>`; } html += `</div>`; }); let pr = document.getElementById("print-report"); pr.innerHTML = html; setTimeout(() => { window.print(); }, 300); };
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
 window.eImmo=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Immobilier</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Valeur estimée (€)</label><input id="iv" value="${D.immobilier.valeurEstimee}" inputmode="decimal"></div><div class="field"><label>Capital restant (€)</label><input id="ir" value="${D.immobilier.capitalRestant}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.immobilier.valeurEstimee=pn(document.getElementById('iv').value);D.immobilier.capitalRestant=pn(document.getElementById('ir').value);cm();save()">Enregistrer</button>`)};
-window.ePos=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${esc(pn_)}','${esc(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${esc(pn_)}','${esc(tk)}')">🗑</button></div>`)};
-window.sP=(pn_,otk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value; const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pn_,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; cm();save()};
-window.dP=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return; askSale(pn_,tk,p.qty,p.pru,p.titre,"full",null)};
-window.askSale=(pn_,tk,qty,pru,titre,mode,pe)=>{_pendingSale={pn:pn_,tk,qty,pru,titre,mode,pendingEdit:pe}; const cost=qty*pru; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--dim);line-height:1.5">${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} ${qty>1?"parts/actions":"part/action"}</b> de ${esc(titre)}<br>Coût d'acquisition : ${fmt2_(cost)} €</div><div style="margin-bottom:10px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="sale" checked onchange="document.getElementById('saleFields').style.display='block'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Vente réelle</div><div style="font-size:10px;color:var(--dim)">Calcule le P&L réalisé</div></div></label></div><div id="saleFields"><div class="field"><label>Montant net reçu (€) *</label><input id="saleNet" inputmode="decimal" placeholder="ex: 1807.40"></div><div class="field"><label>Montant brut (optionnel)</label><input id="saleBrut" inputmode="decimal" placeholder="ex: 1909.24"></div></div><div style="margin:10px 0 14px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="correction" onchange="document.getElementById('saleFields').style.display='none'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Correction de saisie</div><div style="font-size:10px;color:var(--dim)">Pas de vente réelle</div></div></label></div><button class="btn btn-p" onclick="confirmSale()">Valider</button>`)};
-window.confirmSale=()=>{if(!_pendingSale)return; const {pn:pn_,tk,qty,pru,mode,pendingEdit:pe}=_pendingSale; try{ const choice=document.querySelector('input[name="mo"]:checked').value; const p=D.poches[pn_].positions.find(x=>x.ticker===tk); if(!p)return; if(choice==="sale"){ const net=pn(document.getElementById("saleNet").value); if(!net||net<=0){ const inp=document.getElementById("saleNet"); if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir le montant net reçu";inp.focus()} return; } const brut=pn(document.getElementById("saleBrut").value)||net; const pl=net-(qty*pru); if(!D.sales)D.sales=[]; D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:brut,pl:Math.round(pl*100)/100}); } if(mode==="full"){ D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk); }else if(pe){ p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours; if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible; } _pendingSale=null; cm();save(); }catch(e){console.error("confirmSale:",e);_pendingSale=null;cm();} };
-window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pn_)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Rechercher (nom ou ISIN)</label><div style="display:flex;gap:6px"><input id="srch" placeholder="ex: TotalEnergies, FR0000120271" style="flex:1"><button class="btn" style="background:var(--acc);color:#fff;padding:8px 14px;font-size:13px" onclick="srcStock()">🔍</button></div><div id="srchRes" style="margin-top:8px"></div></div><div style="text-align:center;color:var(--mut);font-size:10px;margin:6px 0">— ou saisir manuellement —</div><div class="field"><label>Nom</label><input id="mt" placeholder="ex: Apple"></div><div class="field"><label>Ticker</label><input id="mk" placeholder="AAPL" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Secteur</label><input id="ms" list="secteur-list" placeholder="ex: Technology"><datalist id="secteur-list"><option value="Tech"></option><option value="Semi"></option><option value="Space"></option><option value="Énergie"></option><option value="Industrie"></option><option value="Défense"></option><option value="Utilities"></option><option value="Services"></option><option value="Construction"></option><option value="Crypto"></option><option value="Fonds"></option><option value="Quantum"></option><option value="Or"></option><option value="Autre"></option></datalist></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" placeholder="10" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" placeholder="150" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" placeholder="155" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" placeholder="optionnel" inputmode="decimal"></div></div><div class="field"><label>Dividende annuel (€) — optionnel</label><input id="md" placeholder="ex: 3.20" inputmode="decimal"></div><button class="btn btn-p" style="margin-top:8px" onclick="doA('${esc(pn_)}')">Ajouter</button>`); setTimeout(()=>{const s=document.getElementById("srch");if(s)s.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();srcStock()}})},100); };
+
+// ─── CORRECTION BUG #2 (suite) ───────────────────────────────────────────────
+// Dans ePos/sP/dP, les paramètres poche et ticker sont maintenant sérialisés
+// via escAttr() pour éviter les injections si ces valeurs contiennent des
+// apostrophes ou des guillemets (noms de poches custom, tickers exotiques).
+// ─────────────────────────────────────────────────────────────────────────────
+window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`)};
+
+window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value; const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pocheName,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; cm();save()};
+
+window.dP=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; askSale(pocheName,tk,p.qty,p.pru,p.titre,"full",null)};
+
+window.askSale=(pocheName,tk,qty,pru,titre,mode,pe)=>{_pendingSale={pn:pocheName,tk,qty,pru,titre,mode,pendingEdit:pe}; const cost=qty*pru; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--dim);line-height:1.5">${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} ${qty>1?"parts/actions":"part/action"}</b> de ${esc(titre)}<br>Coût d'acquisition : ${fmt2_(cost)} €</div><div style="margin-bottom:10px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="sale" checked onchange="document.getElementById('saleFields').style.display='block'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Vente réelle</div><div style="font-size:10px;color:var(--dim)">Calcule le P&L réalisé</div></div></label></div><div id="saleFields"><div class="field"><label>Montant net reçu (€) *</label><input id="saleNet" inputmode="decimal" placeholder="ex: 1807.40"></div><div class="field"><label>Montant brut (optionnel)</label><input id="saleBrut" inputmode="decimal" placeholder="ex: 1909.24"></div></div><div style="margin:10px 0 14px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="correction" onchange="document.getElementById('saleFields').style.display='none'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Correction de saisie</div><div style="font-size:10px;color:var(--dim)">Pas de vente réelle</div></div></label></div><button class="btn btn-p" onclick="confirmSale()">Valider</button>`)};
+
+// ─── CORRECTION BUG #5 ───────────────────────────────────────────────────────
+// confirmSale() : querySelector sur 'input[name="mo"]:checked' pouvait
+// retourner null si appelé hors contexte modal (race condition ou DOM absent).
+// Ajout d'une vérification explicite sur le résultat avant d'accéder à .value.
+// ─────────────────────────────────────────────────────────────────────────────
+window.confirmSale=()=>{
+  if(!_pendingSale)return;
+  const {pn:pocheName,tk,qty,pru,mode,pendingEdit:pe}=_pendingSale;
+  try{
+    const checkedInput = document.querySelector('input[name="mo"]:checked');
+    if(!checkedInput){
+      console.error("confirmSale: aucune option sélectionnée");
+      return;
+    }
+    const choice = checkedInput.value;
+    const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);
+    if(!p)return;
+    if(choice==="sale"){
+      const net=pn(document.getElementById("saleNet").value);
+      if(!net||net<=0){
+        const inp=document.getElementById("saleNet");
+        if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir le montant net reçu";inp.focus()}
+        return;
+      }
+      const brut=pn(document.getElementById("saleBrut").value)||net;
+      const pl=net-(qty*pru);
+      if(!D.sales)D.sales=[];
+      D.sales.push({date:new Date().toISOString().slice(0,10),poche:pocheName,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:brut,pl:Math.round(pl*100)/100});
+    }
+    if(mode==="full"){
+      D.poches[pocheName].positions=D.poches[pocheName].positions.filter(x=>x.ticker!==tk);
+    }else if(pe){
+      p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours;
+      if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible;
+    }
+    _pendingSale=null;
+    cm();save();
+  }catch(e){
+    console.error("confirmSale:",e);
+    _pendingSale=null;
+    cm();
+  }
+};
+
+window.aPos=(pocheName)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pocheName)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Rechercher (nom ou ISIN)</label><div style="display:flex;gap:6px"><input id="srch" placeholder="ex: TotalEnergies, FR0000120271" style="flex:1"><button class="btn" style="background:var(--acc);color:#fff;padding:8px 14px;font-size:13px" onclick="srcStock()">🔍</button></div><div id="srchRes" style="margin-top:8px"></div></div><div style="text-align:center;color:var(--mut);font-size:10px;margin:6px 0">— ou saisir manuellement —</div><div class="field"><label>Nom</label><input id="mt" placeholder="ex: Apple"></div><div class="field"><label>Ticker</label><input id="mk" placeholder="AAPL" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Secteur</label><input id="ms" list="secteur-list" placeholder="ex: Technology"><datalist id="secteur-list"><option value="Tech"></option><option value="Semi"></option><option value="Space"></option><option value="Énergie"></option><option value="Industrie"></option><option value="Défense"></option><option value="Utilities"></option><option value="Services"></option><option value="Construction"></option><option value="Crypto"></option><option value="Fonds"></option><option value="Quantum"></option><option value="Or"></option><option value="Autre"></option></datalist></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" placeholder="10" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" placeholder="150" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" placeholder="155" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" placeholder="optionnel" inputmode="decimal"></div></div><div class="field"><label>Dividende annuel (€) — optionnel</label><input id="md" placeholder="ex: 3.20" inputmode="decimal"></div><button class="btn btn-p" style="margin-top:8px" onclick="doA('${escAttr(pocheName)}')">Ajouter</button>`); setTimeout(()=>{const s=document.getElementById("srch");if(s)s.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();srcStock()}})},100); };
 window.srcStock=async()=>{ const q=document.getElementById("srch").value.trim(); const out=document.getElementById("srchRes"); if(!q){out.innerHTML="";return} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`; const isISIN=/^[A-Z]{2}[A-Z0-9]{10}$/i.test(q.trim()); let searchQuery=q.trim(); if(isISIN){ try{ const figiResp=await fetch("https://api.openfigi.com/v3/mapping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([{idType:"ID_ISIN",idValue:q.trim().toUpperCase()}])}); if(figiResp.ok){ const figiData=await figiResp.json(); const matches=figiData[0]?.data; if(matches&&matches.length>0){ out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m.ticker||"";const name=m.name||"";const exch=m.exchCode||"";const cur=m.currency||"";const secType=m.securityType||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)} · ${esc(secType)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">ISIN non résolu, recherche par nom…</div>`; } try{ const yhResp=await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(searchQuery)}&lang=fr&region=FR&quotesCount=8&newsCount=0`); if(yhResp.ok){ const yhData=await yhResp.json(); const quotes=(yhData.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol); if(quotes.length>0){ out.innerHTML=quotes.slice(0,8).map((m,i)=>{ const sym=m.symbol||"";const name=m.longname||m.shortname||"";const exch=m.exchange||"";const cur=m.currency||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)}</div></div>`; }).join(""); return; } } }catch(e){} const today=new Date().toISOString().slice(0,10); let exhausted=[]; try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{} const key=API_KEYS.AV.find(k=>!exhausted.includes(k)); if(!key){out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} try{ const r=await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(searchQuery)}&apikey=${key}`); const j=await r.json(); if(j.Note||j.Information){exhausted.push(key);try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} const matches=j.bestMatches||[]; if(matches.length===0){out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m["1. symbol"]||"";const name=m["2. name"]||"";const region=m["4. region"]||"";const cur=m["8. currency"]||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(region)}</div></div>`; }).join(""); }catch(e){out.innerHTML=`<div style="color:var(--red);font-size:11px;padding:6px">Erreur de recherche. Saisissez manuellement.</div>`} };
 window.pickStock=async(idx)=>{ const items=document.querySelectorAll("#srchRes > div[data-sym]"); if(!items[idx])return; const el=items[idx]; const sym=el.getAttribute("data-sym")||""; const name=el.getAttribute("data-name")||""; const cur=el.getAttribute("data-cur")||""; document.getElementById("mt").value=name; const ticker=sym.includes(".")?sym.split(".")[0]:sym; document.getElementById("mk").value=ticker; const msEl=document.getElementById("ms"); const mdEl=document.getElementById("md"); if(msEl && SECTORS[ticker]) msEl.value=SECTORS[ticker]; const root=document.getElementById("modal-root"); root.dataset.pickedSym=sym; root.dataset.pickedCur=cur; items.forEach(x=>x.style.background="#1a1b25"); el.style.background="#34d39922"; const today=new Date().toISOString().slice(0,10); let exhausted=[]; try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{} const key=API_KEYS.AV.find(k=>!exhausted.includes(k)); if(key && msEl && mdEl) { try { const r=await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${key}`); if(r.ok) { const j=await r.json(); if(j.Sector && j.Sector !== "None") msEl.value = j.Sector; if(j.DividendPerShare && j.DividendPerShare !== "None" && j.DividendPerShare !== "0") mdEl.value = j.DividendPerShare; } } catch(e){} } setTimeout(()=>{document.getElementById("mq").focus()},100); };
-window.doA=(pn_)=>{ const tk=document.getElementById("mk").value; if(!tk)return; const root=document.getElementById("modal-root"); const pickedSym=root.dataset.pickedSym||""; const pickedCur=root.dataset.pickedCur||""; const pos={ titre:document.getElementById("mt").value||tk, ticker:tk, qty:pn(document.getElementById("mq").value), pru:pn(document.getElementById("mp").value), cours:pn(document.getElementById("mx").value) }; if(pickedCur)pos.currency=pickedCur; if(pickedSym&&pickedSym.includes("."))pos.avSymbol=pickedSym; const ci=document.getElementById("mi").value; if(ci)pos.cible=pn(ci); const secVal=document.getElementById("ms")?.value; if(secVal) pos.sector=secVal; const divVal=document.getElementById("md")?.value; if(divVal) pos.dividend=pn(divVal); D.poches[pn_].positions.push(pos); cm(); save(); };
+window.doA=(pocheName)=>{ const tk=document.getElementById("mk").value; if(!tk)return; const root=document.getElementById("modal-root"); const pickedSym=root.dataset.pickedSym||""; const pickedCur=root.dataset.pickedCur||""; const pos={ titre:document.getElementById("mt").value||tk, ticker:tk, qty:pn(document.getElementById("mq").value), pru:pn(document.getElementById("mp").value), cours:pn(document.getElementById("mx").value) }; if(pickedCur)pos.currency=pickedCur; if(pickedSym&&pickedSym.includes("."))pos.avSymbol=pickedSym; const ci=document.getElementById("mi").value; if(ci)pos.cible=pn(ci); const secVal=document.getElementById("ms")?.value; if(secVal) pos.sector=secVal; const divVal=document.getElementById("md")?.value; if(divVal) pos.dividend=pn(divVal); D.poches[pocheName].positions.push(pos); cm(); save(); };
 
+// ─── CORRECTION BUG #1 (suite) ───────────────────────────────────────────────
+// requireAuth: la modal de login est maintenant un écran plein (z-index élevé)
+// sans onclick="cm()" sur le fond, pour éviter de la fermer accidentellement.
+// ─────────────────────────────────────────────────────────────────────────────
 window.requireAuth = (mode = 'login') => { document.getElementById("modal-root").innerHTML = `<div class="modal-bg" style="background:var(--bg); align-items:center;"><div class="modal" style="max-height:none; border-radius:20px; border:1px solid var(--bdr); text-align:center; padding:30px 20px;"><div style="font-size:24px; font-weight:800; margin-bottom:10px; color:var(--acc);">Portfolio</div><div style="font-size:13px; color:var(--dim); margin-bottom:24px; line-height:1.4;">Gérez et analysez votre patrimoine<br>en toute simplicité.</div><h3 style="font-size:17px; font-weight:700; margin-bottom:16px; text-align:left;">${mode==='login'?'Connexion':'Inscription'}</h3><div class="field" style="text-align:left;"><label>Email</label><input id="au_email" type="email" placeholder="ton@email.com"></div><div class="field" style="text-align:left;"><label>Mot de passe</label><input id="au_pwd" type="password" placeholder="min 8 caractères"></div><button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:12px; height:44px;">${mode==='login'?'Se connecter':"S'inscrire"}</button><div style="font-size:12px; color:var(--acc); cursor:pointer; font-weight:600;" onclick="requireAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Créer un compte":"Déjà inscrit ? Se connecter"}</div></div></div>`; };
 window.doSignIn = async () => { if(!sb) return alert('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return alert('Email et mot de passe requis'); const { data, error } = await sb.auth.signInWithPassword({email, password: pwd}); if(error) return alert('Erreur connexion : ' + error.message); currentUser = data.user; await loadUserEnv(); };
 window.doSignUp = async () => { if(!sb) return alert('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return alert('Email et mot de passe requis'); if(pwd.length < 8) return alert('Mot de passe : minimum 8 caractères'); const { data, error } = await sb.auth.signUp({email, password: pwd}); if(error && !error.message.includes("Database error saving new user")) { return alert('Erreur inscription : ' + error.message); } alert("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter."); };
-window.doSignOut = async () => { if(!sb) return; await sb.auth.signOut(); currentUser = null; window.currentPfId = null; D = null; H = []; benchmarkData = null; window.cashflows = []; cm(); R(); };
+
+// ─── CORRECTION BUG #1 (doSignOut) ───────────────────────────────────────────
+// Ancienne version: currentUser = null → cm() → cm() voit !currentUser → return
+// → la modal de paramètres restait affichée après déconnexion.
+// CORRECTION: vider modal-root directement AVANT de nullifier currentUser,
+// puis appeler R() pour afficher l'écran de login.
+// ─────────────────────────────────────────────────────────────────────────────
+window.doSignOut = async () => {
+  if(!sb) return;
+  // 1. Fermer la modal AVANT de couper la session (cm() dépend de currentUser)
+  document.getElementById("modal-root").innerHTML = "";
+  _pendingSale = null;
+  // 2. Déconnecter côté Supabase
+  await sb.auth.signOut();
+  // 3. Réinitialiser l'état local
+  currentUser = null;
+  window.currentPfId = null;
+  D = null;
+  H = [];
+  benchmarkData = null;
+  window.cashflows = [];
+  // 4. Afficher l'écran de login
+  R();
+};
 
 // ══════════════ RENDER ══════════════
 function R(){
@@ -1183,7 +1312,7 @@ h+=`<div class="card"><div class="section">Répartition</div><div style="display
 const im=D.immobilier,pg=(im.valeurEstimee-im.capitalRestant)/im.valeurEstimee*100;
 h+=`<div class="card card-tap" onclick="eImmo()"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div class="section" style="margin-bottom:4px">Immobilier <span style="color:var(--acc);font-size:9px">✎</span></div><div class="mono" style="font-size:17px;font-weight:700;margin-top:4px">${fmt_(im.equityNette||0)} €</div>${im.mortgage?`<div style="margin-top:6px;font-size:9px;color:var(--mut);line-height:1.5"><div>PTZ (0%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.ptzCapital)} €</span></div><div>Principal (3,8%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.mainCapital)} €</span></div></div>`:""}</div><div style="text-align:right;font-size:10px;color:var(--dim)"><div>Valeur ${fmt_(im.valeurEstimee)} €</div><div>Restant ${fmt_(im.capitalRestant)} €</div><div style="margin-top:3px;height:4px;width:70px;background:var(--bdr);border-radius:2px;overflow:hidden"><div style="height:100%;width:${pg}%;background:var(--acc);border-radius:2px"></div></div>${im.mortgage?`<div style="margin-top:6px;font-size:9px;color:var(--mut)">Mens. ${fmt2_(im.mortgage.ptzMensualite+im.mortgage.mainMensualite)} €</div>`:""}</div></div></div>`;
 h+=`<div class="section" style="margin-top:6px">Enveloppes</div>`;
-Object.entries(D.poches).forEach(([n,p])=>{const ip=p.pl>=0; const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]); h+=`<div class="card card-tap" style="position:relative;overflow:hidden" onclick="oP('${esc(n)}')"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:${PCOL[n]||'var(--mut)'};opacity:.6"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:14px;font-weight:700">${esc(n)}</span><span class="chip chip-${sC(p.sante)} mono" title="${p.sante}/10">${sGrade(p.sante)}</span></div><div class="mono" style="font-size:20px;font-weight:700">${fmt_(p.valeur)} <span style="font-size:12px;color:var(--dim)">€</span></div><div class="mono" style="font-size:12px;color:${ip?"var(--grn)":"var(--red)"};margin-top:3px;font-weight:500">${fL(p.pl)} <span style="opacity:.7">(${fP(p.investi?p.pl/p.investi*100:0)})</span></div></div>${dn(dd,DCOL,85)}</div></div>`;});
+Object.entries(D.poches).forEach(([n,p])=>{const ip=p.pl>=0; const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]); h+=`<div class="card card-tap" style="position:relative;overflow:hidden" onclick="oP('${escAttr(n)}')"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:${PCOL[n]||'var(--mut)'};opacity:.6"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:14px;font-weight:700">${esc(n)}</span><span class="chip chip-${sC(p.sante)} mono" title="${p.sante}/10">${sGrade(p.sante)}</span></div><div class="mono" style="font-size:20px;font-weight:700">${fmt_(p.valeur)} <span style="font-size:12px;color:var(--dim)">€</span></div><div class="mono" style="font-size:12px;color:${ip?"var(--grn)":"var(--red)"};margin-top:3px;font-weight:500">${fL(p.pl)} <span style="opacity:.7">(${fP(p.investi?p.pl/p.investi*100:0)})</span></div></div>${dn(dd,DCOL,85)}</div></div>`;});
 h+=`<div class="add-btn" onclick="aEnv()">+ Ajouter une enveloppe</div>`;
 h+=`<div class="card card-tap" style="display:flex;justify-content:space-between;align-items:center;margin-top:12px" onclick="eCash()"><span style="font-size:14px;font-weight:700">Liquidités <span style="color:var(--acc);font-size:11px">✎</span></span><span class="mono" style="font-size:18px;font-weight:700">${fmt_(D.cash)} €</span></div></div>`;
 }
@@ -1194,8 +1323,8 @@ h+=`<div class="fade"><button onclick="gt('home')" style="background:none;border
 h+=(()=>{const hasUsd=p.positions.some(x=>CUR[x.ticker]==="USD");const eurUsd=D.eurUsd||1.1;const investiUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.pru:x.qty*x.pru*eurUsd),0);const valeurUsd=p.positions.reduce((s,x)=>s+(CUR[x.ticker]==="USD"?x.qty*x.cours:x.qty*x.cours*eurUsd),0);const plUsd=valeurUsd-investiUsd;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,hasUsd?fmt_(investiUsd)+" $":""],["Valeur",fmt_(p.valeur)+" €",null,hasUsd?fmt_(valeurUsd)+" $":""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",hasUsd?(plUsd>=0?"+":"")+fmt_(plUsd)+" $":""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:9px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})();
 h+=`<div class="card" style="padding:4px 12px 6px">`;
 sortedPositions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="USD";const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru); const isStale = !x.lastUpd || (Date.now() - x.lastUpd > 86400000); const sw = isStale ? `<span title="Prix non mis à jour depuis plus de 24h" style="font-size:10px;margin-left:4px">⚠️</span>` : '';
-h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${esc(sel)}','${esc(x.ticker)}')"><div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div><div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:9px;color:var(--mut)">${fmt_(valUsd)} $</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div><div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:9px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:8px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} $</div>`:""}</div></div>`;});
-h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une position</div></div>`;}
+h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${escAttr(sel)}','${escAttr(x.ticker)}')"><div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div><div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:9px;color:var(--mut)">${fmt_(valUsd)} $</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div><div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:9px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:8px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} $</div>`:""}</div></div>`;});
+h+=`</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div></div>`;}
 
 if(tab==="analyse"){
   const d = ga(); const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0;
