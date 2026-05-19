@@ -109,6 +109,7 @@ const DEF = { updatedAt: "", eurUsd: 1.10, cash: 0, targetAlloc: {}, immobilier:
 // ══════════════ STATE ══════════════
 let D=null, H=[], tab="home", sel=null, htf="tout", hMode="v", benchmarkData=null;
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0}; let cd=900;
+window.cashflows = []; // Initialisation pour éviter undefined
 
 // ══════════════ UTILS ══════════════
 const fmt_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
@@ -171,20 +172,53 @@ let _isSyncing=false; let _syncPending=false;
 async function pullFromSupabase() {
   if (!sb || !currentUser) return false;
   try {
-    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1); if (pfErr) throw pfErr; if (!pfData || pfData.length === 0) return false;
-    window.currentPfId = pfData[0].id; const { data: posData } = await sb.from('positions').select('*').eq('portfolio_id', pfData[0].id);
+    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1);
+    if (pfErr) throw pfErr;
+    if (!pfData || pfData.length === 0) return false;
+    window.currentPfId = pfData[0].id;
+
+    const { data: posData } = await sb.from('positions').select('*').eq('portfolio_id', pfData[0].id);
+
+    // Fetch des Cashflows
+    const { data: cfData, error: cfErr } = await sb
+      .from('cashflows')
+      .select('*')
+      .eq('portfolio_id', pfData[0].id)
+      .order('date', { ascending: true });
+    if (cfErr) console.warn('cashflows fetch error', cfErr);
+    window.cashflows = cfData || [];
+
     const localD = loadLocal().D || {};
-    let newD = { updatedAt: new Date().toLocaleDateString("fr-FR"), eurUsd: pfData[0].eur_usd || 1.10, cash: pfData[0].cash || 0, targetAlloc: pfData[0].target_alloc || {}, immobilier: pfData[0].immobilier || {}, sales: pfData[0].sales || [], poches: {}, migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5 };
-    ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"].forEach(p => newD.poches[p] = {sante: "5,0", positions: []});
+    let newD = {
+      updatedAt: new Date().toLocaleDateString("fr-FR"),
+      eurUsd: pfData[0].eur_usd || 1.10,
+      cash: pfData[0].cash || 0,
+      targetAlloc: pfData[0].target_alloc || {},
+      immobilier: pfData[0].immobilier || {},
+      sales: pfData[0].sales || [],
+      poches: {},
+      migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6
+    };
+    
+    ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"].forEach(p => newD.poches[p] = { sante: "5,0", positions: [] });
+
     if (posData) {
       posData.forEach(pos => {
-        if (!newD.poches[pos.poche]) newD.poches[pos.poche] = {sante: "5,0", positions: []};
+        if (!newD.poches[pos.poche]) newD.poches[pos.poche] = { sante: "5,0", positions: [] };
         const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
-        newD.poches[pos.poche].positions.push({ ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru, cours: pos.cours, cible: pos.cible, sector: pos.sector, dividend: pos.dividend, cours7j: oldPos ? oldPos.cours7j : pos.cours, cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(), lastUpd: oldPos ? oldPos.lastUpd : Date.now(), currency: oldPos ? oldPos.currency : null, avSymbol: oldPos ? oldPos.avSymbol : null });
+        newD.poches[pos.poche].positions.push({
+          ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru, cours: pos.cours,
+          cible: pos.cible, sector: pos.sector, dividend: pos.dividend,
+          cours7j: oldPos ? oldPos.cours7j : pos.cours,
+          cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(),
+          lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
+          currency: oldPos ? oldPos.currency : null,
+          avSymbol: oldPos ? oldPos.avSymbol : null
+        });
       });
     }
     D = newD; H = pfData[0].hist || []; st.sync = true; return true;
-  } catch(e) { st.sync = false; return false; }
+  } catch (e) { st.sync = false; return false; }
 }
 
 async function pushToSupabase() {
@@ -277,7 +311,7 @@ async function fetchBenchmark(ticker = "CW8.PA") {
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
-  fetchBenchmark(); // Mise à jour de l'historique du Benchmark recommandée par Claude
+  fetchBenchmark(); // Mise à jour de l'historique du Benchmark
   st.loading=true; st.loadingSince=Date.now(); R(); const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
   let cnt=0,ok=false; const nowMs = Date.now();
 
@@ -306,12 +340,62 @@ async function refreshPrices(){
   }catch(e){} finally{ clearTimeout(_rpTimeout); st.loading=false; cd=900; R(); }
 }
 
+// Migration des Ventes vers la table Cashflows
+async function applyPortfolioMigrations() {
+  if (!D || !D.poches || !D.poches.PEA) return false;
+  let changed = false;
+
+  if (!D.migV2) {
+    D.sales.push({ date: "2026-04-24", poche: "PEE", ticker: "CDC-D", titre: "CDC Diversifié ISR", qty: 141.13, pru: 6.40, net: 1807.40, brut: 1909.24, pl: 904.17 });
+    D.migV2 = true; changed = true;
+  }
+
+  // --- V6 : migration des ventes historiques (D.sales) vers la table cashflows ---
+  if (!D.migV6 && sb && window.currentPfId && Array.isArray(D.sales) && D.sales.length > 0) {
+    try {
+      const rows = D.sales.map(s => ({
+        portfolio_id: window.currentPfId,
+        date: s.date,
+        type: 'sell',
+        ticker: s.ticker || null,
+        poche: s.poche || null,
+        amount_eur: Number(s.net != null ? s.net : (s.brut || 0)),
+        qty: s.qty != null ? Number(s.qty) : null,
+        price_eur: (s.qty && s.net) ? Number((s.net / s.qty).toFixed(4)) : null,
+        label: s.titre || null
+      }));
+
+      const { error: insErr } = await sb.from('cashflows').insert(rows);
+      if (insErr) {
+        console.warn('Migration V6 échouée :', insErr);
+      } else {
+        D.migV6 = true;
+        changed = true;
+        // Recharge window.cashflows pour le graphique
+        const { data: cfData } = await sb
+          .from('cashflows')
+          .select('*')
+          .eq('portfolio_id', window.currentPfId)
+          .order('date', { ascending: true });
+        window.cashflows = cfData || [];
+      }
+    } catch (e) {
+      console.warn('Migration V6 exception :', e);
+    }
+  }
+
+  return changed;
+}
+
 // ══════════════ INIT & AUTH ══════════════
 async function init(){
   if(sb){ try{ const { data: { session } } = await sb.auth.getSession(); if(session) currentUser = session.user; }catch(e){} }
   if (!currentUser) { R(); return; }
   const loc = loadLocal(); let pulled = await pullFromSupabase();
   if(!pulled){ if(loc.D){D=loc.D;H=loc.H||[]} else{D=JSON.parse(JSON.stringify(DEF));H=[]} }
+  
+  await applyPortfolioMigrations(); // On gère les migrations asynchrones
+  
   rc(D); cm(); R(); if (!pulled) { /* migrateToSupabase(); */ }
   
   fetchBenchmark();
@@ -326,130 +410,106 @@ async function init(){
 // ══════════════ COMPOSANTS VISUELS ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// Moteur SVG Time-based + Benchmark
-function lc(data, config, w=300, h=180) {
-  if(data.length<2) {
-    return `<div style="height:${h}px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--mut); font-size:11px; text-align:center;">
-      <div style="font-size:20px; margin-bottom:8px; opacity:0.5;">📈</div>
-      Acquisition en cours...<br>Revenez dans quelques jours.
-    </div>`;
-  }
-  
+function lc(data, config, w = 300, h = 180) {
+  if (data.length < 2) return `<div>Acquisition en cours...</div>`;
   let vs = [];
   const startObj = data[0];
-  const tMin = data[0].t, tMax = data[data.length-1].t;
+  const tMin = data[0].t, tMax = data[data.length - 1].t;
   const tRange = tMax - tMin || 1;
 
-  if(config.mode === 'pct') {
-      const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
-      vs = data.map(d => {
-          const deltaPl = d.pl - startObj.pl;
-          return (deltaPl / baseCap) * 100;
-      });
+  if (config.mode === 'pct') {
+    const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
+    vs = data.map(d => ((d.pl - startObj.pl) / baseCap) * 100);
   } else if (config.mode === 'dd') {
-      let maxSeen = 0;
-      vs = data.map(d => {
-          maxSeen = Math.max(maxSeen, d.v);
-          return maxSeen > 0 ? ((d.v - maxSeen) / maxSeen) * 100 : 0;
-      });
-  } else {
-      vs = data.map(d => d[config.key]);
-  }
+    let maxSeen = 0;
+    vs = data.map(d => { maxSeen = Math.max(maxSeen, d.v); return maxSeen > 0 ? ((d.v - maxSeen) / maxSeen) * 100 : 0; });
+  } else { vs = data.map(d => d[config.key]); }
 
   let mn = Math.min(...vs), mx = Math.max(...vs);
-  
-  // BENCHMARK INTEGRATION
-  let benchVs = [];
-  let benchPath = "";
-  
+  let benchVs = []; let benchPath = "";
   if (config.mode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
-      let baseClose = null; let startIdx = 0;
-      for (let i = benchmarkData.series.length - 1; i >= 0; i--) {
-          if (benchmarkData.series[i].t <= tMin) { baseClose = benchmarkData.series[i].c; startIdx = i; break; }
+    let baseClose = null; let startIdx = 0;
+    for (let i = benchmarkData.series.length - 1; i >= 0; i--) {
+      if (benchmarkData.series[i].t <= tMin) { baseClose = benchmarkData.series[i].c; startIdx = i; break; }
+    }
+    if (baseClose === null) { baseClose = benchmarkData.series[0].c; startIdx = 0; }
+    if (baseClose > 0) {
+      const benchPoints = benchmarkData.series.slice(startIdx).filter(b => b.t <= tMax);
+      if (benchPoints.length > 0) {
+        benchPoints.forEach(b => { const pct = ((b.c - baseClose) / baseClose) * 100; benchVs.push({ t: b.t, pct }); mn = Math.min(mn, pct); mx = Math.max(mx, pct); });
       }
-      if (baseClose === null) { baseClose = benchmarkData.series[0].c; startIdx = 0; }
-
-      if (baseClose > 0) {
-          const benchPoints = benchmarkData.series.slice(startIdx).filter(b => b.t <= tMax);
-          if(benchPoints.length > 0) {
-              benchPoints.forEach(b => {
-                 const pct = ((b.c - baseClose) / baseClose) * 100;
-                 benchVs.push({t: b.t, pct});
-                 mn = Math.min(mn, pct); mx = Math.max(mx, pct);
-              });
-          }
-      }
-      // CORRECTION: Ancrage visuel du benchmark au départ
-      if (benchVs.length > 0) {
-          if (benchVs[0].t < tMin) { benchVs[0] = { t: tMin, pct: 0 }; } 
-          else if (benchVs[0].t > tMin) { benchVs.unshift({ t: tMin, pct: 0 }); }
-      }
+    }
+    if (benchVs.length > 0) {
+      if (benchVs[0].t < tMin) { benchVs[0] = { t: tMin, pct: 0 }; }
+      else if (benchVs[0].t > tMin) { benchVs.unshift({ t: tMin, pct: 0 }); }
+    }
   }
-
   if (mn === mx) { mn -= 1; mx += 1; }
-  if(config.mode === 'dd') mx = 0; 
-  
-  const pad = config.mode === 'dd' ? 0 : (mx - mn) * 0.1; 
+  if (config.mode === 'dd') mx = 0;
+  const pad = config.mode === 'dd' ? 0 : (mx - mn) * 0.1;
   const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
-  const pdX = 0, pt = config.mode === 'dd' ? 10 : 10, pb = 20; 
-  const cw = w - pdX * 2, ch = h - pt - pb; 
-  
-  if(config.interactive) {
-      window._chartData = data; window._chartVs = vs; window._chartBenchVs = benchVs;
-      window._chartConfig = config; window._chartScales = {w, h, pdX, pt, pb, cw, ch, tMin, tMax, tRange, dMin, dMax, rg};
+
+  const pdX = 0, pt = config.mode === 'dd' ? 10 : 10, pb = 20;
+  const cw = w - pdX * 2, ch = h - pt - pb;
+
+  if (config.interactive) {
+    window._chartData = data;
+    window._chartVs = vs;
+    window._chartBenchVs = benchVs;
+    window._chartConfig = config;
+    window._chartScales = { w, h, pdX, pt, pb, cw, ch, tMin, tMax, tRange, dMin, dMax, rg };
   }
 
-  const endVal = vs[vs.length-1];
+  const endVal = vs[vs.length - 1];
   const isPos = config.mode === 'dd' ? false : endVal >= 0;
-  const col = config.mode === 'dd' ? "#f87171" : (isPos ? "#34d399" : "#f87171"); 
+  const col = config.mode === 'dd' ? "#f87171" : (isPos ? "#34d399" : "#f87171");
 
-  let ptLine="", ptArea="";
+  let ptLine = "", ptArea = "";
   vs.forEach((v, i) => {
     const x = pdX + ((data[i].t - tMin) / tRange) * cw;
     const y = pt + ch - ((v - dMin) / rg * ch);
     ptLine += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
-    if(i === 0) ptArea = `M${x.toFixed(1)},${pt+ch} L${x.toFixed(1)},${y.toFixed(1)}`;
+    if (i === 0) ptArea = `M${x.toFixed(1)},${pt + ch} L${x.toFixed(1)},${y.toFixed(1)}`;
     else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`;
   });
-  ptArea += ` L${pdX+cw},${pt+ch} Z`;
+  ptArea += ` L${pdX + cw},${pt + ch} Z`;
 
   if (benchVs.length > 0) {
-      benchVs.forEach((b, i) => {
-         const x = pdX + ((b.t - tMin) / tRange) * cw;
-         const y = pt + ch - ((b.pct - dMin) / rg * ch);
-         benchPath += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
-      });
+    benchVs.forEach((b, i) => {
+      const x = pdX + ((b.t - tMin) / tRange) * cw;
+      const y = pt + ch - ((b.pct - dMin) / rg * ch);
+      benchPath += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
+    });
   }
+
+  // --- Marqueurs Cash-flows ---
+  let cfMarkers = "";
+  if (config.interactive && Array.isArray(window.cashflows) && window.cashflows.length) {
+    const yMark = pt + ch + 12; // tout en bas
+    window.cashflows.forEach((cf, i) => {
+      const tCf = new Date(cf.date).getTime();
+      if (tCf < tMin || tCf > tMax) return;
+      const x = pdX + ((tCf - tMin) / tRange) * cw;
+      const isIn = (cf.type === 'buy' || cf.type === 'deposit' || cf.type === 'dividend');
+      const colCf = isIn ? "#34d399" : "#f87171";
+      const arrow = isIn ? "↓" : "↑";
+      cfMarkers += `<text x="${x.toFixed(1)}" y="${yMark}" text-anchor="middle" font-size="10" fill="${colCf}" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all" class="cf-mark">${arrow}</text>`;
+    });
+  }
+
+  const crosshair = config.interactive
+    ? `<g id="crosshair" style="display:none"><line y1="${pt}" y2="${pt + ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 2"/><circle id="ch-bench" r="3" fill="var(--bg)" stroke="var(--dim)" stroke-width="2" style="display:none"/><circle id="ch-main" r="4" fill="${col}" stroke="var(--card)" stroke-width="2"/></g>`
+    : '';
 
   const formatT = (ms) => {
     if(!ms) return ""; const d = new Date(ms), nw = new Date();
     if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth() && d.getFullYear()===nw.getFullYear()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
     return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
   };
-
   const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
   const uid = Math.random().toString(36).substring(2,9); 
-  
-  const crosshair = config.interactive ? `<g id="crosshair" style="display:none"><line y1="${pt}" y2="${pt+ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 2"/><circle id="ch-bench" r="3" fill="var(--bg)" stroke="var(--dim)" stroke-width="2" style="display:none"/><circle id="ch-main" r="4" fill="${col}" stroke="var(--card)" stroke-width="2"/></g>` : '';
 
-  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block">
-    <defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs>
-    <line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
-    <line x1="0" y1="${pt+ch}" x2="${w}" y2="${pt+ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
-    ${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}
-    
-    ${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}
-    
-    <path d="${ptArea}" fill="url(#g-${uid})"/>
-    <path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
-    
-    ${crosshair}
-    
-    <text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text>
-    <text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text>
-    <text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text>
-    <text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text>
-  </svg>`;
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block"><defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs><line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/><line x1="0" y1="${pt + ch}" x2="${w}" y2="${pt + ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}<path d="${ptArea}" fill="url(#g-${uid})"/><path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${cfMarkers}${crosshair}<text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text><text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text><text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text><text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text></svg>`;
 }
 
 // ══════════════ INTERACTIONS GRAPHIQUES (POINTER EVENTS OPTIMISÉ) ══════════════
@@ -484,7 +544,6 @@ window.bindInteraction = () => {
     chLine.setAttribute('x1', x); chLine.setAttribute('x2', x);
     chMainDot.setAttribute('cx', x); chMainDot.setAttribute('cy', y);
 
-    // CORRECTION : Interpolation Linéaire du Benchmark au timestamp exact
     if (config.mode === 'pct' && benchVs.length > 0) {
         let bCur = benchVs[benchVs.length - 1], bNext = null;
         for (let i = 0; i < benchVs.length - 1; i++) {
@@ -538,6 +597,43 @@ window.bindInteraction = () => {
   
   svgEl.addEventListener('pointerdown', onDown); svgEl.addEventListener('pointermove', onMove);
   svgEl.addEventListener('pointerup', onUp); svgEl.addEventListener('pointercancel', onUp);
+  
+  window.bindCashflowMarkers(svgEl); // Binding des Cashflows ajouté ici
+};
+
+window.bindCashflowMarkers = function (svgRoot) {
+  if (!svgRoot) return;
+  const marks = svgRoot.querySelectorAll('.cf-mark');
+  if (!marks.length) return;
+
+  const fmtEur = n => (n >= 0 ? "+" : "") + Math.round(n).toLocaleString('fr-FR') + " €";
+  const labelFor = cf => {
+    const map = { buy: 'Achat', sell: 'Vente', dividend: 'Dividende', deposit: 'Dépôt', withdrawal: 'Retrait' };
+    return (map[cf.type] || cf.type) + (cf.ticker ? ' ' + cf.ticker : '');
+  };
+  const signFor = cf => (cf.type === 'sell' || cf.type === 'withdrawal') ? -1 : 1;
+  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.firstChild ? el.firstChild.nodeValue = txt : el.textContent = txt; };
+
+  const showCf = (idx) => {
+    const cf = (window.cashflows || [])[idx];
+    if (!cf) return;
+    const ch = document.getElementById('crosshair'); if (ch) ch.style.display = 'none';
+    const amt = signFor(cf) * Number(cf.amount_eur || 0);
+    setText('sb-label', new Date(cf.date).toLocaleDateString('fr-FR'));
+    setText('sb-value', labelFor(cf));
+    setText('sb-deltaE', fmtEur(amt));
+    setText('sb-deltaPct', '');
+    setText('sb-bench', '');
+    setText('sb-diff', cf.label || cf.poche || '');
+  };
+
+  const release = () => { if (typeof window.renderOverview === 'function') window.renderOverview(); };
+
+  marks.forEach(m => {
+    m.addEventListener('pointerdown', e => { e.stopPropagation(); const idx = parseInt(m.getAttribute('data-cf-idx'), 10); showCf(idx); });
+    m.addEventListener('pointerenter', e => { const idx = parseInt(m.getAttribute('data-cf-idx'), 10); showCf(idx); });
+    m.addEventListener('pointerup', release); m.addEventListener('pointerleave', release); m.addEventListener('pointercancel', release);
+  });
 };
 
 window.renderOverview = () => {
@@ -562,7 +658,6 @@ window.renderOverview = () => {
        const elBench = document.getElementById('sb-bench');
        const elDiff = document.getElementById('sb-diff');
 
-       // CORRECTION : Calcul exact du benchmark en mode Overview
        if (hMode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
            const startT = r.length > 0 ? r[0].t : Date.now();
            let baseClose = null;
@@ -605,9 +700,9 @@ window.pickStock=async(idx)=>{ const items=document.querySelectorAll("#srchRes >
 window.doA=(pn_)=>{ const tk=document.getElementById("mk").value; if(!tk)return; const root=document.getElementById("modal-root"); const pickedSym=root.dataset.pickedSym||""; const pickedCur=root.dataset.pickedCur||""; const pos={ titre:document.getElementById("mt").value||tk, ticker:tk, qty:pn(document.getElementById("mq").value), pru:pn(document.getElementById("mp").value), cours:pn(document.getElementById("mx").value) }; if(pickedCur)pos.currency=pickedCur; if(pickedSym&&pickedSym.includes("."))pos.avSymbol=pickedSym; const ci=document.getElementById("mi").value; if(ci)pos.cible=pn(ci); const secVal=document.getElementById("ms")?.value; if(secVal) pos.sector=secVal; D.poches[pn_].positions.push(pos); cm(); save(); };
 
 window.requireAuth = (mode = 'login') => { document.getElementById("modal-root").innerHTML = `<div class="modal-bg" style="background:var(--bg); align-items:center;"><div class="modal" style="max-height:none; border-radius:20px; text-align:center;"><div style="font-size:24px; font-weight:800; margin-bottom:10px; color:var(--acc);">Portfolio</div><h3 style="font-size:17px; font-weight:700; margin-bottom:16px;">${mode==='login'?'Connexion':'Inscription'}</h3><div class="field" style="text-align:left;"><label>Email</label><input id="au_email" type="email"></div><div class="field" style="text-align:left;"><label>Mot de passe</label><input id="au_pwd" type="password"></div><button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:12px;">${mode==='login'?'Se connecter':"S'inscrire"}</button></div></div>`; };
-window.doSignIn = async () => { if(!sb) return; const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; const { data, error } = await sb.auth.signInWithPassword({email, password: pwd}); if(error) return alert(error.message); currentUser = data.user; await loadUserEnv(); };
+window.doSignIn = async () => { if(!sb) return; const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; const { data, error } = await sb.auth.signInWithPassword({email, password: pwd}); if(error) return alert(error.message); currentUser = data.user; await init(); };
 window.doSignUp = async () => { if(!sb) return; const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; const { data, error } = await sb.auth.signUp({email, password: pwd}); alert("Compte créé !"); };
-window.doSignOut = async () => { if(!sb) return; await sb.auth.signOut(); currentUser = null; D = null; H = []; benchmarkData = null; cm(); R(); };
+window.doSignOut = async () => { if(!sb) return; await sb.auth.signOut(); currentUser = null; D = null; H = []; benchmarkData = null; window.cashflows = []; cm(); R(); };
 
 // ══════════════ RENDER ══════════════
 function R(){
@@ -644,7 +739,6 @@ h+=`</div><div class="add-btn" onclick="aPos('${esc(sel)}')">+ Ajouter une posit
 if(tab==="history"){
   const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0;
   let r = H.filter(x => x.t >= cut);
-  
   const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"mtd", l:"MTD"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
 
   h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Historique</h2>
@@ -656,7 +750,6 @@ if(tab==="history"){
   </div>
   
   <div class="card" style="padding:16px 12px 12px; position:relative;">
-    
     <div id="stat-bar" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding:0 4px; min-height:45px;">
        <div>
          <div id="sb-label" style="font-size:10px; color:var(--dim); text-transform:uppercase; margin-bottom:4px;">Valeur Actuelle</div>
@@ -673,14 +766,13 @@ if(tab==="history"){
     <div class="chart-touch" style="width:100%;">
        ${lc(r, {mode: hMode, key: 'v', interactive: true}, 300, 160)}
     </div>
-    
   </div>`;
   
   if(D.sales&&D.sales.length){
     h+=`<div class="card" style="margin-top:16px"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
     [...D.sales].reverse().forEach((s,i)=>{
       h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
-        <div><div style="font-size:13px;font-weight:700">${s.ticker}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche}</div></div>
+        <div><div style="font-size:13px;font-weight:700">${s.ticker||"Transaction"}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche||""}</div></div>
         <div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div>
       </div>`;
     });
