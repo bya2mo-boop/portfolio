@@ -124,7 +124,8 @@ const DEF = {
 };
 
 // ══════════════ STATE ══════════════
-let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v", benchmarkData=null;
+// RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
+let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v";
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 window.cashflows = [];
@@ -169,24 +170,10 @@ const sC=s=>{const n=parseFloat(String(s).replace(",","."));return n>=9?"s":n>=7
 const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S";if(n>=7)return"A";if(n>=5)return"B";if(n>=3)return"C";return"D"};
 
 // ─── CORRECTION BUG #2 ───────────────────────────────────────────────────────
-// Remplacement de esc() pour les attributs onclick HTML.
-// L'ancienne implémentation utilisait &#39; pour l'apostrophe, ce qui est
-// correct en HTML pur mais causait des injections JS dans les handlers
-// onclick="..." : le navigateur décode &#39; → ' avant d'exécuter le JS,
-// brisant les appels comme sP('Assurance Vie','AAPL') si la valeur
-// contenait une apostrophe (ex: poche "Assurance Vie" est safe, mais
-// tout nom custom avec apostrophe cassait silencieusement).
-// SOLUTION : esc() pour l'affichage HTML inchangé, escAttr() pour les
-// valeurs passées dans les callbacks onclick via JSON.stringify.
+// esc() pour l'affichage HTML, escAttr() pour les valeurs dans onclick.
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
-// escAttr: sérialise une valeur pour usage sûr dans un attribut onclick HTML.
-// JSON.stringify produit une chaîne entre guillemets doubles avec les
-// caractères spéciaux correctement échappés en \uXXXX.
-// On enveloppe ensuite dans des apostrophes pour l'attribut HTML.
 function escAttr(s){
-  // Retire les guillemets encadrants de JSON.stringify, remplace " par &quot;
-  // pour ne pas casser l'attribut HTML, puis entoure de simples quotes.
   return JSON.stringify(String(s==null?"":s)).slice(1,-1).replace(/"/g,"&quot;");
 }
 // ─────────────────────────────────────────────────────────────────────────────
@@ -645,42 +632,7 @@ async function fetchGold(){
   return null;
 }
 
-async function fetchBenchmark(ticker = "CW8.PA") {
-  const todayStr = new Date().toISOString().slice(0,10);
-  const cacheKey = `bench_${ticker}_${todayStr}`;
-  Object.keys(localStorage).forEach(k => { if(k.startsWith(`bench_${ticker}_`) && k !== cacheKey) { localStorage.removeItem(k); } });
-
-  const cached = localStorage.getItem(cacheKey);
-  if(cached) { benchmarkData = JSON.parse(cached); return; }
-
-  const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?chart=${encodeURIComponent(ticker)}`;
-  try {
-     const r = await fetch(targetUrl);
-     if(r.ok) {
-        const j = await r.json();
-        if(j.chart && j.chart.result && j.chart.result[0]) {
-           const res = j.chart.result[0];
-           const timestamps = res.timestamp;
-           const closes = res.indicators.quote[0].close;
-           
-           if(timestamps && closes) {
-              const series = [];
-              for(let i=0; i<timestamps.length; i++) {
-                 if(closes[i] !== null && !isNaN(closes[i])) {
-                    series.push({ t: timestamps[i] * 1000, c: closes[i] });
-                 }
-              }
-              if(series.length > 0) {
-                 benchmarkData = { ticker, series };
-                 localStorage.setItem(cacheKey, JSON.stringify(benchmarkData));
-                 return;
-              }
-           }
-        }
-     }
-  } catch(e) {}
-  benchmarkData = null; 
-}
+// RESTAURATION fb23f43 : suppression de fetchBenchmark (n'existait pas dans la version d'origine)
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
@@ -786,7 +738,7 @@ async function loadUserEnv() {
       pushToSupabase();
     }
 
-    fetchBenchmark();
+    // RESTAURATION fb23f43 : suppression de l'appel fetchBenchmark()
     refreshPrices();
     if(!window._intervalsSet) {
         setInterval(refreshPrices,900000);
@@ -923,277 +875,90 @@ function updateCountdown(){
 // ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-function lc(data, config, w = 300, h = 180) {
-  if (data.length < 2) return `<div style="height:${h}px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:11px;">Acquisition en cours...</div>`;
-  let vs = []; const startObj = data[0]; const tMin = data[0].t, tMax = data[data.length - 1].t; const tRange = tMax - tMin || 1;
+// RESTAURATION fb23f43 : lc() restauré dans sa version simple d'origine (signature lc(data, k, w, h) avec k=clé string).
+// Les fonctionnalités benchmark/crosshair/cashflow markers ne sont pas dans la version d'origine.
+function lc(data, k, w=300, h=180) {
+  const endVal = data.length > 0 ? data[data.length-1][k] : 0;
 
-  if (config.mode === 'pct') {
-    const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
-    vs = data.map(d => ((d.pl - startObj.pl) / baseCap) * 100);
-  } else if (config.mode === 'dd') {
-    let maxSeen = 0; vs = data.map(d => { maxSeen = Math.max(maxSeen, d.v); return maxSeen > 0 ? ((d.v - maxSeen) / maxSeen) * 100 : 0; });
-  } else { vs = data.map(d => d[config.key]); }
+  if(data.length < 2) {
+    return `<div style="height:${h}px; position:relative; display:flex; flex-direction:column;">
+      <div class="mono" style="font-size:16px; font-weight:bold; color:var(--txt); padding-top:14px;">${fmt_(endVal)}</div>
+      <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--mut); font-size:11px; text-align:center; padding-bottom:10px;">
+        <div style="font-size:20px; margin-bottom:8px; opacity:0.5;">📈</div>
+        Acquisition en cours...<br>La courbe apparaîtra au prochain relevé.
+      </div>
+    </div>`;
+  }
 
+  const vs = data.map(d=>d[k]);
   let mn = Math.min(...vs), mx = Math.max(...vs);
-  let benchVs = []; let benchPath = "";
-  if (config.mode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
-    let baseClose = null; let startIdx = 0;
-    for (let i = benchmarkData.series.length - 1; i >= 0; i--) { if (benchmarkData.series[i].t <= tMin) { baseClose = benchmarkData.series[i].c; startIdx = i; break; } }
-    if (baseClose === null) { baseClose = benchmarkData.series[0].c; startIdx = 0; }
-    if (baseClose > 0) {
-      const benchPoints = benchmarkData.series.slice(startIdx).filter(b => b.t <= tMax);
-      if (benchPoints.length > 0) { benchPoints.forEach(b => { const pct = ((b.c - baseClose) / baseClose) * 100; benchVs.push({ t: b.t, pct }); mn = Math.min(mn, pct); mx = Math.max(mx, pct); }); }
-    }
-    if (benchVs.length > 0) { if (benchVs[0].t < tMin) { benchVs[0] = { t: tMin, pct: 0 }; } else if (benchVs[0].t > tMin) { benchVs.unshift({ t: tMin, pct: 0 }); } }
-  }
   if (mn === mx) { mn -= 1; mx += 1; }
-  if (config.mode === 'dd') mx = 0;
-  const pad = config.mode === 'dd' ? 0 : (mx - mn) * 0.1; const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
-  const pdX = 0, pt = config.mode === 'dd' ? 10 : 10, pb = 20; const cw = w - pdX * 2, ch = h - pt - pb;
 
-  if (config.interactive) {
-    window._chartData = data; window._chartVs = vs; window._chartBenchVs = benchVs; window._chartConfig = config;
-    window._chartScales = { w, h, pdX, pt, pb, cw, ch, tMin, tMax, tRange, dMin, dMax, rg };
-  }
+  const pad = (mx - mn) * 0.1;
+  const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
 
-  const endVal = vs[vs.length - 1]; const isPos = config.mode === 'dd' ? false : endVal >= 0; const col = config.mode === 'dd' ? "#f87171" : (isPos ? "#34d399" : "#f87171");
-  let ptLine = "", ptArea = "";
+  const pdX = 0, pt = 42, pb = 20;
+  const cw = w - pdX * 2, ch = h - pt - pb;
+
+  const startVal = vs[0];
+  const diff = endVal - startVal;
+  const isPos = diff >= 0;
+
+  const col = isPos ? "#34d399" : "#f87171";
+
+  let ptLine="", ptArea="";
   vs.forEach((v, i) => {
-    const x = pdX + ((data[i].t - tMin) / tRange) * cw; const y = pt + ch - ((v - dMin) / rg * ch);
+    const x = pdX + (i / (vs.length - 1)) * cw;
+    const y = pt + ch - ((v - dMin) / rg * ch);
     ptLine += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
-    if (i === 0) ptArea = `M${x.toFixed(1)},${pt + ch} L${x.toFixed(1)},${y.toFixed(1)}`; else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`;
+    if(i === 0) ptArea = `M${x.toFixed(1)},${pt+ch} L${x.toFixed(1)},${y.toFixed(1)}`;
+    else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`;
   });
-  ptArea += ` L${pdX + cw},${pt + ch} Z`;
+  ptArea += ` L${pdX+cw},${pt+ch} Z`;
 
-  if (benchVs.length > 0) { benchVs.forEach((b, i) => { const x = pdX + ((b.t - tMin) / tRange) * cw; const y = pt + ch - ((b.pct - dMin) / rg * ch); benchPath += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }); }
-
-  let cfMarkers = "";
-  if (config.interactive && Array.isArray(window.cashflows) && window.cashflows.length) {
-    const yMark = pt + ch + 2; 
-    window.cashflows.forEach((cf, i) => {
-      const tCf = new Date(cf.date).getTime(); if (tCf < tMin || tCf > tMax) return;
-      const x = pdX + ((tCf - tMin) / tRange) * cw; const isIn = (cf.type === 'buy' || cf.type === 'deposit' || cf.type === 'dividend');
-      const colCf = isIn ? "#34d399" : "#f87171"; const arrow = isIn ? "↓" : "↑";
-      cfMarkers += `<g class="cf-mark" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all">
-        <circle cx="${x.toFixed(1)}" cy="${yMark}" r="10" fill="transparent"/>
-        <text x="${x.toFixed(1)}" y="${yMark + 3}" text-anchor="middle" font-size="11" font-weight="bold" fill="${colCf}" style="pointer-events:none">${arrow}</text>
-      </g>`;
-    });
-  }
+  const diffPct = startVal !== 0 ? (diff / Math.abs(startVal) * 100) : 0;
+  const diffSign = isPos ? "+" : "";
 
   const formatT = (ms) => {
-    if(!ms) return ""; const d = new Date(ms), nw = new Date();
+    if(!ms) return "";
+    const d = new Date(ms), nw = new Date();
     if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth() && d.getFullYear()===nw.getFullYear()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
+    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:d.getFullYear()!==nw.getFullYear()?"2-digit":undefined});
   };
 
   const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
   const uid = Math.random().toString(36).substring(2,9);
-  const crosshair = config.interactive ? `<g id="crosshair" style="display:none"><line y1="${pt}" y2="${pt + ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 2"/><circle id="ch-bench" r="3" fill="var(--bg)" stroke="var(--dim)" stroke-width="2" style="display:none"/><circle id="ch-main" r="4" fill="${col}" stroke="var(--card)" stroke-width="2"/></g>` : '';
 
-  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block"><defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs><line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/><line x1="0" y1="${pt + ch}" x2="${w}" y2="${pt + ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}<path d="${ptArea}" fill="url(#g-${uid})"/><path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${cfMarkers}${crosshair}<text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text><text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text><text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text><text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text></svg>`;
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block">
+    <defs>
+      <linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${col}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${col}" stop-opacity="0.0"/>
+      </linearGradient>
+    </defs>
+
+    <text x="0" y="14" font-size="16" font-weight="bold" fill="var(--txt)" font-family="monospace">${fmt_(endVal)}</text>
+    <text x="0" y="32" font-size="12" font-weight="600" fill="${col}" font-family="monospace">${diffSign}${fmt_(diff)} (${diffSign}${diffPct.toFixed(1)}%)</text>
+
+    <line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
+    <line x1="0" y1="${pt+ch}" x2="${w}" y2="${pt+ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
+    ${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}
+
+    <path d="${ptArea}" fill="url(#g-${uid})"/>
+    <path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+
+    <text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mx)}</text>
+    <text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mn)}</text>
+
+    <text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text>
+    <text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text>
+  </svg>`;
 }
 
 function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
 
-// ══════════════ INTERACTIONS GRAPHIQUES ══════════════
-// ─── CORRECTION BUG #3 ───────────────────────────────────────────────────────
-// Accumulation de listeners pointer sur le SVG du graphique.
-// Chaque appel à R() en onglet "history" appelait bindInteraction() qui
-// ajoutait de nouveaux listeners (pointerdown/pointermove/pointerup/pointercancel)
-// sans retirer les précédents → memory leak + comportement erratique
-// (plusieurs rendus simultanés, crosshair qui "saute", tooltips dupliqués).
-// SOLUTION : stocker les listeners actifs et les retirer avant d'en ajouter
-// de nouveaux via AbortController.
-// ─────────────────────────────────────────────────────────────────────────────
-let _chartAbortCtrl = null;
-
-window.bindInteraction = () => {
-  const svgEl = document.querySelector('.chart-touch svg');
-  if(!svgEl || !window._chartData || window._chartData.length < 2) return;
-
-  // Annuler les listeners précédents avant d'en créer de nouveaux
-  if(_chartAbortCtrl) _chartAbortCtrl.abort();
-  _chartAbortCtrl = new AbortController();
-  const sig = { signal: _chartAbortCtrl.signal };
-  
-  const data = window._chartData; const vs = window._chartVs; const benchVs = window._chartBenchVs || [];
-  const scales = window._chartScales; const config = window._chartConfig;
-  
-  let rect = null, rafId = 0, lastIdx = -1;
-  const ch = svgEl.querySelector('#crosshair'); const chLine = ch.querySelector('line');
-  const chMainDot = ch.querySelector('#ch-main'); const chBenchDot = ch.querySelector('#ch-bench');
-
-  const elLabel = document.getElementById('sb-label'); const elValue = document.getElementById('sb-value');
-  const elBench = document.getElementById('sb-bench'); const elDeltaE = document.getElementById('sb-deltaE');
-  const elDeltaPct = document.getElementById('sb-deltaPct'); const elDiff = document.getElementById('sb-diff');
-
-  const findIdx = (clientX) => {
-    const xPx = clientX - rect.left; const svgX = (xPx / rect.width) * scales.w;
-    const t = scales.tMin + ((svgX - scales.pdX) / scales.cw) * scales.tRange;
-    let lo = 0, hi = data.length - 1;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (data[mid].t < t) lo = mid + 1; else hi = mid; }
-    if (lo > 0 && Math.abs(data[lo-1].t - t) < Math.abs(data[lo].t - t)) return lo - 1; return lo;
-  };
-  
-  const render = (idx) => {
-    const d = data[idx]; const valY = vs[idx];
-    const x = scales.pdX + ((d.t - scales.tMin) / scales.tRange) * scales.cw;
-    const y = scales.pt + scales.ch - ((valY - scales.dMin) / scales.rg * scales.ch);
-    
-    chLine.setAttribute('x1', x); chLine.setAttribute('x2', x);
-    chMainDot.setAttribute('cx', x); chMainDot.setAttribute('cy', y);
-
-    if (config.mode === 'pct' && benchVs.length > 0) {
-        let bCur = benchVs[0], bNext = benchVs[benchVs.length - 1];
-        for (let i = 0; i < benchVs.length - 1; i++) {
-            if (benchVs[i].t <= d.t && benchVs[i+1].t >= d.t) { bCur = benchVs[i]; bNext = benchVs[i+1]; break; }
-        }
-        let interpPct = bCur.pct;
-        if (bNext && bNext.t > bCur.t) {
-            const frac = Math.max(0, Math.min(1, (d.t - bCur.t) / (bNext.t - bCur.t)));
-            interpPct = bCur.pct + frac * (bNext.pct - bCur.pct);
-        } else if (d.t <= benchVs[0].t) {
-            interpPct = benchVs[0].pct;
-        }
-
-        const by = scales.pt + scales.ch - ((interpPct - scales.dMin) / scales.rg * scales.ch);
-        chBenchDot.setAttribute('cx', x); chBenchDot.setAttribute('cy', by); chBenchDot.style.display = '';
-        
-        if (elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData ? benchmarkData.ticker : 'Bench'} : ${interpPct>=0?'+':''}${interpPct.toFixed(2)}%`; }
-        const diffPts = valY - interpPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
-        if (elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
-        if (elDeltaPct) elDeltaPct.style.display = 'none';
-    } else { 
-        chBenchDot.style.display = 'none'; if(elBench) elBench.style.display = 'none'; if(elDiff) elDiff.style.display = 'none';
-        if(elDeltaPct) elDeltaPct.style.display = '';
-    }
-
-    ch.style.display = '';
-
-    const dt = new Date(d.t);
-    if(elLabel) elLabel.textContent = dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit"}) + " " + dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-    
-    const startObj = data[0]; const deltaE = d.v - startObj.v; const isPct = config.mode === 'pct';
-    const isPos = isPct ? valY >= 0 : deltaE >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
-
-    if(elValue) elValue.textContent = isPct ? valY.toFixed(2)+'%' : fmt_(valY)+' €';
-    if(elDeltaE) { elDeltaE.textContent = `${sgn}${fmt_(deltaE)} €`; elDeltaE.style.color = cCol; }
-    
-    if (isPct) { 
-        if(elDeltaPct) elDeltaPct.textContent = ""; 
-    } else {
-        const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
-        const deltaPct = ((d.pl - startObj.pl) / baseCap) * 100;
-        if(elDeltaPct) { elDeltaPct.textContent = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%`; elDeltaPct.style.color = deltaPct>=0?"var(--grn)":"var(--red)"; }
-    }
-  };
-  
-  const onMove = (e) => {
-    if (!rect) return; const idx = findIdx(e.clientX); if (idx === lastIdx) return;
-    lastIdx = idx; if (!rafId) rafId = requestAnimationFrame(() => { render(lastIdx); rafId = 0; });
-  };
-  
-  const onDown = (e) => { rect = svgEl.getBoundingClientRect(); svgEl.setPointerCapture(e.pointerId); onMove(e); };
-  const onUp = () => { rect = null; lastIdx = -1; ch.style.display = 'none'; if(typeof window.renderOverview === 'function') window.renderOverview(); };
-  
-  svgEl.addEventListener('pointerdown', onDown, sig);
-  svgEl.addEventListener('pointermove', onMove, sig);
-  svgEl.addEventListener('pointerup', onUp, sig);
-  svgEl.addEventListener('pointercancel', onUp, sig);
-
-  if(typeof window.bindCashflowMarkers === 'function') window.bindCashflowMarkers(svgEl, sig);
-};
-
-// ─── CORRECTION BUG #4 (partielle) ──────────────────────────────────────────
-// bindCashflowMarkers accepte maintenant le signal AbortController pour
-// que ses listeners soient aussi nettoyés lors du prochain bindInteraction().
-// ─────────────────────────────────────────────────────────────────────────────
-window.bindCashflowMarkers = function (svgRoot, listenerOpts) {
-  if (!svgRoot) return;
-  const marks = svgRoot.querySelectorAll('.cf-mark');
-  if (!marks.length) return;
-  const opts = listenerOpts || {};
-
-  const fmtEur = n => (n >= 0 ? "+" : "") + Math.round(n).toLocaleString('fr-FR') + " €";
-  const labelFor = cf => {
-    const map = { buy: 'Achat', sell: 'Vente', dividend: 'Dividende', deposit: 'Dépôt', withdrawal: 'Retrait' };
-    return (map[cf.type] || cf.type) + (cf.ticker ? ' ' + cf.ticker : '');
-  };
-  const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.firstChild ? el.firstChild.nodeValue = txt : el.textContent = txt; };
-
-  const showCf = (idx) => {
-    const cf = (window.cashflows || [])[idx];
-    if (!cf) return;
-    const ch = document.getElementById('crosshair'); if (ch) ch.style.display = 'none';
-    const amt = (cf.type==='sell'||cf.type==='withdrawal'?-1:1) * Number(cf.amount_eur || 0);
-    setText('sb-label', new Date(cf.date).toLocaleDateString('fr-FR'));
-    setText('sb-value', labelFor(cf));
-    setText('sb-deltaE', fmtEur(amt));
-    
-    const elPct = document.getElementById('sb-deltaPct'); if(elPct) elPct.style.display = 'none';
-    const elBench = document.getElementById('sb-bench'); if(elBench) elBench.style.display = 'none';
-    const elDiff = document.getElementById('sb-diff'); 
-    if(elDiff) { elDiff.style.display = ''; elDiff.style.color = 'var(--dim)'; elDiff.textContent = cf.label || cf.poche || ''; }
-  };
-
-  const release = () => { if (typeof window.renderOverview === 'function') window.renderOverview(); };
-
-  marks.forEach(m => {
-    m.addEventListener('pointerdown', e => { e.stopPropagation(); showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }, opts);
-    m.addEventListener('pointerenter', e => { showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }, opts);
-    m.addEventListener('pointerup', release, opts);
-    m.addEventListener('pointerleave', release, opts);
-    m.addEventListener('pointercancel', release, opts);
-  });
-};
-
-window.renderOverview = () => {
-   const d = ga(); const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0; let r = H.filter(x => x.t >= cut);
-   let startV = r.length > 0 ? r[0].v : d.tN; let startPl = r.length > 0 ? r[0].pl : d.tP; let endV = d.tN; let deltaE = endV - startV;
-   
-   let startInv = r.length > 0 ? (r[0].inv || (startV - startPl)) : (Object.values(D.poches).reduce((s,p)=>s+p.investi,0));
-   let baseCap = startInv || 1; let deltaPct = ((d.tP - startPl) / baseCap) * 100;
-   
-   if(r.length < 2) { deltaE = 0; deltaPct = 0; }
-   const isPos = deltaPct >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
-
-   const elLabel = document.getElementById('sb-label');
-   if(elLabel) {
-       elLabel.textContent = "Valeur Actuelle";
-       const elValue = document.getElementById('sb-value');
-       if(elValue) elValue.textContent = hMode==='pct'? deltaPct.toFixed(2)+'%': fmt_(endV)+' €';
-       
-       const elE = document.getElementById('sb-deltaE');
-       if(elE) { elE.textContent = `${sgn}${fmt_(deltaE)} €`; elE.style.color = cCol; }
-       
-       const elPct = document.getElementById('sb-deltaPct');
-       const elBench = document.getElementById('sb-bench');
-       const elDiff = document.getElementById('sb-diff');
-
-       if (hMode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
-           const startT = r.length > 0 ? r[0].t : Date.now();
-           let baseClose = null;
-           for (let i = benchmarkData.series.length - 1; i >= 0; i--) { 
-               if (benchmarkData.series[i].t <= startT) { baseClose = benchmarkData.series[i].c; break; } 
-           }
-           if(baseClose === null) baseClose = benchmarkData.series[0].c;
-           
-           const endClose = benchmarkData.series[benchmarkData.series.length-1].c;
-           const benchPct = ((endClose - baseClose)/baseClose) * 100;
-           const diffPts = deltaPct - benchPct;
-           const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
-           
-           if (elPct) { elPct.style.display = 'none'; elPct.textContent = ""; }
-           if (elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData.ticker} : ${benchPct>=0?'+':''}${benchPct.toFixed(2)}%`; }
-           if (elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
-       } else {
-           if (elBench) elBench.style.display = 'none'; 
-           if (elDiff) elDiff.style.display = 'none';
-           if (elPct) { elPct.style.display = ''; elPct.textContent = `${sgn}${deltaPct.toFixed(2)}%`; elPct.style.color = cCol; }
-       }
-   }
-};
+// RESTAURATION fb23f43 : suppression des fonctions bindInteraction, bindCashflowMarkers, renderOverview, _chartAbortCtrl
+// (n'existaient pas dans la version d'origine, ajoutées par Gemini avec les onglets cassés)
 
 // ══════════════ ACTIONS MODALS ══════════════
 window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button>`); };
@@ -1201,11 +966,6 @@ window.exportPDF = () => { cm(); const d = ga(); let html = `<div class="print-p
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
 window.eImmo=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Immobilier</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Valeur estimée (€)</label><input id="iv" value="${D.immobilier.valeurEstimee}" inputmode="decimal"></div><div class="field"><label>Capital restant (€)</label><input id="ir" value="${D.immobilier.capitalRestant}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.immobilier.valeurEstimee=pn(document.getElementById('iv').value);D.immobilier.capitalRestant=pn(document.getElementById('ir').value);cm();save()">Enregistrer</button>`)};
 
-// ─── CORRECTION BUG #2 (suite) ───────────────────────────────────────────────
-// Dans ePos/sP/dP, les paramètres poche et ticker sont maintenant sérialisés
-// via escAttr() pour éviter les injections si ces valeurs contiennent des
-// apostrophes ou des guillemets (noms de poches custom, tickers exotiques).
-// ─────────────────────────────────────────────────────────────────────────────
 window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`)};
 
 window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value; const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pocheName,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; cm();save()};
@@ -1216,8 +976,7 @@ window.askSale=(pocheName,tk,qty,pru,titre,mode,pe)=>{_pendingSale={pn:pocheName
 
 // ─── CORRECTION BUG #5 ───────────────────────────────────────────────────────
 // confirmSale() : querySelector sur 'input[name="mo"]:checked' pouvait
-// retourner null si appelé hors contexte modal (race condition ou DOM absent).
-// Ajout d'une vérification explicite sur le résultat avant d'accéder à .value.
+// retourner null. Ajout d'une vérification explicite.
 // ─────────────────────────────────────────────────────────────────────────────
 window.confirmSale=()=>{
   if(!_pendingSale)return;
@@ -1264,34 +1023,20 @@ window.pickStock=async(idx)=>{ const items=document.querySelectorAll("#srchRes >
 window.doA=(pocheName)=>{ const tk=document.getElementById("mk").value; if(!tk)return; const root=document.getElementById("modal-root"); const pickedSym=root.dataset.pickedSym||""; const pickedCur=root.dataset.pickedCur||""; const pos={ titre:document.getElementById("mt").value||tk, ticker:tk, qty:pn(document.getElementById("mq").value), pru:pn(document.getElementById("mp").value), cours:pn(document.getElementById("mx").value) }; if(pickedCur)pos.currency=pickedCur; if(pickedSym&&pickedSym.includes("."))pos.avSymbol=pickedSym; const ci=document.getElementById("mi").value; if(ci)pos.cible=pn(ci); const secVal=document.getElementById("ms")?.value; if(secVal) pos.sector=secVal; const divVal=document.getElementById("md")?.value; if(divVal) pos.dividend=pn(divVal); D.poches[pocheName].positions.push(pos); cm(); save(); };
 
 // ─── CORRECTION BUG #1 (suite) ───────────────────────────────────────────────
-// requireAuth: la modal de login est maintenant un écran plein (z-index élevé)
-// sans onclick="cm()" sur le fond, pour éviter de la fermer accidentellement.
-// ─────────────────────────────────────────────────────────────────────────────
 window.requireAuth = (mode = 'login') => { document.getElementById("modal-root").innerHTML = `<div class="modal-bg" style="background:var(--bg); align-items:center;"><div class="modal" style="max-height:none; border-radius:20px; border:1px solid var(--bdr); text-align:center; padding:30px 20px;"><div style="font-size:24px; font-weight:800; margin-bottom:10px; color:var(--acc);">Portfolio</div><div style="font-size:13px; color:var(--dim); margin-bottom:24px; line-height:1.4;">Gérez et analysez votre patrimoine<br>en toute simplicité.</div><h3 style="font-size:17px; font-weight:700; margin-bottom:16px; text-align:left;">${mode==='login'?'Connexion':'Inscription'}</h3><div class="field" style="text-align:left;"><label>Email</label><input id="au_email" type="email" placeholder="ton@email.com"></div><div class="field" style="text-align:left;"><label>Mot de passe</label><input id="au_pwd" type="password" placeholder="min 8 caractères"></div><button class="btn btn-p" onclick="${mode==='login'?'doSignIn()':'doSignUp()'}" style="margin-bottom:12px; height:44px;">${mode==='login'?'Se connecter':"S'inscrire"}</button><div style="font-size:12px; color:var(--acc); cursor:pointer; font-weight:600;" onclick="requireAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Créer un compte":"Déjà inscrit ? Se connecter"}</div></div></div>`; };
 window.doSignIn = async () => { if(!sb) return alert('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return alert('Email et mot de passe requis'); const { data, error } = await sb.auth.signInWithPassword({email, password: pwd}); if(error) return alert('Erreur connexion : ' + error.message); currentUser = data.user; await loadUserEnv(); };
 window.doSignUp = async () => { if(!sb) return alert('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return alert('Email et mot de passe requis'); if(pwd.length < 8) return alert('Mot de passe : minimum 8 caractères'); const { data, error } = await sb.auth.signUp({email, password: pwd}); if(error && !error.message.includes("Database error saving new user")) { return alert('Erreur inscription : ' + error.message); } alert("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter."); };
 
-// ─── CORRECTION BUG #1 (doSignOut) ───────────────────────────────────────────
-// Ancienne version: currentUser = null → cm() → cm() voit !currentUser → return
-// → la modal de paramètres restait affichée après déconnexion.
-// CORRECTION: vider modal-root directement AVANT de nullifier currentUser,
-// puis appeler R() pour afficher l'écran de login.
-// ─────────────────────────────────────────────────────────────────────────────
 window.doSignOut = async () => {
   if(!sb) return;
-  // 1. Fermer la modal AVANT de couper la session (cm() dépend de currentUser)
   document.getElementById("modal-root").innerHTML = "";
   _pendingSale = null;
-  // 2. Déconnecter côté Supabase
   await sb.auth.signOut();
-  // 3. Réinitialiser l'état local
   currentUser = null;
   window.currentPfId = null;
   D = null;
   H = [];
-  benchmarkData = null;
   window.cashflows = [];
-  // 4. Afficher l'écran de login
   R();
 };
 
@@ -1326,24 +1071,90 @@ sortedPositions.forEach((x,i)=>{const xp=x.pl>=0;const isUsd=CUR[x.ticker]==="US
 h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid #1e203022":""}" onclick="ePos('${escAttr(sel)}','${escAttr(x.ticker)}')"><div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span style="color:var(--acc);font-size:9px">✎</span>${(()=>{const xplP=x.plPct||0;let xs=5;if(xplP>15)xs+=1.5;else if(xplP>5)xs+=0.8;else if(xplP<-15)xs-=1.5;else if(xplP<-5)xs-=0.8;if(x.poids>40)xs-=1.5;else if(x.poids>25)xs-=0.5;const sc=Math.max(1,Math.min(10,xs));const grade=sc>=9?"S":sc>=7?"A":sc>=5?"B":sc>=3?"C":"D";const cl=sc>=9?"#a78bfa":sc>=7?"#34d399":sc>=5?"#fbbf24":"#f87171";return `<span style="margin-left:4px;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700;background:${cl}22;color:${cl}" title="${sc.toFixed(1)}/10">${grade}</span>`;})()} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:9px;color:var(--mut)">${x.qty} × ${fmt2_(x.cours)}${isUsd?"$":"€"}${x.cible?" · Cible: "+fmt2_(x.cible)+(isUsd?"$":"€"):""}</div></div><div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:9px;color:var(--mut)">${fmt_(valUsd)} $</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div><div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:9px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:8px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} $</div>`:""}</div></div>`;});
 h+=`</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div></div>`;}
 
-if(tab==="analyse"){
-  const d = ga(); const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0;
-  const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
-  const pocheScores = activePoches.map(([n,p]) => { const sc = parseFloat(String(p.sante||5).replace(',','.')); return {n, sc, cl: sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)", val: p.valeur}; }).sort((a,b) => b.sc-a.sc);
-  const totalActiveVal = activePoches.reduce((s, [n,p]) => s + p.valeur, 0); let avgScore = 5; if (totalActiveVal > 0) { avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0); }
-  const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
-  let allocs = [ ...activePoches.map(x=>({n:x[0], v:x[1].valeur, c:PCOL[x[0]]})), {n:"Cash", v:D.cash, c:"#4a4d5e"}];
-  if(D.immobilier && D.immobilier.equityNette > 0) allocs.push({n:"Immobilier", v:D.immobilier.equityNette, c:"#f472b6"});
-  allocs = allocs.filter(a=>a.v>0).sort((a,b)=>b.v-a.v); const totAlloc = allocs.reduce((s,a)=>s+a.v, 0) || 1;
-  let posList = [...d.ap].filter(p => p.valeur > 0 && Math.abs(p.pl) > 1); posList.sort((a,b) => b.pl - a.pl); const top3 = posList.slice(0, 3); const flop3 = posList.slice(-3).reverse().filter(p => p.pl < 0);
-  let rDD = H.filter(x => x.t >= cut); const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"mtd", l:"MTD"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+// ─── RESTAURATION fb23f43 : onglet ANALYSE ─────────────────────────────────
+if(tab==="analyse"){const d=ga();
+const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
 
-  h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse & Risque</h2>
-  <div class="card" style="padding:16px 12px 12px;"><div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;"><div class="section" style="margin:0">Underwater Chart (Drawdown)</div><div style="font-size:10px; color:var(--mut);">Baisse depuis l'ATH</div></div>${makeBtns(timeOpts, htf, "setHtf", true)}${lc(rDD.length>0?rDD:[{t:Date.now(), v:d.tN, pl:d.tP}], {mode: 'dd'}, 300, 100)}</div>
-  <div class="card"><div class="section" style="margin-bottom:12px">Allocation du Patrimoine</div><div style="display:flex; width:100%; height:24px; border-radius:6px; overflow:hidden; margin-bottom:12px;">${allocs.map(a => `<div style="width:${(a.v/totAlloc)*100}%; background:${a.c}; height:100%; border-right:1px solid var(--bg);"></div>`).join('')}</div><div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">${allocs.map(a => `<div style="display:flex; align-items:center; gap:6px; font-size:11px;"><div style="width:8px; height:8px; border-radius:2px; background:${a.c};"></div><div style="flex:1; color:var(--dim); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${a.n}</div><div class="mono" style="font-weight:600;">${((a.v/totAlloc)*100).toFixed(1)}%</div></div>`).join('')}</div></div>
-  <div class="card"><div class="section" style="margin-bottom:12px">Moteurs de P&L Latent</div>${top3.length === 0 ? `<div style="font-size:11px; color:var(--mut); text-align:center;">Pas de données suffisantes.</div>` : ''}${top3.length > 0 ? `<div style="font-size:10px; color:var(--grn); text-transform:uppercase; margin-bottom:6px; font-weight:700;">Top Contributeurs</div>` : ''}${top3.map(p => { const maxG = top3[0].pl; const w = Math.max(5, (p.pl/maxG)*100); return `<div style="margin-bottom:8px;"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;"><span style="font-weight:600;">${p.ticker}</span><span class="mono" style="color:var(--grn)">+${fmt_(p.pl)}€</span></div><div style="height:6px; background:#1e2030; border-radius:3px;"><div style="height:100%; width:${w}%; background:var(--grn); border-radius:3px;"></div></div></div>`; }).join('')}${flop3.length > 0 ? `<div style="font-size:10px; color:var(--red); text-transform:uppercase; margin:12px 0 6px 0; font-weight:700;">Top Détracteurs</div>` : ''}${flop3.map(p => { const maxL = Math.abs(flop3[0].pl); const w = Math.max(5, (Math.abs(p.pl)/maxL)*100); return `<div style="margin-bottom:8px;"><div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:3px;"><span style="font-weight:600;">${p.ticker}</span><span class="mono" style="color:var(--red)">${fmt_(p.pl)}€</span></div><div style="height:6px; background:#1e2030; border-radius:3px;"><div style="height:100%; width:${w}%; background:var(--red); border-radius:3px;"></div></div></div>`; }).join('')}</div>
-  <div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div class="section" style="margin:0">Score Santé Global</div><div class="mono" style="font-size:22px;font-weight:700;color:${avgCl}">${avgScore>=9?"S":avgScore>=7?"A":avgScore>=5?"B":avgScore>=3?"C":"D"} <span style="font-size:14px;color:var(--dim)" title="${avgScore.toFixed(1)}/10">${avgScore.toFixed(1)}</span></div></div><div style="display:flex;flex-direction:column;gap:5px">${pocheScores.map(x=>`<div style="display:flex;align-items:center;gap:8px"><span style="font-size:10px;color:var(--dim);width:90px;flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${x.n}</span><div style="flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${x.sc*10}%;background:${x.cl};border-radius:3px;"></div></div><span class="mono" style="font-size:11px;font-weight:700;color:${x.cl};width:28px;text-align:right" title="${x.sc.toFixed(1)}/10">${x.sc>=9?"S":x.sc>=7?"A":x.sc>=5?"B":x.sc>=3?"C":"D"}</span></div>`).join('')}</div></div></div>`;
+let r = H.filter(x => x.t >= cut);
+let chartData = [];
+if(aEnvSel !== "tout") {
+  chartData = r.map(x => ({ t: x.t, v: x.env && x.env[aEnvSel] !== undefined ? x.env[aEnvSel] : null })).filter(x => x.v !== null);
+  if(chartData.length === 0) {
+    const immoEq = D.immobilier ? D.immobilier.equityNette || 0 : 0;
+    const val = aEnvSel === "Cash" ? D.cash : (aEnvSel === "Immobilier" ? immoEq : (D.poches[aEnvSel] ? D.poches[aEnvSel].valeur : 0));
+    chartData = [{t: Date.now(), v: val}];
+  }
+} else {
+  chartData = [...r];
+  if(chartData.length === 0) chartData = [{t: Date.now(), v: d.tN}];
 }
+
+const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+const envOpts = [{v:"tout", l:"TOUT"}, {v:"Cash", l:"CASH"}, {v:"Immobilier", l:"IMMO"}, ...Object.keys(D.poches).map(k=>({v:k, l:k.toUpperCase()}))];
+
+const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
+const cm_={EUR:D.cash,USD:0};d.ap.forEach(p=>{const c=CUR[p.ticker]||"EUR";cm_[c]=(cm_[c]||0)+p.valeur});const cdat=Object.entries(cm_).map(([n,v])=>[n,Math.round(v)]);const ct=cdat.reduce((s,x)=>s+x[1],0)||1;
+const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/d.tF*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
+const dp=d.ap.map(p=>{const dv=p.dividend||DIVS[p.ticker]||0;return{...p,dv,dt:p.qty*dv,yd:p.cours>0?dv/p.cours*100:0}}).filter(p=>p.dv>0);const td=dp.reduce((s,p)=>s+p.dt,0);
+const sc2=d.ap.map(p=>{ if(p._score!=null&&p._crit!=null)return{...p,sc:p._score,crit:p._crit}; const res=scorePos(p,""); return{...p,sc:res.score,crit:res.crit}; }).sort((a,b)=>b.sc-a.sc);
+
+const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
+const pocheScores = activePoches.map(([n,p]) => { const sc = parseFloat(String(p.sante||5).replace(',','.')); const cl = sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)"; return {n, sc, cl, val: p.valeur}; }).sort((a,b) => b.sc-a.sc);
+const totalActiveVal = activePoches.reduce((s, [n,p]) => s + p.valeur, 0);
+let avgScore = 5; if (totalActiveVal > 0) { avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0); } else if (pocheScores.length > 0) { avgScore = pocheScores.reduce((s,x) => s + x.sc, 0) / pocheScores.length; }
+const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
+
+h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
+<div class="card" style="margin-bottom:10px; padding:16px 12px 12px;">
+${makeBtns(timeOpts, htf, "setHtf", true)}
+${makeBtns(envOpts, aEnvSel, "setAEnv")}
+${lc(chartData, "v", 300, 160)}
+</div>
+
+<div class="card" style="margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div class="section" style="margin:0">Score global portefeuille</div>
+<div class="mono" style="font-size:22px;font-weight:700;color:${avgCl}">${avgScore>=9?"S":avgScore>=7?"A":avgScore>=5?"B":avgScore>=3?"C":"D"} <span style="font-size:14px;color:var(--dim)" title="${avgScore.toFixed(1)}/10">${avgScore.toFixed(1)}</span></div>
+</div>
+<div style="display:flex;flex-direction:column;gap:5px">
+${pocheScores.map(x=>`
+<div style="display:flex;align-items:center;gap:8px">
+<span style="font-size:10px;color:var(--dim);width:90px;flex-shrink:0">${x.n}</span>
+<div style="flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden">
+<div style="height:100%;width:${x.sc*10}%;background:${x.cl};border-radius:3px;transition:width .4s"></div>
+</div>
+<span class="mono" style="font-size:11px;font-weight:700;color:${x.cl};width:28px;text-align:right" title="${x.sc.toFixed(1)}/10">${x.sc>=9?"S":x.sc>=7?"A":x.sc>=5?"B":x.sc>=3?"C":"D"}</span>
+</div>`).join('')}
+</div>
+</div>
+<div class="card"><div class="section">Secteurs</div><div style="display:flex;align-items:center;gap:10px">${dn(sd,scol,100)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${sd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:6px;height:6px;border-radius:50%;background:${scol[i]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${fmt_(d[1])}€</span></div>`).join("")}</div></div></div>
+<div class="card"><div class="section">Devises</div><div style="display:flex;gap:8px">${cdat.map(d=>{const pc=d[1]/ct*100;return`<div style="flex:1;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:${d[0]==="EUR"?"var(--acc)":"var(--grn)"}">${pc.toFixed(0)}%</div><div style="font-size:12px;font-weight:600;margin-top:2px">${d[0]}</div><div style="font-size:10px;color:var(--dim)">${fmt_(d[1])} €</div><div style="margin-top:6px;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${d[0]==="EUR"?"var(--acc)":"var(--grn)"};border-radius:3px"></div></div></div>`}).join("")}</div></div>
+<div class="card"><div class="section">Cible vs Actuel</div>${ad.map(a=>{const cl=Math.abs(a.dv)>5?"var(--red)":Math.abs(a.dv)>2?"var(--amb)":"var(--grn)";return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px"><span style="width:70px;color:var(--dim);font-size:9px">${a.n}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;overflow:hidden"><div style="position:absolute;left:${Math.min(a.tg,a.ac)}%;width:${Math.abs(a.dv)}%;height:100%;background:${cl}44"></div><div style="position:absolute;left:${a.ac}%;width:3px;height:100%;background:${PCOL[a.n]||"var(--acc)"};border-radius:2px"></div></div><span class="mono" style="font-size:10px;width:30px;text-align:right;color:${cl}">${a.dv>0?"+":""}${a.dv.toFixed(1)}</span></div>`}).join("")}</div>
+<div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div class="section" style="margin:0">Dividendes</div><span class="mono" style="font-size:13px;font-weight:700;color:var(--grn)">${fmt_(td)} €/an</span></div>${dp.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span style="color:var(--dim)">${p.ticker}</span><span class="mono"><span style="color:var(--grn)">${fmt_(p.dt)}€</span> <span style="color:var(--mut)">(${p.yd.toFixed(1)}%)</span></span></div>`).join("")}</div>
+<div class="card">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div class="section" style="margin:0">Score santé positions</div>
+<div style="font-size:9px;color:var(--mut)">S≥9&nbsp;A≥7&nbsp;B≥5&nbsp;C≥3&nbsp;D&lt;3</div>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9px;color:var(--dim)">
+<div>🟢 P&L% · ⚖️ Poids</div>
+<div>💸 Dividende · 📈 Momentum</div>
+</div>
+${sc2.map(p=>{
+const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";
+const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 4px;border-radius:3px;font-size:8px;background:${cr.c==='g'?'#34d39920':cr.c==='r'?'#f8717120':'#fbbf2420'};color:${cr.c==='g'?'var(--grn)':cr.c==='r'?'var(--red)':'var(--amb)'};">${cr.n} ${cr.v}</span>`).join('');
+return`<div style="padding:5px 0;border-bottom:1px solid #1e203018">
+<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
+<span style="font-weight:700;font-size:11px;width:48px;color:var(--txt)">${p.ticker}</span>
+<div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden">
+<div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div>
+</div>
+<span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span>
+</div>
+<div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div>
+</div>`;
+}).join("")}
+</div></div>`;}
 
 if(tab==="alerts"){const d=ga();const un=d.alerts.filter(a=>a.at),nr=d.alerts.filter(a=>a.nr),ab=d.alerts.filter(a=>!a.at&&!a.nr);
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Alertes</h2>`;
@@ -1353,23 +1164,44 @@ if(ab.length){h+=`<div style="font-size:11px;color:var(--dim);font-weight:600;ma
 if(!d.alerts.length)h+=`<div style="text-align:center;color:var(--mut);padding:40px">Aucune cible définie</div>`;
 h+=`</div>`;}
 
+// ─── RESTAURATION fb23f43 : onglet HISTORIQUE ──────────────────────────────
 if(tab==="history"){
-  const d=ga(); const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0; let r = H.filter(x => x.t >= cut);
-  let startV = r.length > 0 ? r[0].v : d.tN; let startPl = r.length > 0 ? r[0].pl : d.tP; let endV = d.tN; let deltaE = endV - startV;
-  let startInv = r.length > 0 ? (r[0].inv || (startV - startPl)) : (Object.values(D.poches).reduce((s,p)=>s+p.investi,0)); let baseCap = startInv || 1; let deltaPct = ((d.tP - startPl) / baseCap) * 100;
-  if(r.length < 2) { deltaE = 0; deltaPct = 0; } const isPos = deltaPct >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
-  const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"mtd", l:"MTD"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+const d=ga();
+const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
 
-  h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Historique</h2>${makeBtns(timeOpts, htf, "setHtf")}<div style="display:flex; background:#1a1b25; border-radius:8px; padding:4px; margin-bottom:16px;"><button onclick="setHMode('v')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'var(--acc)':'transparent'}; color:${hMode==='v'?'#fff':'var(--dim)'}; transition:all 0.2s">€ Valeur</button><button onclick="setHMode('pct')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pct'?'var(--acc)':'transparent'}; color:${hMode==='pct'?'#fff':'var(--dim)'}; transition:all 0.2s">% Performance</button></div><div class="card" style="padding:16px 12px 12px; position:relative;"><div id="stat-bar" style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:16px; padding:0 4px; min-height:45px;"><div><div id="sb-label" style="font-size:10px; color:var(--dim); text-transform:uppercase; margin-bottom:4px;">Valeur Actuelle</div><div id="sb-value" class="mono" style="font-size:22px; font-weight:bold;">${hMode==='pct'? deltaPct.toFixed(2)+'%': fmt_(endV)+' €'}</div><div id="sb-bench" class="mono" style="font-size:11px; color:var(--dim); margin-top:4px; display:none;"></div></div><div style="text-align:right;"><div id="sb-deltaE" class="mono" style="font-size:14px; font-weight:bold; color:${cCol}">${sgn}${fmt_(deltaE)} €</div><div id="sb-deltaPct" class="mono" style="font-size:12px; opacity:0.8; color:${cCol}">${sgn}${deltaPct.toFixed(2)}%</div><div id="sb-diff" class="mono" style="font-size:11px; margin-top:4px; display:none;"></div></div></div><div class="chart-touch" style="width:100%;">${lc(r, {mode: hMode, key: 'v', interactive: true}, 300, 160)}</div></div>`;
-  if(D.sales&&D.sales.length){ h+=`<div class="card" style="margin-top:16px"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`; [...D.sales].reverse().forEach((s,i)=>{ h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}"><div><div style="font-size:13px;font-weight:700">${s.ticker||"Transaction"}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche||""}</div></div><div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div></div>`; }); h+=`</div></div>`; }
-  h+=`</div>`;
+let r = H.filter(x => x.t >= cut);
+if(r.length === 0) r = [{t: Date.now(), v: d.tN, pl: d.tP}];
+
+const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+
+h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
+<div class="card" style="padding:16px 12px 12px;">
+${makeBtns(timeOpts, htf, "setHtf", true)}
+<div style="display:flex; background:#1a1b25; border-radius:8px; padding:4px; margin-bottom:12px;">
+<button onclick="setHMode('v')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'var(--acc)':'transparent'}; color:${hMode==='v'?'#fff':'var(--dim)'}; transition:all 0.2s">Valeur</button>
+<button onclick="setHMode('pl')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'var(--acc)':'transparent'}; color:${hMode==='pl'?'#fff':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
+</div>
+${lc(r, hMode, 300, 180)}
+</div>`;
+
+if(D.sales&&D.sales.length){
+h+=`<div class="card" style="margin-top:16px"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
+[...D.sales].reverse().forEach((s,i)=>{
+h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
+<div><div style="font-size:13px;font-weight:700">${s.ticker||"Transaction"}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${s.poche||""}</div></div>
+<div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div>
+</div>`;
+});
+h+=`</div></div>`;
+}else{h+=`<div style="text-align:center;color:var(--mut);padding:40px;font-size:13px">Aucune transaction enregistrée.</div>`;}
+h+=`</div>`;
 }
 
 if($) $.innerHTML=h;
 const tabs=[["home","Vue"],["analyse","Analyse"],["alerts","Alertes"],["history","Hist."]];
 document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]==="home");return`<button class="nav-btn${ac?" active":""}" onclick="gt('${t[0]}')"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
 
-if(tab === "history") { if(typeof window.renderOverview === 'function') window.renderOverview(); if(typeof window.bindInteraction === 'function') window.bindInteraction(); }
+// RESTAURATION fb23f43 : suppression de l'appel à bindInteraction/renderOverview (n'existaient pas dans la version d'origine)
 }
 
 window.addEventListener('popstate', (event) => { if (event.state) { tab = event.state.tab; sel = event.state.sel; } else { tab = "home"; sel = null; } R(); });
@@ -1377,6 +1209,8 @@ window.gt=id=>{ if(id==="home")sel=null; tab=id; history.pushState({tab: id, sel
 window.oP=n=>{ sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 window.aEnv=()=>{const n=prompt("Nom de la nouvelle enveloppe:");if(!n)return;if(D.poches[n])return alert("Existe déjà");D.poches[n]={sante:"7,0",positions:[]};save()};
 window.setHtf=v=>{htf=v;R()};
+// RESTAURATION fb23f43 : setter pour le filtre d'enveloppe sur l'onglet Analyse
+window.setAEnv=v=>{aEnvSel=v;R()};
 window.setHMode=m=>{hMode=m;R()};
 window.refreshPrices=refreshPrices;
 
