@@ -40,7 +40,6 @@ body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90
 .spin{animation:sp 1s linear infinite;display:inline-block}
 .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; white-space: nowrap; overflow-x: auto; }
 .hide-scroll::-webkit-scrollbar { display: none; }
-
 .chart-touch { touch-action: pan-y; user-select: none; -webkit-user-select: none; }
 
 #print-report { display: none; }
@@ -90,9 +89,11 @@ let API_KEYS = {
   SUPABASE_ANON: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw"
 };
 
-let sb = null; let currentUser = null; window.currentPfId = null;
+let sb = null;
+let currentUser = null;
+window.currentPfId = null;
 
-if(window.supabase){
+if(window.supabase && API_KEYS.SUPABASE_URL && API_KEYS.SUPABASE_ANON){
   try{ sb = window.supabase.createClient(API_KEYS.SUPABASE_URL, API_KEYS.SUPABASE_ANON); }catch(e){}
 }
 
@@ -103,21 +104,32 @@ const CUR={GOOGL:"USD",NVDA:"USD",NBIS:"USD",ASTS:"USD",RKLB:"USD",TSM:"USD",KRK
 const DIVS={AI:3.20,SU:3.90,VIE:1.35,WKL:2.19,VU:0.90,NVDA:0.04,TSM:2.17};
 const CG={SOL:"solana",BTC:"bitcoin",HYPE:"hyperliquid"};
 
-const DEF = { updatedAt: "", eurUsd: 1.10, cash: 0, targetAlloc: {}, immobilier: { valeurEstimee: 0, capitalRestant: 0 },
-  poches: { CTO: { sante: "5,0", positions: [] }, PEA: { sante: "5,0", positions: [] }, "Assurance Vie": { sante: "5,0", positions: [] }, PEE: { sante: "5,0", positions: [] }, Crypto: { sante: "5,0", positions: [] }, "Métaux": { sante: "5,0", positions: [] } } };
+const DEF = {
+  updatedAt: new Date().toLocaleDateString("fr-FR"), eurUsd: 1.10, cash: 0,
+  targetAlloc: { CTO: 40, PEA: 25, "Assurance Vie": 5, PEE: 10, Crypto: 8, "Métaux": 2, Cash: 10 },
+  immobilier: { valeurEstimee: 0, capitalRestant: 0 },
+  poches: { CTO: { sante: "5,0", positions: [] }, PEA: { sante: "5,0", positions: [] }, "Assurance Vie": { sante: "5,0", positions: [] }, PEE: { sante: "5,0", positions: [] }, Crypto: { sante: "5,0", positions: [] }, "Métaux": { sante: "5,0", positions: [] } }
+};
 
-// ══════════════ STATE & GLOBALS ══════════════
-let D=null, H=[], tab="home", sel=null, htf="tout", hMode="v", benchmarkData=null;
-let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0}; let cd=900;
-window.cashflows = []; 
+// ══════════════ STATE ══════════════
+let D=null,H=[],tab="home",sel=null,htf="tout",hMode="v";
+let benchmarkData=null; window.cashflows = [];
+let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
+let cd=900,cdTimer=null;
 
-// FIX #2 : Déclaration de _pendingSale en global
+// FIX #2 (CRITIQUE) : Déclaration globale
 let _pendingSale = null;
 
-// FIX #1 : Réintégration de la fonction sm() manquante
+// FIX #1 (CRITIQUE) : Fonctions de modale restaurées proprement
 function sm(h){
   document.getElementById("modal-root").innerHTML = `<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`;
 }
+function cm(){
+  if(!currentUser) return; 
+  document.getElementById("modal-root").innerHTML="";
+  _pendingSale=null;
+}
+window.cm=cm;
 
 // ══════════════ UTILS ══════════════
 const fmt_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
@@ -130,7 +142,8 @@ const sGrade=s=>{const n=parseFloat(String(s).replace(",","."));if(n>=9)return"S
 const esc=s=>String(s==null?"":s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
 
 function scorePos(pos, pocheName){
-  const isCrypto = pocheName === "Crypto" || CG[pos.ticker]; const isFund = pocheName === "Assurance Vie" || pocheName === "PEE";
+  const isCrypto = pocheName === "Crypto" || CG[pos.ticker];
+  const isFund = pocheName === "Assurance Vie" || pocheName === "PEE";
   let s=5; const crit=[]; const pl=pos.plPct||0; const mult=isCrypto?1.5:isFund?0.7:1.0;
   if(pl>=50*mult){s+=2.5;crit.push({n:"P&L",v:"+2.5",c:"g"})} else if(pl>=25*mult){s+=1.5;crit.push({n:"P&L",v:"+1.5",c:"g"})} else if(pl>=10*mult){s+=0.8;crit.push({n:"P&L",v:"+0.8",c:"g"})} else if(pl>=-5*mult){crit.push({n:"P&L",v:"0",c:"a"})} else if(pl>=-15*mult){s-=0.8;crit.push({n:"P&L",v:"-0.8",c:"r"})} else if(pl>=-30*mult){s-=1.5;crit.push({n:"P&L",v:"-1.5",c:"r"})} else{s-=2.5;crit.push({n:"P&L",v:"-2.5",c:"r"})}
   const w=pos.poids||0;
@@ -168,40 +181,43 @@ function rc(d){
 
 function getCutoffs() {
    const nowD = new Date(); const now = nowD.getTime(); const day = nowD.getDay(); const diffDate = nowD.getDate() - day + (day === 0 ? -6 : 1);
-   return { "1s":now-7*86400000, "wtd":new Date(nowD.getFullYear(), nowD.getMonth(), diffDate).getTime(), "1m":now-30*86400000, "3m":now-90*86400000, "mtd":new Date(nowD.getFullYear(), nowD.getMonth(), 1).getTime(), "1a":now-365*86400000, "ytd":new Date(nowD.getFullYear(), 0, 1).getTime(), "tout":0 };
+   const wtd = new Date(nowD.getFullYear(), nowD.getMonth(), diffDate).getTime(); const mtd = new Date(nowD.getFullYear(), nowD.getMonth(), 1).getTime(); const ytd = new Date(nowD.getFullYear(), 0, 1).getTime();
+   return { "1s":now-7*86400000, "wtd":wtd, "1m":now-30*86400000, "3m":now-90*86400000, "mtd":mtd, "1a":now-365*86400000, "ytd":ytd, "tout":0 };
 }
 
 function makeBtns(opts, active, fn, bdrBottom=false) {
    return `<div class="hide-scroll" style="display:flex; gap:6px; padding-bottom:${bdrBottom?'8px':'4px'}; margin-bottom:${bdrBottom?'8px':'12px'}; ${bdrBottom?'border-bottom:1px solid var(--bdr);':''}">` + 
-   opts.map(o => { const ac = active === o.v; return `<button onclick="${fn}('${o.v}')" style="padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${ac?"var(--acc)":"var(--bdr)"}; background:${ac?"var(--acc)":"transparent"}; color:${ac?"#fff":"var(--dim)"}; transition:all 0.2s; flex-shrink:0;">${esc(o.l)}</button>`; }).join("") + `</div>`;
+   opts.map(o => { const ac = active === o.v; const bg = ac ? "var(--acc)" : "transparent"; const co = ac ? "#fff" : "var(--dim)"; const bd = ac ? "var(--acc)" : "var(--bdr)"; return `<button onclick="${fn}('${o.v}')" style="padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${bd}; background:${bg}; color:${co}; transition:all 0.2s; flex-shrink:0;">${esc(o.l)}</button>`; }).join("") + `</div>`;
 }
 
 // ══════════════ SUPABASE SYNC ══════════════
 let _isSyncing=false; let _syncPending=false;
+
 async function pullFromSupabase() {
   if (!sb || !currentUser) return false;
   try {
-    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1); 
+    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1);
     if (pfErr) throw pfErr; if (!pfData || pfData.length === 0) return false;
-    window.currentPfId = pfData[0].id; 
-    
-    const { data: posData } = await sb.from('positions').select('*').eq('portfolio_id', pfData[0].id);
-    
-    const { data: cfData } = await sb.from('cashflows').select('*').eq('portfolio_id', pfData[0].id).order('date', { ascending: true });
+    const pf = pfData[0]; window.currentPfId = pf.id;
+
+    const { data: posData } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
+    const { data: cfData } = await sb.from('cashflows').select('*').eq('portfolio_id', pf.id).order('date', { ascending: true });
     window.cashflows = cfData || [];
 
     const localD = loadLocal().D || {};
-    let newD = { updatedAt: new Date().toLocaleDateString("fr-FR"), eurUsd: pfData[0].eur_usd || 1.10, cash: pfData[0].cash || 0, targetAlloc: pfData[0].target_alloc || {}, immobilier: pfData[0].immobilier || {}, sales: pfData[0].sales || [], poches: {}, migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6 };
-    ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"].forEach(p => newD.poches[p] = {sante: "5,0", positions: []});
-    
+    let newD = { updatedAt: new Date().toLocaleDateString("fr-FR")+" "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}), eurUsd: pf.eur_usd || 1.10, cash: pf.cash || 0, targetAlloc: pf.target_alloc || {}, immobilier: pf.immobilier || {}, sales: pf.sales || [], poches: {}, migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6 };
+    const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
+    defaultPoches.forEach(p => newD.poches[p] = {sante: "5,0", positions: []});
+
     if (posData) {
       posData.forEach(pos => {
-        if (!newD.poches[pos.poche]) newD.poches[pos.poche] = {sante: "5,0", positions: []};
+        if (!newD.poches[pos.poche]) { newD.poches[pos.poche] = {sante: "5,0", positions: []}; }
         const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
         newD.poches[pos.poche].positions.push({ ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru, cours: pos.cours, cible: pos.cible, sector: pos.sector, dividend: pos.dividend, cours7j: oldPos ? oldPos.cours7j : pos.cours, cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(), lastUpd: oldPos ? oldPos.lastUpd : Date.now(), currency: oldPos ? oldPos.currency : null, avSymbol: oldPos ? oldPos.avSymbol : null });
       });
     }
-    D = newD; H = pfData[0].hist || []; st.sync = true; return true;
+
+    D = newD; H = pf.hist || []; st.sync = true; return true;
   } catch(e) { st.sync = false; return false; }
 }
 
@@ -211,6 +227,7 @@ async function pushToSupabase() {
     await sb.from('portfolios').update({ cash: D.cash || 0, eur_usd: D.eurUsd || 1.1, immobilier: D.immobilier || {}, target_alloc: D.targetAlloc || {}, sales: D.sales || [], hist: H.slice(-1000) }).eq('id', window.currentPfId);
     const { data: dbPos } = await sb.from('positions').select('id, poche, ticker').eq('portfolio_id', window.currentPfId);
     let toUpdate = []; let toInsert = []; let keptIds = new Set();
+
     Object.entries(D.poches).forEach(([pocheName, p]) => {
       p.positions.forEach(pos => {
         const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
@@ -218,6 +235,7 @@ async function pushToSupabase() {
         if(dbMatch) { toUpdate.push({ id: dbMatch.id, ...payload }); keptIds.add(dbMatch.id); } else { toInsert.push(payload); }
       });
     });
+
     const idsToDelete = dbPos.filter(x => !keptIds.has(x.id)).map(x => x.id);
     if(idsToDelete.length > 0) await sb.from('positions').delete().in('id', idsToDelete);
     if(toInsert.length > 0) await sb.from('positions').insert(toInsert);
@@ -227,17 +245,40 @@ async function pushToSupabase() {
   if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)} return ok;
 }
 
+async function migrateToSupabase() {
+  if(!sb || !currentUser) return;
+  if(localStorage.getItem('sb-migrated-'+currentUser.id) === 'true') {
+     if(!window.currentPfId) {
+        const { data } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).limit(1);
+        if(data && data.length > 0) window.currentPfId = data[0].id;
+     } return;
+  }
+  try {
+    const { data: existing } = await sb.from('portfolios').select('id').eq('user_id', currentUser.id).limit(1);
+    if (existing && existing.length > 0) { localStorage.setItem('sb-migrated-'+currentUser.id, 'true'); window.currentPfId = existing[0].id; return; }
+
+    const { data: newPf } = await sb.from('portfolios').insert([{ user_id: currentUser.id, cash: D.cash || 0, eur_usd: D.eurUsd || 1.1, immobilier: D.immobilier || {}, target_alloc: D.targetAlloc || {}, sales: D.sales || [], hist: H || [] }]).select();
+    const pfId = newPf[0].id; window.currentPfId = pfId;
+
+    const posToInsert = [];
+    Object.entries(D.poches).forEach(([pocheName, p]) => {
+      p.positions.forEach(pos => { posToInsert.push({ portfolio_id: pfId, poche: pocheName, ticker: pos.ticker, titre: pos.titre, qty: pos.qty, pru: pos.pru, cours: pos.cours, cible: pos.cible || null, sector: pos.sector || null, dividend: pos.dividend || null }); });
+    });
+    if (posToInsert.length > 0) await sb.from('positions').insert(posToInsert);
+    localStorage.setItem('sb-migrated-'+currentUser.id, 'true');
+  } catch (err) {}
+}
+
 const saveLocal=()=>{ if(!currentUser) return; try{ localStorage.setItem("pf-data-"+currentUser.id,JSON.stringify(D)); localStorage.setItem("pf-hist-"+currentUser.id,JSON.stringify(H.slice(-1000))); st.localOk=true; }catch(e){st.localOk=false;} };
-const loadLocal=()=>{ if(!currentUser) return {D:null,H:[]}; try{ return{D:JSON.parse(localStorage.getItem("pf-data-"+currentUser.id)),H:JSON.parse(localStorage.getItem("pf-hist-"+currentUser.id))||[]} }catch(e){return{D:null,H:[]}} };
+const loadLocal=()=>{ if(!currentUser) return {D:null,H:[]}; try{ const d=localStorage.getItem("pf-data-"+currentUser.id); const h=localStorage.getItem("pf-hist-"+currentUser.id); return{D:d?JSON.parse(d):null,H:h?JSON.parse(h):[]} }catch(e){return{D:null,H:[]}} };
 async function save(){rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
 
-// ══════════════ DATA FETCH (PRIX + BENCHMARK) ══════════════
+// ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
   const ids=Object.values(CG).join(","); const got={};
   try{ const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`); if(!r.ok)throw new Error(); const d=await r.json(); Object.entries(CG).forEach(([t,id])=>{if(d[id]?.usd)got[t]=d[id].usd}); if(Object.keys(got).length===Object.keys(CG).length) return got; }catch(e){}
   const COINBASE={SOL:"SOL-USD",BTC:"BTC-USD"}; for(const [tkr,pair] of Object.entries(COINBASE)){ if(got[tkr])continue; try{ const r=await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`); if(r.ok){ const j=await r.json(); if(j.price)got[tkr]=parseFloat(j.price); } }catch(e){} }
-  const BINANCE={SOL:"SOLUSDT",BTC:"BTCUSDT",HYPE:"HYPEUSDT"}; for(const [tkr,sym] of Object.entries(BINANCE)){ if(got[tkr])continue; try{ const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`); if(r.ok){ const j=await r.json(); if(j.price)got[tkr]=parseFloat(j.price); } }catch(e){} }
-  return got;
+  const BINANCE={SOL:"SOLUSDT",BTC:"BTCUSDT",HYPE:"HYPEUSDT"}; for(const [tkr,sym] of Object.entries(BINANCE)){ if(got[tkr])continue; try{ const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`); if(r.ok){ const j=await r.json(); if(j.price)got[tkr]=parseFloat(j.price); } }catch(e){} } return got;
 }
 
 async function fetchStocks(){
@@ -257,382 +298,243 @@ async function fetchEurUsd(){ try{ const r=await fetch("https://api.exchangerate
 async function fetchGold(){ try{ const r=await fetch("https://api.gold-api.com/price/XAU"); if(r.ok){ const j=await r.json(); if(j.price){ const usdPerOz=j.price; const eurUsd=D.eurUsd||1.1; const eurPerCoin=(usdPerOz*1.2056)/eurUsd; return Math.round(eurPerCoin); } } }catch{} return null; }
 
 async function fetchBenchmark(ticker = "CW8.PA") {
-  const todayStr = new Date().toISOString().slice(0,10);
-  const cacheKey = `bench_${ticker}_${todayStr}`;
+  const todayStr = new Date().toISOString().slice(0,10); const cacheKey = `bench_${ticker}_${todayStr}`;
   Object.keys(localStorage).forEach(k => { if(k.startsWith(`bench_${ticker}_`) && k !== cacheKey) { localStorage.removeItem(k); } });
-
-  const cached = localStorage.getItem(cacheKey);
-  if(cached) { benchmarkData = JSON.parse(cached); return; }
-
+  const cached = localStorage.getItem(cacheKey); if(cached) { benchmarkData = JSON.parse(cached); return; }
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?chart=${encodeURIComponent(ticker)}`;
-  try {
-     const r = await fetch(targetUrl);
-     if(r.ok) {
-        const j = await r.json();
-        if(j.chart && j.chart.result && j.chart.result[0]) {
-           const res = j.chart.result[0];
-           const timestamps = res.timestamp;
-           const closes = res.indicators.quote[0].close;
-           
-           if(timestamps && closes) {
-              const series = [];
-              for(let i=0; i<timestamps.length; i++) {
-                 if(closes[i] !== null && !isNaN(closes[i])) {
-                    series.push({ t: timestamps[i] * 1000, c: closes[i] });
-                 }
-              }
-              if(series.length > 0) {
-                 benchmarkData = { ticker, series };
-                 localStorage.setItem(cacheKey, JSON.stringify(benchmarkData));
-                 return;
-              }
-           }
-        }
-     }
-  } catch(e) {}
+  try { const r = await fetch(targetUrl); if(r.ok) { const j = await r.json(); if(j.chart && j.chart.result && j.chart.result[0]) { const res = j.chart.result[0]; const timestamps = res.timestamp; const closes = res.indicators.quote[0].close; if(timestamps && closes) { const series = []; for(let i=0; i<timestamps.length; i++) { if(closes[i] !== null && !isNaN(closes[i])) { series.push({ t: timestamps[i] * 1000, c: closes[i] }); } } if(series.length > 0) { benchmarkData = { ticker, series }; localStorage.setItem(cacheKey, JSON.stringify(benchmarkData)); return; } } } } } catch(e) {}
   benchmarkData = null; 
 }
 
 async function refreshPrices(){
   if(st.loading && Date.now()-st.loadingSince < 30000)return;
-  fetchBenchmark();
-  st.loading=true; st.loadingSince=Date.now(); R(); const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
+  fetchBenchmark(); st.loading=true; st.loadingSince=Date.now(); R(); const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
   let cnt=0,ok=false; const nowMs = Date.now();
-
   try{
     const nd=JSON.parse(JSON.stringify(D));
     try{ const cp=await fetchCrypto(); if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){p.cours=cp[p.ticker]; p.lastUpd=nowMs; cnt++}}); ok=true; }catch(e){}
     try{ const sp=await fetchStocks(); Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{ if(sp[pos.ticker]!=null){pos.cours=sp[pos.ticker]; pos.lastUpd=nowMs; cnt++} })); ok=true; }catch(e){}
     try{ const eup=await fetchEuStocks(); Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{ if(eup[pos.ticker]!=null){pos.cours=eup[pos.ticker]; pos.lastUpd=nowMs; cnt++} })); }catch(e){}
-    try{ const r=await fetch("https://api.exchangerate-api.com/v4/latest/EUR").then(res=>res.json());if(r&&r.rates?.USD)nd.eurUsd=Math.round(r.rates.USD*10000)/10000 }catch{}
+    try{ const r=await fetchEurUsd(); if(r)nd.eurUsd=Math.round(r*10000)/10000 }catch{}
     try{ const gp=await fetchGold(); if(gp&&nd.poches["Métaux"]){ const coin=nd.poches["Métaux"].positions.find(p=>p.ticker==="50PESO"); if(coin){coin.cours=gp; coin.lastUpd=nowMs; cnt++} } }catch{}
-
     Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.cours7jDate||(Date.now()-pos.cours7jDate)>7*86400000){ pos.cours7j=pos.cours; pos.cours7jDate=Date.now(); } }));
-
-    D=rc(nd); const ts=new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}); st.lastUp=ts; st.ok=ok; st.count=cnt;
-
-    const immoEq = nd.immobilier ? nd.immobilier.equityNette || 0 : 0;
-    const tv = Object.values(nd.poches).reduce((s,p)=>s+p.valeur,0) + nd.cash + immoEq;
-    const tp = Object.values(nd.poches).reduce((s,p)=>s+p.pl,0);
-    const invFin = Object.values(nd.poches).reduce((s,p)=>s+p.investi,0);
-    
+    D=rc(nd); const now=new Date(); const ts=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"}); st.lastUp=ts; st.ok=ok; st.count=cnt;
+    const immoEq = nd.immobilier ? nd.immobilier.equityNette || 0 : 0; const tv = Object.values(nd.poches).reduce((s,p)=>s+p.valeur,0) + nd.cash + immoEq; const tp = Object.values(nd.poches).reduce((s,p)=>s+p.pl,0); const invFin = Object.values(nd.poches).reduce((s,p)=>s+p.investi,0);
     const envData = { "Cash": Math.round(nd.cash), "Immobilier": Math.round(immoEq) }; Object.entries(nd.poches).forEach(([n,p]) => { envData[n] = Math.round(p.valeur); });
-    
-    H.push({t:nowMs, v:Math.round(tv), pl:Math.round(tp), inv:Math.round(invFin), h:ts.slice(0,5), env: envData});
-    downsampleH(); if(H.length>1000)H=H.slice(-1000);
-    saveLocal(); if(currentUser) pushToSupabase();
+    H.push({t:now.getTime(), v:Math.round(tv), pl:Math.round(tp), inv:Math.round(invFin), h:ts.slice(0,5), env: envData});
+    downsampleH(); if(H.length>1000)H=H.slice(-1000); saveLocal(); if(currentUser) pushToSupabase();
   }catch(e){} finally{ clearTimeout(_rpTimeout); st.loading=false; cd=900; R(); }
 }
 
-// ══════════════ INIT & AUTH ══════════════
-async function applyPortfolioMigrations() {
-    if (!D || !D.poches || !D.poches.PEA) return false;
-    let changed = false;
-    if (!D.migV6 && sb && window.currentPfId && Array.isArray(D.sales) && D.sales.length > 0) {
-        try {
-            const rows = D.sales.map(s => ({
-                portfolio_id: window.currentPfId,
-                date: s.date,
-                type: 'sell',
-                ticker: s.ticker || null,
-                poche: s.poche || null,
-                amount_eur: Number(s.net != null ? s.net : (s.brut || 0)),
-                qty: s.qty != null ? Number(s.qty) : null,
-                price_eur: (s.qty && s.net) ? Number((s.net / s.qty).toFixed(4)) : null,
-                label: s.titre || null
-            }));
-            const { error: insErr } = await sb.from('cashflows').insert(rows);
-            if (!insErr) {
-                D.migV6 = true;
-                changed = true;
-                const { data: cfData } = await sb.from('cashflows').select('*').eq('portfolio_id', window.currentPfId).order('date', { ascending: true });
-                window.cashflows = cfData || [];
-            }
-        } catch (e) { console.warn(e); }
-    }
-    return changed;
+async function applyPortfolioMigrations(){
+  if(!D||!D.poches||!D.poches.PEA) return false;
+  let changed=false;
+  if(!D.migV2){ if(!D.sales)D.sales=[]; if(!D.sales.some(s=>s.ticker==="CDC-D"&&Math.abs(s.qty-141.13)<0.01)){ D.sales.push({date:"2026-04-24",poche:"PEE",ticker:"CDC-D",titre:"CDC Diversifié ISR",qty:141.13,pru:6.40,net:1807.40,brut:1909.24,pl:904.17}); } D.migV2=true; changed=true; }
+  if(!D.migV3){ if(!D.sales)D.sales=[]; if(!D.sales.some(s=>s.ticker==="HIST-2025")){ D.sales.push({date:"2025-12-31",poche:"Historique",ticker:"HIST-2025",titre:"P&L réalisé 2025",qty:1,pru:0,net:722.40,brut:722.40,pl:722.40}); } D.migV3=true; changed=true; }
+  if(!D.migV4){ Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.sector&&SECTORS[pos.ticker])pos.sector=SECTORS[pos.ticker]; if(!pos.dividend&&DIVS[pos.ticker])pos.dividend=DIVS[pos.ticker]; })); D.migV4=true;changed=true; }
+  if(!D.migV5){ const now=Date.now(); Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.lastUpd)pos.lastUpd=now; if(!pos.cours7j&&pos.cours){pos.cours7j=pos.cours;pos.cours7jDate=now;} })); D.migV5=true;changed=true; }
+  
+  if (!D.migV6 && sb && window.currentPfId && Array.isArray(D.sales) && D.sales.length > 0) {
+    try {
+      const rows = D.sales.map(s => ({ portfolio_id: window.currentPfId, date: s.date, type: 'sell', ticker: s.ticker || null, poche: s.poche || null, amount_eur: Number(s.net != null ? s.net : (s.brut || 0)), qty: s.qty != null ? Number(s.qty) : null, price_eur: (s.qty && s.net) ? Number((s.net / s.qty).toFixed(4)) : null, label: s.titre || null }));
+      const { error: insErr } = await sb.from('cashflows').insert(rows);
+      if (!insErr) { D.migV6 = true; changed = true; const { data: cfData } = await sb.from('cashflows').select('*').eq('portfolio_id', window.currentPfId).order('date', { ascending: true }); window.cashflows = cfData || []; }
+    } catch (e) {}
+  }
+  return changed;
 }
 
+function applyMortgagePayments(){
+  if(!D||!D.immobilier||D.immobilier.valeurEstimee===0)return false; 
+  if(!D.immobilier.mortgage) D.immobilier.mortgage={ptzCapital:29514.90,ptzMensualite:104.30,mainCapital:122238.00,mainMensualite:654.65,mainTaux:0.038,lastPayment:"2026-04-01"};
+  const m=D.immobilier.mortgage; const now=new Date(); const parts=String(m.lastPayment||"").split("-").map(Number); const last=parts.length===3?new Date(parts[0],parts[1]-1,parts[2]):new Date(NaN);
+  if(isNaN(last.getTime())){m.lastPayment=now.toISOString().slice(0,10);return false;}
+  let applied=false; let safety=0; 
+  while(safety<600){
+    safety++; const next=new Date(last.getFullYear(),last.getMonth()+1,1); if(isNaN(next.getTime())||next>now)break;
+    const ptzPay=Math.min(m.ptzMensualite,m.ptzCapital); m.ptzCapital=Math.max(0,m.ptzCapital-ptzPay);
+    const interest=m.mainCapital*(m.mainTaux/12); const capitalPart=Math.max(0,m.mainMensualite-interest); m.mainCapital=Math.max(0,m.mainCapital-capitalPart);
+    D.immobilier.capitalRestant=Math.round((m.ptzCapital+m.mainCapital)*100)/100;
+    const yy=next.getFullYear(),mm=String(next.getMonth()+1).padStart(2,"0"),dd=String(next.getDate()).padStart(2,"0");
+    m.lastPayment=`${yy}-${mm}-${dd}`; last.setTime(next.getTime()); applied=true;
+  }
+  return applied;
+}
+
+function updateCountdown(){ const el=document.getElementById("cd"); if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`; }
+
+// ══════════════ INIT & AUTH ══════════════
 async function init(){
   if(sb){ try{ const { data: { session } } = await sb.auth.getSession(); if(session) currentUser = session.user; }catch(e){} }
   if (!currentUser) { R(); return; }
-  const loc = loadLocal(); let pulled = await pullFromSupabase();
-  if(!pulled){ if(loc.D){D=loc.D;H=loc.H||[]} else{D=JSON.parse(JSON.stringify(DEF));H=[]} }
-  
-  rc(D); cm(); 
-  
-  // FIX #5 : On lance la migration ici
-  await applyPortfolioMigrations();
-  if(D.migV6) pushToSupabase();
-  
-  R();
-  fetchBenchmark();
-  refreshPrices();
-  if(!window._intervalsSet) {
-      setInterval(refreshPrices,900000);
-      setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;},1000);
-      window._intervalsSet = true;
-  }
+  await loadUserEnv();
 }
 
-// ══════════════ COMPOSANTS VISUELS ══════════════
+async function loadUserEnv() {
+  const loc = loadLocal(); let pulled = await pullFromSupabase();
+  if(!pulled){ if(loc.D){D=loc.D;H=loc.H||[]} else{D=JSON.parse(JSON.stringify(DEF));H=[]} }
+  applyMortgagePayments();
+  const migrated = await applyPortfolioMigrations();
+  rc(D); cm(); R();
+  
+  if (!pulled) {
+    await migrateToSupabase();
+    // FIX #5: currentPfId est maintenant dispo, on relance la migration
+    const migratedAgain = await applyPortfolioMigrations();
+    if (migratedAgain) { saveLocal(); pushToSupabase(); }
+  } else if (migrated) { pushToSupabase(); }
+
+  fetchBenchmark(); refreshPrices();
+  if(!window._intervalsSet) { setInterval(refreshPrices,900000); setInterval(()=>{if(applyMortgagePayments()){rc(D);R();pushToSupabase()}},3600000); setInterval(()=>{cd=Math.max(0,cd-1);if(cd<=0)cd=900;updateCountdown()},1000); window._intervalsSet = true; }
+}
+
+// ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" opacity=".9"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
 
-// Moteur SVG Time-based + Benchmark + Cashflows
-function lc(data, config, w=300, h=180) {
+function lc(data, config, w = 300, h = 180) {
   if (data.length < 2) return `<div style="height:${h}px; display:flex; align-items:center; justify-content:center; color:var(--mut); font-size:11px;">Acquisition en cours...</div>`;
   let vs = []; const startObj = data[0]; const tMin = data[0].t, tMax = data[data.length - 1].t; const tRange = tMax - tMin || 1;
+  if (config.mode === 'pct') { const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1; vs = data.map(d => ((d.pl - startObj.pl) / baseCap) * 100); } 
+  else if (config.mode === 'dd') { let maxSeen = 0; vs = data.map(d => { maxSeen = Math.max(maxSeen, d.v); return maxSeen > 0 ? ((d.v - maxSeen) / maxSeen) * 100 : 0; }); } 
+  else { vs = data.map(d => d[config.key]); }
 
-  if (config.mode === 'pct') {
-    const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
-    vs = data.map(d => ((d.pl - startObj.pl) / baseCap) * 100);
-  } else if (config.mode === 'dd') {
-    let maxSeen = 0; vs = data.map(d => { maxSeen = Math.max(maxSeen, d.v); return maxSeen > 0 ? ((d.v - maxSeen) / maxSeen) * 100 : 0; });
-  } else { vs = data.map(d => d[config.key]); }
-
-  let mn = Math.min(...vs), mx = Math.max(...vs);
-  let benchVs = []; let benchPath = "";
+  let mn = Math.min(...vs), mx = Math.max(...vs); let benchVs = []; let benchPath = "";
   if (config.mode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
     let baseClose = null; let startIdx = 0;
     for (let i = benchmarkData.series.length - 1; i >= 0; i--) { if (benchmarkData.series[i].t <= tMin) { baseClose = benchmarkData.series[i].c; startIdx = i; break; } }
     if (baseClose === null) { baseClose = benchmarkData.series[0].c; startIdx = 0; }
-    if (baseClose > 0) {
-      const benchPoints = benchmarkData.series.slice(startIdx).filter(b => b.t <= tMax);
-      if (benchPoints.length > 0) { benchPoints.forEach(b => { const pct = ((b.c - baseClose) / baseClose) * 100; benchVs.push({ t: b.t, pct }); mn = Math.min(mn, pct); mx = Math.max(mx, pct); }); }
-    }
+    if (baseClose > 0) { const benchPoints = benchmarkData.series.slice(startIdx).filter(b => b.t <= tMax); if (benchPoints.length > 0) { benchPoints.forEach(b => { const pct = ((b.c - baseClose) / baseClose) * 100; benchVs.push({ t: b.t, pct }); mn = Math.min(mn, pct); mx = Math.max(mx, pct); }); } }
     if (benchVs.length > 0) { if (benchVs[0].t < tMin) { benchVs[0] = { t: tMin, pct: 0 }; } else if (benchVs[0].t > tMin) { benchVs.unshift({ t: tMin, pct: 0 }); } }
   }
-  if (mn === mx) { mn -= 1; mx += 1; }
-  if (config.mode === 'dd') mx = 0;
+  if (mn === mx) { mn -= 1; mx += 1; } if (config.mode === 'dd') mx = 0;
   const pad = config.mode === 'dd' ? 0 : (mx - mn) * 0.1; const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
   const pdX = 0, pt = config.mode === 'dd' ? 10 : 10, pb = 20; const cw = w - pdX * 2, ch = h - pt - pb;
 
-  if (config.interactive) {
-    window._chartData = data; window._chartVs = vs; window._chartBenchVs = benchVs; window._chartConfig = config;
-    window._chartScales = { w, h, pdX, pt, pb, cw, ch, tMin, tMax, tRange, dMin, dMax, rg };
-  }
+  if (config.interactive) { window._chartData = data; window._chartVs = vs; window._chartBenchVs = benchVs; window._chartConfig = config; window._chartScales = { w, h, pdX, pt, pb, cw, ch, tMin, tMax, tRange, dMin, dMax, rg }; }
 
   const endVal = vs[vs.length - 1]; const isPos = config.mode === 'dd' ? false : endVal >= 0; const col = config.mode === 'dd' ? "#f87171" : (isPos ? "#34d399" : "#f87171");
   let ptLine = "", ptArea = "";
-  vs.forEach((v, i) => {
-    const x = pdX + ((data[i].t - tMin) / tRange) * cw; const y = pt + ch - ((v - dMin) / rg * ch);
-    ptLine += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
-    if (i === 0) ptArea = `M${x.toFixed(1)},${pt + ch} L${x.toFixed(1)},${y.toFixed(1)}`; else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`;
-  });
+  vs.forEach((v, i) => { const x = pdX + ((data[i].t - tMin) / tRange) * cw; const y = pt + ch - ((v - dMin) / rg * ch); ptLine += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); if (i === 0) ptArea = `M${x.toFixed(1)},${pt + ch} L${x.toFixed(1)},${y.toFixed(1)}`; else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`; });
   ptArea += ` L${pdX + cw},${pt + ch} Z`;
 
   if (benchVs.length > 0) { benchVs.forEach((b, i) => { const x = pdX + ((b.t - tMin) / tRange) * cw; const y = pt + ch - ((b.pct - dMin) / rg * ch); benchPath += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }); }
 
-  // FIX #4 : Marqueurs remontés pour ne pas couper le texte
   let cfMarkers = "";
   if (config.interactive && Array.isArray(window.cashflows) && window.cashflows.length) {
-    const yMark = pt + ch + 2;
+    const yMark = pt + ch + 2; // FIX #4 : Descendu légèrement mais pas dans les dates
     window.cashflows.forEach((cf, i) => {
       const tCf = new Date(cf.date).getTime(); if (tCf < tMin || tCf > tMax) return;
       const x = pdX + ((tCf - tMin) / tRange) * cw; const isIn = (cf.type === 'buy' || cf.type === 'deposit' || cf.type === 'dividend');
       const colCf = isIn ? "#34d399" : "#f87171"; const arrow = isIn ? "↓" : "↑";
-      cfMarkers += `<g class="cf-mark" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all">
-         <circle cx="${x.toFixed(1)}" cy="${yMark}" r="10" fill="transparent"/>
-         <text x="${x.toFixed(1)}" y="${yMark+3}" text-anchor="middle" font-size="11" fill="${colCf}" style="pointer-events:none">${arrow}</text>
-      </g>`;
+      cfMarkers += `<g class="cf-mark" data-cf-idx="${i}" style="cursor:pointer; pointer-events:all"><circle cx="${x.toFixed(1)}" cy="${yMark}" r="10" fill="transparent"/><text x="${x.toFixed(1)}" y="${yMark + 3}" text-anchor="middle" font-size="11" font-weight="bold" fill="${colCf}" style="pointer-events:none">${arrow}</text></g>`;
     });
   }
 
-  const formatT = (ms) => {
-    if(!ms) return ""; const d = new Date(ms), nw = new Date();
-    if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth() && d.getFullYear()===nw.getFullYear()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-    return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});
-  };
-
+  const formatT = (ms) => { if(!ms) return ""; const d = new Date(ms), nw = new Date(); if(d.getDate()===nw.getDate() && d.getMonth()===nw.getMonth() && d.getFullYear()===nw.getFullYear()) return d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}); return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"}); };
   const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
   const uid = Math.random().toString(36).substring(2,9);
   const crosshair = config.interactive ? `<g id="crosshair" style="display:none"><line y1="${pt}" y2="${pt + ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 2"/><circle id="ch-bench" r="3" fill="var(--bg)" stroke="var(--dim)" stroke-width="2" style="display:none"/><circle id="ch-main" r="4" fill="${col}" stroke="var(--card)" stroke-width="2"/></g>` : '';
 
-  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block"><defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs><line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/><line x1="0" y1="${pt + ch}" x2="${w}" y2="${pt + ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}<path d="${ptArea}" fill="url(#g-${uid})"/><path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${cfMarkers}${crosshair}<text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text><text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text><text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text><text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text></svg>`;
+  return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block"><defs><linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="${col}" stop-opacity="0.3"/><stop offset="100%" stop-color="${col}" stop-opacity="0.0"/></linearGradient></defs><line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/><line x1="0" y1="${pt + ch}" x2="${w}" y2="${pt + ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}${benchPath ? `<path d="${benchPath}" fill="none" stroke="var(--dim)" stroke-width="1.5" stroke-dasharray="3 3" opacity="0.8"/>` : ''}<path d="${ptArea}" fill="url(#g-${uid})"/><path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>${cfMarkers}${crosshair}<text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mx.toFixed(1)+'%' : fmt_(mx)}</text><text x="${w}" y="${pt+ch+14}" font-size="9" fill="var(--dim)" text-anchor="end">${config.mode === 'pct' || config.mode === 'dd' ? mn.toFixed(1)+'%' : fmt_(mn)}</text><text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text><text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text></svg>`;
 }
 
-// ══════════════ INTERACTIONS GRAPHIQUES (POINTER EVENTS OPTIMISÉ) ══════════════
+function ga(){const tF=Object.values(D.poches).reduce((s,p)=>s+p.valeur,0)+D.cash,tP=Object.values(D.poches).reduce((s,p)=>s+p.pl,0),tN=tF+(D.immobilier.equityNette||0);const al=[...Object.entries(D.poches).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>ap.push({...x,poche:n})));const alerts=ap.filter(p=>p.cible).map(p=>({...p,ec:((p.cours-p.cible)/p.cible)*100,at:p.cours<=p.cible,nr:((p.cours-p.cible)/p.cible)*100<5&&p.cours>p.cible})).sort((a,b)=>a.ec-b.ec);return{tF,tP,tN,al,ap,alerts,nA:alerts.filter(a=>a.at).length}}
+
+// ══════════════ INTERACTIONS GRAPHIQUES ══════════════
 window.bindInteraction = () => {
   const svgEl = document.querySelector('.chart-touch svg');
   if(!svgEl || !window._chartData || window._chartData.length < 2) return;
-  
-  const data = window._chartData; const vs = window._chartVs; const benchVs = window._chartBenchVs || [];
-  const scales = window._chartScales; const config = window._chartConfig;
-  
+  const data = window._chartData; const vs = window._chartVs; const benchVs = window._chartBenchVs || []; const scales = window._chartScales; const config = window._chartConfig;
   let rect = null, rafId = 0, lastIdx = -1;
-  const ch = svgEl.querySelector('#crosshair'); const chLine = ch.querySelector('line');
-  const chMainDot = ch.querySelector('#ch-main'); const chBenchDot = ch.querySelector('#ch-bench');
+  const ch = svgEl.querySelector('#crosshair'); const chLine = ch.querySelector('line'); const chMainDot = ch.querySelector('#ch-main'); const chBenchDot = ch.querySelector('#ch-bench');
+  const elLabel = document.getElementById('sb-label'); const elValue = document.getElementById('sb-value'); const elBench = document.getElementById('sb-bench'); const elDeltaE = document.getElementById('sb-deltaE'); const elDeltaPct = document.getElementById('sb-deltaPct'); const elDiff = document.getElementById('sb-diff');
 
-  const elLabel = document.getElementById('sb-label'); const elValue = document.getElementById('sb-value');
-  const elBench = document.getElementById('sb-bench'); const elDeltaE = document.getElementById('sb-deltaE');
-  const elDeltaPct = document.getElementById('sb-deltaPct'); const elDiff = document.getElementById('sb-diff');
-
-  const findIdx = (clientX) => {
-    const xPx = clientX - rect.left; const svgX = (xPx / rect.width) * scales.w;
-    const t = scales.tMin + ((svgX - scales.pdX) / scales.cw) * scales.tRange;
-    let lo = 0, hi = data.length - 1;
-    while (lo < hi) { const mid = (lo + hi) >> 1; if (data[mid].t < t) lo = mid + 1; else hi = mid; }
-    if (lo > 0 && Math.abs(data[lo-1].t - t) < Math.abs(data[lo].t - t)) return lo - 1; return lo;
-  };
+  const findIdx = (clientX) => { const xPx = clientX - rect.left; const svgX = (xPx / rect.width) * scales.w; const t = scales.tMin + ((svgX - scales.pdX) / scales.cw) * scales.tRange; let lo = 0, hi = data.length - 1; while (lo < hi) { const mid = (lo + hi) >> 1; if (data[mid].t < t) lo = mid + 1; else hi = mid; } if (lo > 0 && Math.abs(data[lo-1].t - t) < Math.abs(data[lo].t - t)) return lo - 1; return lo; };
   
   const render = (idx) => {
-    const d = data[idx]; const valY = vs[idx];
-    const x = scales.pdX + ((d.t - scales.tMin) / scales.tRange) * scales.cw;
-    const y = scales.pt + scales.ch - ((valY - scales.dMin) / scales.rg * scales.ch);
-    
-    chLine.setAttribute('x1', x); chLine.setAttribute('x2', x);
-    chMainDot.setAttribute('cx', x); chMainDot.setAttribute('cy', y);
+    const d = data[idx]; const valY = vs[idx]; const x = scales.pdX + ((d.t - scales.tMin) / scales.tRange) * scales.cw; const y = scales.pt + scales.ch - ((valY - scales.dMin) / scales.rg * scales.ch);
+    chLine.setAttribute('x1', x); chLine.setAttribute('x2', x); chMainDot.setAttribute('cx', x); chMainDot.setAttribute('cy', y);
 
     if (config.mode === 'pct' && benchVs.length > 0) {
-        let bCur = benchVs[benchVs.length - 1], bNext = null;
-        for (let i = 0; i < benchVs.length - 1; i++) {
-            if (benchVs[i].t <= d.t && benchVs[i+1].t >= d.t) { bCur = benchVs[i]; bNext = benchVs[i+1]; break; }
-        }
-        
+        let bCur = benchVs[0], bNext = benchVs[benchVs.length - 1];
+        for (let i = 0; i < benchVs.length - 1; i++) { if (benchVs[i].t <= d.t && benchVs[i+1].t >= d.t) { bCur = benchVs[i]; bNext = benchVs[i+1]; break; } }
         let interpPct = bCur.pct;
-        if (bNext && bNext.t > bCur.t) {
-            const frac = Math.max(0, Math.min(1, (d.t - bCur.t) / (bNext.t - bCur.t)));
-            interpPct = bCur.pct + frac * (bNext.pct - bCur.pct);
-        } else if (d.t <= benchVs[0].t) {
-            interpPct = benchVs[0].pct;
-        }
-
+        if (bNext && bNext.t > bCur.t) { const frac = Math.max(0, Math.min(1, (d.t - bCur.t) / (bNext.t - bCur.t))); interpPct = bCur.pct + frac * (bNext.pct - bCur.pct); } else if (d.t <= benchVs[0].t) { interpPct = benchVs[0].pct; }
         const by = scales.pt + scales.ch - ((interpPct - scales.dMin) / scales.rg * scales.ch);
         chBenchDot.setAttribute('cx', x); chBenchDot.setAttribute('cy', by); chBenchDot.style.display = '';
-        
-        // FIX #3 : Masquage propre
-        elBench.style.display = '';
-        elBench.textContent = `${benchmarkData ? benchmarkData.ticker : 'Bench'} : ${interpPct>=0?'+':''}${interpPct.toFixed(2)}%`;
+        if(elBench){elBench.style.display = ''; elBench.textContent = `${benchmarkData ? benchmarkData.ticker : 'Bench'} : ${interpPct>=0?'+':''}${interpPct.toFixed(2)}%`;}
         const diffPts = valY - interpPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
-        elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`;
-        if (elDeltaPct) elDeltaPct.style.display = 'none';
+        if(elDiff){elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`;}
+        if (elDeltaPct) elDeltaPct.style.display = 'none'; // FIX #3
     } else { 
-        chBenchDot.style.display = 'none'; elBench.style.display = 'none'; elDiff.style.display = 'none';
-        if (elDeltaPct) elDeltaPct.style.display = ''; 
+        chBenchDot.style.display = 'none'; if(elBench) elBench.style.display = 'none'; if(elDiff) elDiff.style.display = 'none';
+        if (elDeltaPct) elDeltaPct.style.display = ''; // FIX #3
     }
 
     ch.style.display = '';
-
-    const dt = new Date(d.t);
-    elLabel.textContent = dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit"}) + " " + dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
-    
-    const startObj = data[0]; const deltaE = d.v - startObj.v; const isPct = config.mode === 'pct';
-    const isPos = isPct ? valY >= 0 : deltaE >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
-
-    elValue.textContent = isPct ? valY.toFixed(2)+'%' : fmt_(valY)+' €';
-    elDeltaE.textContent = `${sgn}${fmt_(deltaE)} €`; elDeltaE.style.color = cCol;
-    
-    if (isPct) { if(elDeltaPct) elDeltaPct.textContent = ""; } 
-    else {
-        const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1;
-        const deltaPct = ((d.pl - startObj.pl) / baseCap) * 100;
-        if(elDeltaPct) { elDeltaPct.textContent = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%`; elDeltaPct.style.color = deltaPct>=0?"var(--grn)":"var(--red)"; }
-    }
+    const dt = new Date(d.t); elLabel.textContent = dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"2-digit"}) + " " + dt.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+    const startObj = data[0]; const deltaE = d.v - startObj.v; const isPct = config.mode === 'pct'; const isPos = isPct ? valY >= 0 : deltaE >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
+    elValue.textContent = isPct ? valY.toFixed(2)+'%' : fmt_(valY)+' €'; elDeltaE.textContent = `${sgn}${fmt_(deltaE)} €`; elDeltaE.style.color = cCol;
+    if (isPct) { if(elDeltaPct) elDeltaPct.textContent = ""; } else { const baseCap = startObj.inv || (startObj.v - startObj.pl) || 1; const deltaPct = ((d.pl - startObj.pl) / baseCap) * 100; if(elDeltaPct) { elDeltaPct.textContent = `${deltaPct>=0?'+':''}${deltaPct.toFixed(2)}%`; elDeltaPct.style.color = deltaPct>=0?"var(--grn)":"var(--red)"; } }
   };
   
-  const onMove = (e) => {
-    if (!rect) return; const idx = findIdx(e.clientX); if (idx === lastIdx) return;
-    lastIdx = idx; if (!rafId) rafId = requestAnimationFrame(() => { render(lastIdx); rafId = 0; });
-  };
-  
+  const onMove = (e) => { if (!rect) return; const idx = findIdx(e.clientX); if (idx === lastIdx) return; lastIdx = idx; if (!rafId) rafId = requestAnimationFrame(() => { render(lastIdx); rafId = 0; }); };
   const onDown = (e) => { rect = svgEl.getBoundingClientRect(); svgEl.setPointerCapture(e.pointerId); onMove(e); };
   const onUp = () => { rect = null; lastIdx = -1; ch.style.display = 'none'; window.renderOverview(); };
-  
-  svgEl.addEventListener('pointerdown', onDown); svgEl.addEventListener('pointermove', onMove);
-  svgEl.addEventListener('pointerup', onUp); svgEl.addEventListener('pointercancel', onUp);
-
+  svgEl.addEventListener('pointerdown', onDown); svgEl.addEventListener('pointermove', onMove); svgEl.addEventListener('pointerup', onUp); svgEl.addEventListener('pointercancel', onUp);
   window.bindCashflowMarkers(svgEl);
 };
 
 window.bindCashflowMarkers = function (svgRoot) {
-  if (!svgRoot) return;
-  const marks = svgRoot.querySelectorAll('.cf-mark');
-  if (!marks.length) return;
-
+  if (!svgRoot) return; const marks = svgRoot.querySelectorAll('.cf-mark'); if (!marks.length) return;
   const fmtEur = n => (n >= 0 ? "+" : "") + Math.round(n).toLocaleString('fr-FR') + " €";
-  const labelFor = cf => {
-    const map = { buy: 'Achat', sell: 'Vente', dividend: 'Dividende', deposit: 'Dépôt', withdrawal: 'Retrait' };
-    return (map[cf.type] || cf.type) + (cf.ticker ? ' ' + cf.ticker : '');
-  };
+  const labelFor = cf => { const map = { buy: 'Achat', sell: 'Vente', dividend: 'Dividende', deposit: 'Dépôt', withdrawal: 'Retrait' }; return (map[cf.type] || cf.type) + (cf.ticker ? ' ' + cf.ticker : ''); };
   const setText = (id, txt) => { const el = document.getElementById(id); if (el) el.firstChild ? el.firstChild.nodeValue = txt : el.textContent = txt; };
 
   const showCf = (idx) => {
-    const cf = (window.cashflows || [])[idx];
-    if (!cf) return;
+    const cf = (window.cashflows || [])[idx]; if (!cf) return;
     const ch = document.getElementById('crosshair'); if (ch) ch.style.display = 'none';
     const amt = (cf.type==='sell'||cf.type==='withdrawal'?-1:1) * Number(cf.amount_eur || 0);
-    setText('sb-label', new Date(cf.date).toLocaleDateString('fr-FR'));
-    setText('sb-value', labelFor(cf));
-    setText('sb-deltaE', fmtEur(amt));
-    
-    // FIX #3 : Masquage
+    setText('sb-label', new Date(cf.date).toLocaleDateString('fr-FR')); setText('sb-value', labelFor(cf)); setText('sb-deltaE', fmtEur(amt));
+    // FIX #3
     const elPct = document.getElementById('sb-deltaPct'); if(elPct) elPct.style.display = 'none';
     const elBench = document.getElementById('sb-bench'); if(elBench) elBench.style.display = 'none';
-    
-    const elDiff = document.getElementById('sb-diff'); 
-    if(elDiff) { elDiff.style.display = ''; elDiff.style.color = 'var(--dim)'; elDiff.textContent = cf.label || cf.poche || ''; }
+    const elDiff = document.getElementById('sb-diff'); if(elDiff) { elDiff.style.display = ''; elDiff.style.color = 'var(--dim)'; elDiff.textContent = cf.label || cf.poche || ''; }
   };
-
   const release = () => { if (typeof window.renderOverview === 'function') window.renderOverview(); };
-
-  marks.forEach(m => {
-    m.addEventListener('pointerdown', e => { e.stopPropagation(); showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); });
-    m.addEventListener('pointerenter', e => { showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); });
-    m.addEventListener('pointerup', release); m.addEventListener('pointerleave', release); m.addEventListener('pointercancel', release);
-  });
+  marks.forEach(m => { m.addEventListener('pointerdown', e => { e.stopPropagation(); showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }); m.addEventListener('pointerenter', e => { showCf(parseInt(m.getAttribute('data-cf-idx'), 10)); }); m.addEventListener('pointerup', release); m.addEventListener('pointerleave', release); m.addEventListener('pointercancel', release); });
 };
 
 window.renderOverview = () => {
    const d = ga(); const cutoffs = getCutoffs(); const cut = cutoffs[htf]||0; let r = H.filter(x => x.t >= cut);
    let startV = r.length > 0 ? r[0].v : d.tN; let startPl = r.length > 0 ? r[0].pl : d.tP; let endV = d.tN; let deltaE = endV - startV;
-   
-   let startInv = r.length > 0 ? (r[0].inv || (startV - startPl)) : (Object.values(D.poches).reduce((s,p)=>s+p.investi,0));
-   let baseCap = startInv || 1; let deltaPct = ((d.tP - startPl) / baseCap) * 100;
-   
-   if(r.length < 2) { deltaE = 0; deltaPct = 0; }
-   const isPos = deltaPct >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
+   let startInv = r.length > 0 ? (r[0].inv || (startV - startPl)) : (Object.values(D.poches).reduce((s,p)=>s+p.investi,0)); let baseCap = startInv || 1; let deltaPct = ((d.tP - startPl) / baseCap) * 100;
+   if(r.length < 2) { deltaE = 0; deltaPct = 0; } const isPos = deltaPct >= 0; const cCol = isPos ? "var(--grn)" : "var(--red)"; const sgn = isPos ? "+" : "";
 
    const elLabel = document.getElementById('sb-label');
    if(elLabel) {
-       elLabel.textContent = "Valeur Actuelle";
-       document.getElementById('sb-value').textContent = hMode==='pct'? deltaPct.toFixed(2)+'%': fmt_(endV)+' €';
-       
-       const elE = document.getElementById('sb-deltaE');
-       elE.textContent = `${sgn}${fmt_(deltaE)} €`; elE.style.color = cCol;
-       
-       const elPct = document.getElementById('sb-deltaPct');
-       const elBench = document.getElementById('sb-bench');
-       const elDiff = document.getElementById('sb-diff');
+       elLabel.textContent = "Valeur Actuelle"; document.getElementById('sb-value').textContent = hMode==='pct'? deltaPct.toFixed(2)+'%': fmt_(endV)+' €';
+       const elE = document.getElementById('sb-deltaE'); elE.textContent = `${sgn}${fmt_(deltaE)} €`; elE.style.color = cCol;
+       const elPct = document.getElementById('sb-deltaPct'); const elBench = document.getElementById('sb-bench'); const elDiff = document.getElementById('sb-diff');
 
-       // FIX #3 : Masquage ligne fantôme
+       // FIX #3
        if (hMode === 'pct' && benchmarkData && benchmarkData.series.length > 0) {
-           const startT = r.length > 0 ? r[0].t : Date.now();
-           let baseClose = null;
-           for (let i = benchmarkData.series.length - 1; i >= 0; i--) { 
-               if (benchmarkData.series[i].t <= startT) { baseClose = benchmarkData.series[i].c; break; } 
-           }
+           const startT = r.length > 0 ? r[0].t : Date.now(); let baseClose = null;
+           for (let i = benchmarkData.series.length - 1; i >= 0; i--) { if (benchmarkData.series[i].t <= startT) { baseClose = benchmarkData.series[i].c; break; } }
            if(baseClose === null) baseClose = benchmarkData.series[0].c;
-           
-           const endClose = benchmarkData.series[benchmarkData.series.length-1].c;
-           const benchPct = ((endClose - baseClose)/baseClose) * 100;
-           const diffPts = deltaPct - benchPct;
-           const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
+           const endClose = benchmarkData.series[benchmarkData.series.length-1].c; const benchPct = ((endClose - baseClose)/baseClose) * 100; const diffPts = deltaPct - benchPct; const diffColor = diffPts >= 0 ? "var(--grn)" : "var(--red)";
            
            if(elPct) { elPct.style.display = 'none'; elPct.textContent = ""; }
            if(elBench) { elBench.style.display = ''; elBench.textContent = `${benchmarkData.ticker} : ${benchPct>=0?'+':''}${benchPct.toFixed(2)}%`; }
            if(elDiff) { elDiff.style.display = ''; elDiff.style.color = diffColor; elDiff.textContent = `${diffPts>=0?'+':''}${diffPts.toFixed(2)} pts`; }
        } else {
            if(elPct) { elPct.style.display = ''; elPct.textContent = `${sgn}${deltaPct.toFixed(2)}%`; elPct.style.color = cCol; }
-           if(elBench) elBench.style.display = 'none'; 
-           if(elDiff) elDiff.style.display = 'none';
+           if(elBench) elBench.style.display = 'none'; if(elDiff) elDiff.style.display = 'none';
        }
    }
 };
 
-window.cm=()=>{ if(!currentUser) return; document.getElementById("modal-root").innerHTML=""; _pendingSale=null; };
-window.pn=pn;
-
-// ══════════════ MODALS ET EXPORT PDF ══════════════
+// ══════════════ MODALS ET ACTIONS ══════════════
 window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut();cm()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button>`); };
 window.exportPDF = () => { cm(); const d = ga(); let html = `<div class="print-page"><div class="print-title">Rapport de Portefeuille Global</div><div class="print-subtitle">Généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'})}</div><div style="font-size:18px; margin-bottom:10px;">Patrimoine Net : <b>${fmt_(d.tN)} €</b></div><div style="font-size:14px; margin-bottom:20px;">P&L Global : <b class="${d.tP >= 0 ? 'text-green' : 'text-red'}">${fL(d.tP)}</b></div><table class="print-table"><thead><tr><th>Enveloppe</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L</th></tr></thead><tbody>`; d.al.forEach(a => { const isCash = a[0] === "Cash"; const p = isCash ? null : D.poches[a[0]]; const plStr = isCash ? "-" : `<span class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</span>`; html += `<tr><td><b>${a[0]}</b></td><td class="text-right">${fmt_(a[1])} €</td><td class="text-right">${((a[1] / d.tF) * 100).toFixed(1)}%</td><td class="text-right">${plStr}</td></tr>`; }); html += `</tbody></table>`; if (D.immobilier) { html += `<div class="print-title" style="font-size:18px; border-bottom:1px solid #ccc;">Immobilier</div><table class="print-table" style="width:50%;"><tr><td>Valeur Estimée</td><td class="text-right">${fmt_(D.immobilier.valeurEstimee)} €</td></tr><tr><td>Capital Restant</td><td class="text-right">${fmt_(D.immobilier.capitalRestant)} €</td></tr><tr><td><b>Capital Net (Equity)</b></td><td class="text-right"><b>${fmt_(D.immobilier.equityNette)} €</b></td></tr></table>`; } html += `</div>`; Object.entries(D.poches).forEach(([n, p]) => { html += `<div class="print-page"><div class="print-title">Détail : ${n}</div><div style="margin-bottom: 20px; font-size: 14px;">Valeur Totale : <b>${fmt_(p.valeur)} €</b> &nbsp;|&nbsp; Investissement : ${fmt_(p.investi)} € &nbsp;|&nbsp; P&L : <b class="${p.pl >= 0 ? 'text-green' : 'text-red'}">${fL(p.pl)}</b></div>`; if (p.positions.length > 0) { const sortedPositions=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)); html += `<table class="print-table"><thead><tr><th>Nom de l'Actif</th><th>Ticker</th><th class="text-right">Qté</th><th class="text-right">PRU</th><th class="text-right">Cours Actuel</th><th class="text-right">Valeur</th><th class="text-right">Poids</th><th class="text-right">P&L Latent</th></tr></thead><tbody>`; sortedPositions.forEach(x => { const cur = x.currency || CUR[x.ticker] || "EUR"; const prSym = cur === "USD" ? " $" : " €"; html += `<tr><td>${esc(x.titre)}</td><td>${esc(x.ticker)}</td><td class="text-right">${x.qty}</td><td class="text-right">${fmt2_(x.pru)}${prSym}</td><td class="text-right">${fmt2_(x.cours)}${prSym}</td><td class="text-right"><b>${fmt_(x.valeur)} €</b></td><td class="text-right">${x.poids}%</td><td class="text-right"><span class="${x.pl >= 0 ? 'text-green' : 'text-red'}">${fL(x.pl)}<br><span style="font-size:10px">${fP(x.plPct)}</span></span></td></tr>`; }); html += `</tbody></table>`; } else { html += `<p style="font-size:12px; color:#555;">Aucune position active dans cette enveloppe.</p>`; } html += `</div>`; }); let pr = document.getElementById("print-report"); pr.innerHTML = html; setTimeout(() => { window.print(); }, 300); };
 window.eCash=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Liquidités</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Montant (€)</label><input id="mc" value="${D.cash}" inputmode="decimal"></div><button class="btn btn-p" onclick="D.cash=pn(document.getElementById('mc').value);cm();save()">Enregistrer</button>`)};
@@ -640,8 +542,8 @@ window.eImmo=()=>{sm(`<div style="display:flex;justify-content:space-between;mar
 window.ePos=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${esc(pn_)}','${esc(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${esc(pn_)}','${esc(tk)}')">🗑</button></div>`)};
 window.sP=(pn_,otk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value; const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pn_,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; cm();save()};
 window.dP=(pn_,tk)=>{const p=D.poches[pn_].positions.find(x=>x.ticker===tk);if(!p)return; askSale(pn_,tk,p.qty,p.pru,p.titre,"full",null)};
-window.askSale=(pn_,tk,qty,pru,titre,mode,pe)=>{_pendingSale={pn:pn_,tk,qty,pru,titre,mode,pendingEdit:pe}; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--dim);line-height:1.5">${mode==="full"?"Suppression":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} parts</b> de ${esc(titre)}</div><div style="margin-bottom:10px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="sale" checked onchange="document.getElementById('saleFields').style.display='block'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Vente réelle</div></div></label></div><div id="saleFields"><div class="field"><label>Montant net reçu (€)</label><input id="saleNet" inputmode="decimal"></div></div><div style="margin:10px 0 14px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="correction" onchange="document.getElementById('saleFields').style.display='none'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Correction (pas de vente)</div></div></label></div><button class="btn btn-p" onclick="confirmSale()">Valider</button>`)};
-window.confirmSale=()=>{if(!_pendingSale)return; const {pn:pn_,tk,qty,pru,mode,pendingEdit:pe}=_pendingSale; try{ const choice=document.querySelector('input[name="mo"]:checked').value; const p=D.poches[pn_].positions.find(x=>x.ticker===tk); if(!p)return; if(choice==="sale"){ const net=pn(document.getElementById("saleNet").value); if(!net||net<=0)return; const pl=net-(qty*pru); if(!D.sales)D.sales=[]; D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:net,pl:Math.round(pl*100)/100}); } if(mode==="full"){ D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk); }else if(pe){ p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours; if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible; } _pendingSale=null; cm();save(); }catch(e){}};
+window.askSale=(pn_,tk,qty,pru,titre,mode,pe)=>{_pendingSale={pn:pn_,tk,qty,pru,titre,mode,pendingEdit:pe}; const cost=qty*pru; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">${mode==="full"?"Supprimer":"Réduire"} ${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:12px;color:var(--dim);line-height:1.5">${mode==="full"?"Suppression totale":"Réduction"} de <b style="color:var(--txt)">${fmt2_(qty)} ${qty>1?"parts/actions":"part/action"}</b> de ${esc(titre)}<br>Coût d'acquisition : ${fmt2_(cost)} €</div><div style="margin-bottom:10px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="sale" checked onchange="document.getElementById('saleFields').style.display='block'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Vente réelle</div><div style="font-size:10px;color:var(--dim)">Calcule le P&L réalisé</div></div></label></div><div id="saleFields"><div class="field"><label>Montant net reçu (€) *</label><input id="saleNet" inputmode="decimal" placeholder="ex: 1807.40"></div><div class="field"><label>Montant brut (optionnel)</label><input id="saleBrut" inputmode="decimal" placeholder="ex: 1909.24"></div></div><div style="margin:10px 0 14px"><label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25"><input type="radio" name="mo" value="correction" onchange="document.getElementById('saleFields').style.display='none'"><div style="flex:1"><div style="font-weight:600;font-size:13px">Correction de saisie</div><div style="font-size:10px;color:var(--dim)">Pas de vente réelle</div></div></label></div><button class="btn btn-p" onclick="confirmSale()">Valider</button>`)};
+window.confirmSale=()=>{if(!_pendingSale)return; const {pn:pn_,tk,qty,pru,mode,pendingEdit:pe}=_pendingSale; try{ const choice=document.querySelector('input[name="mo"]:checked').value; const p=D.poches[pn_].positions.find(x=>x.ticker===tk); if(!p)return; if(choice==="sale"){ const net=pn(document.getElementById("saleNet").value); if(!net||net<=0){ const inp=document.getElementById("saleNet"); if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir le montant net reçu";inp.focus()} return; } const brut=pn(document.getElementById("saleBrut").value)||net; const pl=net-(qty*pru); if(!D.sales)D.sales=[]; D.sales.push({date:new Date().toISOString().slice(0,10),poche:pn_,ticker:tk,titre:p.titre,qty:qty,pru:pru,net:net,brut:brut,pl:Math.round(pl*100)/100}); } if(mode==="full"){ D.poches[pn_].positions=D.poches[pn_].positions.filter(x=>x.ticker!==tk); }else if(pe){ p.titre=pe.newTitre;p.ticker=pe.newTicker;p.qty=pe.newQty;p.pru=pe.newPru;p.cours=pe.newCours; if(pe.newCible)p.cible=pn(pe.newCible);else delete p.cible; } _pendingSale=null; cm();save(); }catch(e){}};
 window.aPos=(pn_)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pn_)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Rechercher (nom ou ISIN)</label><div style="display:flex;gap:6px"><input id="srch" style="flex:1"><button class="btn" style="background:var(--acc);color:#fff;padding:8px 14px;font-size:13px" onclick="srcStock()">🔍</button></div><div id="srchRes" style="margin-top:8px"></div></div><div class="field"><label>Nom</label><input id="mt"></div><div class="field"><label>Ticker</label><input id="mk" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Secteur</label><input id="ms" list="secteur-list"><datalist id="secteur-list"><option value="Tech"></option><option value="Semi"></option><option value="Space"></option></datalist></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" inputmode="decimal"></div></div><button class="btn btn-p" style="margin-top:8px" onclick="doA('${esc(pn_)}')">Ajouter</button>`);};
 window.srcStock=async()=>{ const q=document.getElementById("srch").value.trim(); const out=document.getElementById("srchRes"); if(!q){out.innerHTML="";return} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`; const isISIN=/^[A-Z]{2}[A-Z0-9]{10}$/i.test(q.trim()); let searchQuery=q.trim(); if(isISIN){ try{ const figiResp=await fetch("https://api.openfigi.com/v3/mapping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([{idType:"ID_ISIN",idValue:q.trim().toUpperCase()}])}); if(figiResp.ok){ const figiData=await figiResp.json(); const matches=figiData[0]?.data; if(matches&&matches.length>0){ out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m.ticker||"";const name=m.name||"";const exch=m.exchCode||"";const cur=m.currency||"";const secType=m.securityType||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)} · ${esc(secType)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">ISIN non résolu, recherche par nom…</div>`; } try{ const yhResp=await fetch(`https://query2.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(searchQuery)}&lang=fr&region=FR&quotesCount=8&newsCount=0`); if(yhResp.ok){ const yhData=await yhResp.json(); const quotes=(yhData.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol); if(quotes.length>0){ out.innerHTML=quotes.slice(0,8).map((m,i)=>{ const sym=m.symbol||"";const name=m.longname||m.shortname||"";const exch=m.exchange||"";const cur=m.currency||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(exch)}</div></div>`; }).join(""); return; } } }catch(e){} const today=new Date().toISOString().slice(0,10); let exhausted=[]; try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{} const key=API_KEYS.AV.find(k=>!exhausted.includes(k)); if(!key){out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} try{ const r=await fetch(`https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords=${encodeURIComponent(searchQuery)}&apikey=${key}`); const j=await r.json(); if(j.Note||j.Information){exhausted.push(key);try{localStorage.setItem("pf-av-exhausted",JSON.stringify({date:today,keys:exhausted}))}catch{}out.innerHTML=`<div style="color:var(--amb);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} const matches=j.bestMatches||[]; if(matches.length===0){out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat. Saisissez manuellement.</div>`;return} out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m["1. symbol"]||"";const name=m["2. name"]||"";const region=m["4. region"]||"";const cur=m["8. currency"]||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:#1a1b25" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:9px;color:var(--mut)">${esc(region)}</div></div>`; }).join(""); }catch(e){out.innerHTML=`<div style="color:var(--red);font-size:11px;padding:6px">Erreur de recherche. Saisissez manuellement.</div>`} };
 window.pickStock=async(idx)=>{ const items=document.querySelectorAll("#srchRes > div[data-sym]"); if(!items[idx])return; const el=items[idx]; const sym=el.getAttribute("data-sym")||""; const name=el.getAttribute("data-name")||""; const cur=el.getAttribute("data-cur")||""; document.getElementById("mt").value=name; const ticker=sym.includes(".")?sym.split(".")[0]:sym; document.getElementById("mk").value=ticker; const msEl=document.getElementById("ms"); const mdEl=document.getElementById("md"); if(msEl && SECTORS[ticker]) msEl.value=SECTORS[ticker]; const root=document.getElementById("modal-root"); root.dataset.pickedSym=sym; root.dataset.pickedCur=cur; items.forEach(x=>x.style.background="#1a1b25"); el.style.background="#34d39922"; const today=new Date().toISOString().slice(0,10); let exhausted=[]; try{const e=JSON.parse(localStorage.getItem("pf-av-exhausted")||"{}");if(e.date===today)exhausted=e.keys||[]}catch{} const key=API_KEYS.AV.find(k=>!exhausted.includes(k)); if(key && msEl && mdEl) { try { const r=await fetch(`https://www.alphavantage.co/query?function=OVERVIEW&symbol=${ticker}&apikey=${key}`); if(r.ok) { const j=await r.json(); if(j.Sector && j.Sector !== "None") msEl.value = j.Sector; if(j.DividendPerShare && j.DividendPerShare !== "None" && j.DividendPerShare !== "0") mdEl.value = j.DividendPerShare; } } catch(e){} } setTimeout(()=>{document.getElementById("mq").focus()},100); };
