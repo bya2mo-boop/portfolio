@@ -351,8 +351,8 @@ async function pullFromSupabase() {
           cours7j: oldPos ? oldPos.cours7j : pos.cours,
           cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(),
           lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
-          currency: oldPos ? oldPos.currency : null,
-          avSymbol: oldPos ? oldPos.avSymbol : null
+          currency: pos.currency || (oldPos ? oldPos.currency : null),
+          avSymbol: pos.av_symbol || (oldPos ? oldPos.avSymbol : null)
         });
       });
     }
@@ -405,7 +405,9 @@ async function pushToSupabase() {
           cours: pos.cours,
           cible: pos.cible || null,
           sector: pos.sector || null,
-          dividend: pos.dividend || null
+          dividend: pos.dividend || null,
+          av_symbol: pos.avSymbol || null,
+          currency: pos.currency || null
         };
         if(dbMatch) {
           toUpdate.push({ id: dbMatch.id, ...payload });
@@ -482,7 +484,9 @@ async function migrateToSupabase() {
           cours: pos.cours,
           cible: pos.cible || null,
           sector: pos.sector || null,
-          dividend: pos.dividend || null
+          dividend: pos.dividend || null,
+          av_symbol: pos.avSymbol || null,
+          currency: pos.currency || null
         });
       });
     });
@@ -581,7 +585,7 @@ async function fetchStocks(){
 }
 
 async function fetchEuStocks(){
-  const KNOWN_EU={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA"};
+  const KNOWN_EU={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA","2DG":"2DG.F"};
   const tickerMap={};
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
     if(CG[pos.ticker]||pos.ticker==="50PESO")return; // crypto & or gérés ailleurs
