@@ -568,8 +568,10 @@ async function fetchStocks(){
   const tickers=new Set();
   if(D&&D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
     const cur=pos.currency||CUR[pos.ticker];
-    if(cur==="USD"&&!pos.ticker.includes(".")&&!CG[pos.ticker]&&pos.ticker!=="50PESO"){
-      tickers.add(pos.ticker);
+    // Tout ticker sans point, pas crypto, pas or → US par défaut
+    // Couvre les positions ajoutées manuellement sans passer par la recherche
+    if(!CG[pos.ticker]&&pos.ticker!=="50PESO"&&!pos.ticker.includes(".")){
+      if(cur==="USD"||!cur) tickers.add(pos.ticker);
     }
   }));
   if(tickers.size===0) return {};
