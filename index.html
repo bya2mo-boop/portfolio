@@ -762,6 +762,17 @@ async function loadUserEnv() {
 
 async function init(){
   if(sb){
+    // Gestion de la confirmation email par token_hash (redirect depuis l'email)
+    const _hp=new URLSearchParams(window.location.search);
+    const _th=_hp.get('token_hash');
+    const _tt=_hp.get('type');
+    if(_th&&_tt){
+      try{
+        const{error}=await sb.auth.verifyOtp({token_hash:_th,type:_tt});
+        if(!error){window.history.replaceState({},'',window.location.pathname);console.log("Email confirmé avec succès")}
+        else console.error("Erreur confirmation email:",error.message);
+      }catch(e){console.error("verifyOtp error:",e)}
+    }
     try{
       const { data: { session } } = await sb.auth.getSession();
       if(session) currentUser = session.user;
