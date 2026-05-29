@@ -13,7 +13,7 @@
 :root{--bg:#0a0b0f;--card:#12131a;--bdr:#1e2030;--txt:#e8e9ed;--dim:#7a7d8e;--mut:#4a4d5e;--acc:#6c8cff;--grn:#34d399;--red:#f87171;--amb:#fbbf24}
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
-body{max-width:480px;margin:0 auto;padding:env(safe-area-inset-top,16px) 16px 90px}
+body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:env(safe-area-inset-top,16px) 16px 90px}
 .card{background:var(--card);border:1px solid var(--bdr);border-radius:14px;padding:16px;margin-bottom:10px}
 .card-tap{cursor:pointer}.card-tap:active{background:#181a25}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
@@ -1020,7 +1020,7 @@ function lc(data, k, w=300, h=180) {
     <circle cx="${P[P.length-1].x.toFixed(1)}" cy="${P[P.length-1].y.toFixed(1)}" r="3" fill="${col}"/>
 
     <text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mx)}</text>
-    <text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mn)}</text>
+    <text x="${w}" y="${pt+ch-3}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mn)}</text>
 
     <text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text>
     <text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text>
