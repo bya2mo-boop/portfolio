@@ -135,7 +135,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v",scOpen=false,scSort="best",scEnv="tout",divNet=false;
+let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v",scOpen=false,scSort="best",scEnv="tout",divNet=false,anaSub="perf";
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 window.cashflows = [];
@@ -191,36 +191,23 @@ function escAttr(s){
 function scorePos(pos, pocheName){
   const isCrypto = pocheName === "Crypto" || CG[pos.ticker];
   const isFund = pocheName === "Assurance Vie" || pocheName === "PEE";
+  const prof=(D&&D.prefs&&D.prefs.scoreProfile)||"equilibre";
+  const W = prof==="croissance"?{pl:1,div:0,mom:1.4}:prof==="dividende"?{pl:0.8,div:1.6,mom:0.8}:{pl:1,div:1,mom:1};
   let s=5; const crit=[];
   const pl=pos.plPct||0;
   const mult=isCrypto?1.5:isFund?0.7:1.0;
-  if(pl>=50*mult){s+=2.5;crit.push({n:"P&L",v:"+2.5",c:"g"})}
-  else if(pl>=25*mult){s+=1.5;crit.push({n:"P&L",v:"+1.5",c:"g"})}
-  else if(pl>=10*mult){s+=0.8;crit.push({n:"P&L",v:"+0.8",c:"g"})}
-  else if(pl>=-5*mult){crit.push({n:"P&L",v:"0",c:"a"})}
-  else if(pl>=-15*mult){s-=0.8;crit.push({n:"P&L",v:"-0.8",c:"r"})}
-  else if(pl>=-30*mult){s-=1.5;crit.push({n:"P&L",v:"-1.5",c:"r"})}
-  else{s-=2.5;crit.push({n:"P&L",v:"-2.5",c:"r"})}
-  const w=pos.poids||0;
-  if(w>=8&&w<=22){s+=0.5;crit.push({n:"Poids",v:"+0.5",c:"g"})}
-  else if((w>=5&&w<8)||(w>22&&w<=30)){crit.push({n:"Poids",v:"0",c:"a"})}
-  else if((w>=2&&w<5)||(w>30&&w<=40)){s-=0.5;crit.push({n:"Poids",v:"-0.5",c:"a"})}
-  else if(w<2){s-=1;crit.push({n:"Poids",v:"-1.0",c:"r"})}
-  else{s-=1.5;crit.push({n:"Poids",v:"-1.5",c:"r"})}
-  const div=pos.dividend||DIVS[pos.ticker]||0;
-  const yld=pos.cours>0?(div/pos.cours*100):0;
-  if(yld>5){s+=1;crit.push({n:"Div",v:"+1.0",c:"g"})}
-  else if(yld>3){s+=0.7;crit.push({n:"Div",v:"+0.7",c:"g"})}
-  else if(yld>1){s+=0.4;crit.push({n:"Div",v:"+0.4",c:"g"})}
-  else if(yld>0){s+=0.2;crit.push({n:"Div",v:"+0.2",c:"a"})}
-  if(pos.cours7j&&pos.cours7j>0){
-    const delta=(pos.cours-pos.cours7j)/pos.cours7j*100;
-    if(delta>10){s+=1;crit.push({n:"7j",v:"+1.0",c:"g"})}
-    else if(delta>3){s+=0.5;crit.push({n:"7j",v:"+0.5",c:"g"})}
-    else if(delta>-3){crit.push({n:"7j",v:"0",c:"a"})}
-    else if(delta>-10){s-=0.5;crit.push({n:"7j",v:"-0.5",c:"r"})}
-    else{s-=1;crit.push({n:"7j",v:"-1.0",c:"r"})}
-  }
+  let plPts=0;
+  if(pl>=50*mult)plPts=2.5;else if(pl>=25*mult)plPts=1.5;else if(pl>=10*mult)plPts=0.8;else if(pl>=-5*mult)plPts=0;else if(pl>=-15*mult)plPts=-0.8;else if(pl>=-30*mult)plPts=-1.5;else plPts=-2.5;
+  plPts=Math.round(plPts*W.pl*10)/10;s+=plPts;
+  crit.push({n:"P&L",v:(plPts>=0?"+":"")+plPts.toFixed(1),c:plPts>0?"g":plPts<0?"r":"a"});
+  const w=pos.poids||0;let wPts=0;
+  if(w>=8&&w<=22)wPts=0.5;else if((w>=5&&w<8)||(w>22&&w<=30))wPts=0;else if((w>=2&&w<5)||(w>30&&w<=40))wPts=-0.5;else if(w<2)wPts=-1;else wPts=-1.5;
+  s+=wPts;crit.push({n:"Poids",v:(wPts>=0?"+":"")+wPts.toFixed(1),c:wPts>0?"g":wPts<0?"r":"a"});
+  const div=pos.dividend||DIVS[pos.ticker]||0;const yld=pos.cours>0?(div/pos.cours*100):0;
+  let divPts=0;if(yld>5)divPts=1;else if(yld>3)divPts=0.7;else if(yld>1)divPts=0.4;else if(yld>0)divPts=0.2;
+  divPts=Math.round(divPts*W.div*10)/10;if(divPts>0){s+=divPts;crit.push({n:"Div",v:"+"+divPts.toFixed(1),c:"g"});}
+  if(pos.cours7j&&pos.cours7j>0){const delta=(pos.cours-pos.cours7j)/pos.cours7j*100;let mPts=0;if(delta>10)mPts=1;else if(delta>3)mPts=0.5;else if(delta>-3)mPts=0;else if(delta>-10)mPts=-0.5;else mPts=-1;mPts=Math.round(mPts*W.mom*10)/10;s+=mPts;crit.push({n:"7j",v:(mPts>=0?"+":"")+mPts.toFixed(1),c:mPts>0?"g":mPts<0?"r":"a"});}
+  if(pos.cible>0&&pos.cours>0){const ec=(pos.cours-pos.cible)/pos.cible*100;let cPts=0;if(ec<=0)cPts=0.5;else if(ec<5)cPts=0.2;if(cPts>0){s+=cPts;crit.push({n:"Cible",v:"+"+cPts.toFixed(1),c:ec<=0?"g":"a"});}}
   return {score:Math.max(1,Math.min(10,Math.round(s*10)/10)),crit};
 }
 
@@ -295,12 +282,14 @@ function getCutoffs() {
 
 function despike(arr, key){
   if(!Array.isArray(arr)||arr.length<3)return arr;
-  const out=arr.map(x=>({...x}));
-  for(let i=1;i<out.length-1;i++){
-    const a=out[i-1][key],b=out[i][key],c=out[i+1][key];
-    if(a==null||b==null||c==null)continue;
-    const refMax=Math.max(Math.abs(a),Math.abs(c),1);
-    if(Math.abs(b-a)/refMax>0.4 && Math.abs(b-c)/refMax>0.4 && Math.abs(a-c)/refMax<0.15){ out[i][key]=(a+c)/2; }
+  let out=arr.map(x=>({...x}));
+  for(let pass=0;pass<3;pass++){
+    for(let i=1;i<out.length-1;i++){
+      const a=out[i-1][key],b=out[i][key],c=out[i+1][key];
+      if(a==null||b==null||c==null)continue;
+      const refMax=Math.max(Math.abs(a),Math.abs(c),1);
+      if(Math.abs(b-a)/refMax>0.15 && Math.abs(b-c)/refMax>0.15 && Math.abs(a-c)/refMax<0.1){ out[i][key]=(a+c)/2; }
+    }
   }
   return out;
 }
@@ -346,6 +335,7 @@ async function pullFromSupabase() {
       immobilier: pf.immobilier || {},
       sales: pf.sales || [],
       divReceived: pf.div_received || [],
+      prefs: pf.prefs || {},
       poches: {},
       migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6
     };
@@ -403,6 +393,7 @@ async function pushToSupabase() {
       target_alloc: D.targetAlloc || {},
       sales: D.sales || [],
       div_received: D.divReceived || [],
+      prefs: D.prefs || {},
       hist: H.slice(-1000)
     }).eq('id', window.currentPfId);
     
@@ -488,6 +479,7 @@ async function migrateToSupabase() {
       target_alloc: D.targetAlloc || {},
       sales: D.sales || [],
       div_received: D.divReceived || [],
+      prefs: D.prefs || {},
       hist: H || []
     }]).select();
     
@@ -1226,7 +1218,7 @@ const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s
 const cm_={EUR:D.cash,USD:0};d.ap.forEach(p=>{const c=CUR[p.ticker]||"EUR";cm_[c]=(cm_[c]||0)+p.valeur});const cdat=Object.entries(cm_).map(([n,v])=>[n,Math.round(v)]);const ct=cdat.reduce((s,x)=>s+x[1],0)||1;
 const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/d.tF*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
 const dp=d.ap.map(p=>{const dv=p.dividend||DIVS[p.ticker]||0;return{...p,dv,dt:p.qty*dv,yd:p.cours>0?dv/p.cours*100:0}}).filter(p=>p.dv>0);const td=dp.reduce((s,p)=>s+p.dt,0);
-const sc2=d.ap.map(p=>{ if(p._score!=null&&p._crit!=null)return{...p,sc:p._score,crit:p._crit}; const res=scorePos(p,""); return{...p,sc:res.score,crit:res.crit}; }).sort((a,b)=>b.sc-a.sc);
+const sc2=d.ap.map(p=>{ const res=scorePos(p,p.poche); return{...p,sc:res.score,crit:res.crit}; }).sort((a,b)=>b.sc-a.sc);
 
 const activePoches = Object.entries(D.poches).filter(([n,p]) => p.valeur > 0 || p.positions.length > 0);
 const pocheScores = activePoches.map(([n,p]) => { const sc = parseFloat(String(p.sante||5).replace(',','.')); const cl = sc>=7?"var(--grn)":sc>=5?"var(--amb)":"var(--red)"; return {n, sc, cl, val: p.valeur}; }).sort((a,b) => b.sc-a.sc);
@@ -1236,7 +1228,9 @@ const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 
 const tFv=d.tF||1;
 const sect=sd.reduce((s,x)=>s+x[1],0)||1;
-const netF=(p)=>p.poche==="CTO"?0.7:1;
+const tgtEnabled=!(D.prefs&&D.prefs.targetEnabled===false);
+const taxRate=(poche)=>{const tr=(D.prefs&&D.prefs.taxRates)||{};const tg=(D.prefs&&D.prefs.taxGlobal!=null)?D.prefs.taxGlobal:30;return tr[poche]!=null?tr[poche]:tg;};
+const netF=(p)=>1-taxRate(p.poche)/100;
 const dpx=dp.map(p=>({...p,ydc:p.pru>0?p.dv/p.pru*100:0,dtNet:p.dt*netF(p)}));
 const tdNet=dpx.reduce((s,p)=>s+p.dtNet,0);
 const tdShown=divNet?tdNet:td;
@@ -1244,11 +1238,13 @@ const dr=D.divReceived||[];const _yr=new Date().getFullYear();
 const drYtd=dr.filter(x=>String(x.date||"").slice(0,4)===String(_yr)).reduce((s,x)=>s+(x.montant||0),0);
 const drTot=dr.reduce((s,x)=>s+(x.montant||0),0);
 const reb=ad.filter(a=>Math.abs(a.dv)>2).map(a=>({n:a.n,dv:a.dv,eur:Math.round(Math.abs(a.dv)/100*d.tF)}));
-const synC=(()=>{const out=[];const mx=ad.slice().sort((a,b)=>Math.abs(b.dv)-Math.abs(a.dv))[0];if(mx&&Math.abs(mx.dv)>5){const eur=Math.round(Math.abs(mx.dv)/100*d.tF);out.push(["⚠️",`${mx.dv>0?"Surpondéré":"Sous-pondéré"} <b>${esc(mx.n)}</b> ${mx.dv>0?"+":""}${mx.dv.toFixed(1)} pts (~${fmt_(eur)}€) vs ta cible`,mx.dv>0?"var(--amb)":"var(--acc)"]);}const byPl=d.ap.map(p=>({...p,pct:p.pru>0?(p.cours-p.pru)/p.pru*100:0})).filter(p=>isFinite(p.pct)&&p.qty>0).sort((a,b)=>b.pct-a.pct);if(byPl.length){const top=byPl[0];out.push(["📈",`Meilleure ligne : <b>${esc(top.ticker)}</b> ${top.pct>=0?"+":""}${top.pct.toFixed(1)}%`,"var(--grn)"]);const bot=byPl[byPl.length-1];if(bot&&bot.ticker!==top.ticker&&bot.pct<0)out.push(["📉",`Plus faible : <b>${esc(bot.ticker)}</b> ${bot.pct.toFixed(1)}%`,"var(--red)"]);}if(td>0)out.push(["💸",`Dividendes projetés : <b>${fmt_(td)}€/an</b> (${(td/tFv*100).toFixed(1)}% du portefeuille)`,"var(--grn)"]);if(d.nA>0)out.push(["🔔",`<b>${d.nA}</b> position(s) sous leur cible`,"var(--red)"]);return out.slice(0,4);})();
+const prof=(D.prefs&&D.prefs.scoreProfile)||"equilibre";
+const synC=(()=>{const out=[];if(tgtEnabled){const mx=ad.slice().sort((a,b)=>Math.abs(b.dv)-Math.abs(a.dv))[0];if(mx&&Math.abs(mx.dv)>5){const eur=Math.round(Math.abs(mx.dv)/100*d.tF);out.push(["⚠️",`${mx.dv>0?"Surpondéré":"Sous-pondéré"} <b>${esc(mx.n)}</b> ${mx.dv>0?"+":""}${mx.dv.toFixed(1)} pts (~${fmt_(eur)}€) vs ta cible`,mx.dv>0?"var(--amb)":"var(--acc)"]);}}const byPl=d.ap.map(p=>({...p,pct:p.pru>0?(p.cours-p.pru)/p.pru*100:0})).filter(p=>isFinite(p.pct)&&p.qty>0).sort((a,b)=>b.pct-a.pct);if(byPl.length){const top=byPl[0];out.push(["📈",`Meilleure ligne : <b>${esc(top.ticker)}</b> ${top.pct>=0?"+":""}${top.pct.toFixed(1)}%`,"var(--grn)"]);const bot=byPl[byPl.length-1];if(bot&&bot.ticker!==top.ticker&&bot.pct<0)out.push(["📉",`Plus faible : <b>${esc(bot.ticker)}</b> ${bot.pct.toFixed(1)}%`,"var(--red)"]);}if(td>0)out.push(["💸",`Dividendes projetés : <b>${fmt_(td)}€/an</b> (${(td/tFv*100).toFixed(1)}% du portefeuille)`,"var(--grn)"]);if(d.nA>0)out.push(["🔔",`<b>${d.nA}</b> position(s) sous leur cible`,"var(--red)"]);return out.slice(0,4);})();
+const subTabs=[["perf","Perf"],["rep","Répartition"],["div","Dividendes"],["pos","Positions"]];
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Analyse</h2>
-<div class="hide-scroll" style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">${[["sec-perf","Performance"],["sec-rep","Répartition"],["sec-rev","Revenus"],["sec-pos","Positions"]].map(s=>`<button onclick="scrollSec('${s[0]}')" style="padding:6px 12px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bdr);background:var(--card);color:var(--dim);white-space:nowrap;flex-shrink:0">${s[1]}</button>`).join("")}</div>
 ${synC.length?`<div class="card" style="margin-bottom:10px"><div class="section">Synthèse</div><div style="display:flex;flex-direction:column;gap:7px">${synC.map(s=>`<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.4"><span style="flex-shrink:0">${s[0]}</span><span style="color:var(--dim)">${s[1]}</span></div>`).join("")}</div></div>`:""}
-<div id="sec-perf"></div>
+<div class="hide-scroll" style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">${subTabs.map(s=>`<button onclick="setAnaSub('${s[0]}')" style="padding:7px 14px;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ${anaSub===s[0]?"var(--acc)":"var(--bdr)"};background:${anaSub===s[0]?"var(--acc)":"transparent"};color:${anaSub===s[0]?"#fff":"var(--dim)"}">${s[1]}</button>`).join("")}</div>
+${anaSub==="perf"?`
 <div class="card" style="margin-bottom:10px; padding:16px 12px 12px;">
 ${makeBtns(timeOpts, htf, "setHtf", true)}
 ${makeBtns(envOpts, aEnvSel, "setAEnv")}
@@ -1269,27 +1265,30 @@ ${pocheScores.map(x=>`
 <span class="mono" style="font-size:11px;font-weight:700;color:${x.cl};width:28px;text-align:right" title="${x.sc.toFixed(1)}/10">${x.sc>=9?"S":x.sc>=7?"A":x.sc>=5?"B":x.sc>=3?"C":"D"}</span>
 </div>`).join('')}
 </div>
-</div>
-<div id="sec-rep"></div>
+</div>`:""}
+${anaSub==="rep"?`
 <div class="card"><div class="section">Secteurs</div><div style="display:flex;align-items:center;gap:10px">${dn(sd,scol,100)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${sd.map((dd,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:6px;height:6px;border-radius:50%;background:${scol[i]}"></div><span style="color:var(--dim);flex:1">${dd[0]}</span><span class="mono" style="font-weight:500">${fmt_(dd[1])}€ <span style="color:var(--mut)">${(dd[1]/sect*100).toFixed(0)}%</span></span></div>`).join("")}</div></div></div>
 <div class="card"><div class="section">Devises</div><div style="display:flex;gap:8px">${cdat.map(dd=>{const pc=dd[1]/ct*100;return`<div style="flex:1;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:${dd[0]==="EUR"?"var(--acc)":"var(--grn)"}">${pc.toFixed(0)}%</div><div style="font-size:12px;font-weight:600;margin-top:2px">${dd[0]}</div><div style="font-size:10px;color:var(--dim)">${fmt_(dd[1])} €</div><div style="margin-top:6px;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${dd[0]==="EUR"?"var(--acc)":"var(--grn)"};border-radius:3px"></div></div></div>`}).join("")}</div></div>
-<div class="card"><div class="section" style="display:flex;justify-content:space-between;align-items:center">Cible vs Actuel <span onclick="editTargets()" style="color:var(--acc);font-size:11px;cursor:pointer;font-weight:400">✎ Modifier</span></div>${ad.map(a=>{const cl=Math.abs(a.dv)>5?"var(--red)":Math.abs(a.dv)>2?"var(--amb)":"var(--grn)";return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px"><span style="width:70px;color:var(--dim);font-size:9px">${a.n}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;overflow:hidden"><div style="position:absolute;left:${Math.min(a.tg,a.ac)}%;width:${Math.abs(a.dv)}%;height:100%;background:${cl}44"></div><div style="position:absolute;left:${a.ac}%;width:3px;height:100%;background:${PCOL[a.n]||"var(--acc)"};border-radius:2px"></div></div><span class="mono" style="font-size:10px;width:30px;text-align:right;color:${cl}">${a.dv>0?"+":""}${a.dv.toFixed(1)}</span></div>`}).join("")}${reb.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Pour viser ta cible :</div><div style="display:flex;flex-wrap:wrap;gap:5px">${reb.map(r=>`<span style="font-size:10px;padding:3px 7px;border-radius:6px;background:${r.dv>0?"#f8717115":"#34d39915"};color:${r.dv>0?"var(--red)":"var(--grn)"}">${esc(r.n)} ${r.dv>0?"−":"+"}${fmt_(r.eur)}€</span>`).join("")}</div></div>`:""}</div>
-<div id="sec-rev"></div>
-<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section" style="margin:0">Dividendes</div><div style="display:flex;align-items:center;gap:8px"><div style="display:flex;background:#1a1b25;border-radius:6px;padding:2px"><button onclick="setDivNet(false)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${!divNet?"var(--acc)":"transparent"};color:${!divNet?"#fff":"var(--dim)"}">Brut</button><button onclick="setDivNet(true)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${divNet?"var(--acc)":"transparent"};color:${divNet?"#fff":"var(--dim)"}">Net</button></div><span class="mono" style="font-size:13px;font-weight:700;color:var(--grn)">${fmt_(tdShown)} €/an</span></div></div><div style="display:flex;gap:6px;margin-bottom:10px"><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">≈ par mois</div><div class="mono" style="font-size:13px;font-weight:600;color:var(--grn);margin-top:2px">${fmt_(tdShown/12)} €</div></div><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">Rendement</div><div class="mono" style="font-size:13px;font-weight:600;margin-top:2px">${(tdShown/tFv*100).toFixed(2)}%</div></div></div>${dpx.length?dpx.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span style="color:var(--dim)">${esc(p.ticker)}</span><span class="mono"><span style="color:var(--grn)">${fmt_(divNet?p.dtNet:p.dt)}€</span> <span style="color:var(--mut)">(crt ${p.yd.toFixed(1)}% · PRU ${p.ydc.toFixed(1)}%)</span></span></div>`).join(""):`<div style="font-size:10px;color:var(--mut);text-align:center;padding:6px">Aucun dividende renseigné. Ajoute-le en modifiant une position.</div>`}${divNet?`<div style="font-size:9px;color:var(--mut);margin-top:6px;line-height:1.4">Net = estimation (CTO −30% PFU ; PEA/PEE/AV non taxés à la perception). Indicatif.</div>`:""}<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:11px"><span style="color:var(--dim)">Perçu ${_yr} : <b style="color:var(--grn)">${fmt_(drYtd)}€</b> · Total : <b style="color:var(--grn)">${fmt_(drTot)}€</b></span></div>${dr.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${dr.slice().reverse().map((x)=>{const _ri=dr.indexOf(x);return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px"><span style="color:var(--dim)">${x.date} · ${esc(x.poche||"")}${x.ticker?" · "+esc(x.ticker):""}</span><span style="display:flex;align-items:center;gap:8px"><span class="mono" style="color:var(--grn)">+${fmt_(x.montant)}€</span><button onclick="delDivReceived(${_ri})" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;line-height:1">✕</button></span></div>`}).join("")}</div>`:""}<div onclick="addDivReceived('')" style="text-align:center;margin-top:10px;font-size:12px;color:var(--acc);cursor:pointer">➕ Enregistrer un dividende perçu</div></div></div>
-<div id="sec-pos"></div>
+${tgtEnabled?`<div class="card"><div class="section" style="display:flex;justify-content:space-between;align-items:center">Cible vs Actuel <span onclick="editTargets()" style="color:var(--acc);font-size:11px;cursor:pointer;font-weight:400">✎ Modifier</span></div>${ad.map(a=>{const cl=Math.abs(a.dv)>5?"var(--red)":Math.abs(a.dv)>2?"var(--amb)":"var(--grn)";return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px"><span style="width:70px;color:var(--dim);font-size:9px">${a.n}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;overflow:hidden"><div style="position:absolute;left:${Math.min(a.tg,a.ac)}%;width:${Math.abs(a.dv)}%;height:100%;background:${cl}44"></div><div style="position:absolute;left:${a.ac}%;width:3px;height:100%;background:${PCOL[a.n]||"var(--acc)"};border-radius:2px"></div></div><span class="mono" style="font-size:10px;width:30px;text-align:right;color:${cl}">${a.dv>0?"+":""}${a.dv.toFixed(1)}</span></div>`}).join("")}${reb.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Pour viser ta cible :</div><div style="display:flex;flex-wrap:wrap;gap:5px">${reb.map(r=>`<span style="font-size:10px;padding:3px 7px;border-radius:6px;background:${r.dv>0?"#f8717115":"#34d39915"};color:${r.dv>0?"var(--red)":"var(--grn)"}">${esc(r.n)} ${r.dv>0?"−":"+"}${fmt_(r.eur)}€</span>`).join("")}</div></div>`:""}</div>`:`<div class="card"><div class="section">Cible vs Actuel</div><div style="text-align:center;padding:14px;color:var(--mut);font-size:12px;line-height:1.6">Allocation cible désactivée.<br><span onclick="editTargets()" style="color:var(--acc);cursor:pointer;font-weight:600">Activer / définir mes cibles</span></div></div>`}`:""}
+${anaSub==="div"?`
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section" style="margin:0">Dividendes <span onclick="editTaxes()" style="font-size:10px;color:var(--acc);cursor:pointer;font-weight:400">⚙ Fiscalité</span></div><div style="display:flex;align-items:center;gap:8px"><div style="display:flex;background:#1a1b25;border-radius:6px;padding:2px"><button onclick="setDivNet(false)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${!divNet?"var(--acc)":"transparent"};color:${!divNet?"#fff":"var(--dim)"}">Brut</button><button onclick="setDivNet(true)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${divNet?"var(--acc)":"transparent"};color:${divNet?"#fff":"var(--dim)"}">Net</button></div><span class="mono" style="font-size:13px;font-weight:700;color:var(--grn)">${fmt_(tdShown)} €/an</span></div></div><div style="display:flex;gap:6px;margin-bottom:10px"><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">≈ par mois</div><div class="mono" style="font-size:13px;font-weight:600;color:var(--grn);margin-top:2px">${fmt_(tdShown/12)} €</div></div><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">Rendement</div><div class="mono" style="font-size:13px;font-weight:600;margin-top:2px">${(tdShown/tFv*100).toFixed(2)}%</div></div></div>${dpx.length?dpx.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span style="color:var(--dim)">${esc(p.ticker)}</span><span class="mono"><span style="color:var(--grn)">${fmt_(divNet?p.dtNet:p.dt)}€</span> <span style="color:var(--mut)">(crt ${p.yd.toFixed(1)}% · PRU ${p.ydc.toFixed(1)}%)</span></span></div>`).join(""):`<div style="font-size:10px;color:var(--mut);text-align:center;padding:6px">Aucun dividende renseigné. Ajoute-le en modifiant une position.</div>`}${divNet?`<div style="font-size:9px;color:var(--mut);margin-top:6px;line-height:1.4">Net = brut − ta fiscalité par enveloppe (⚙). Indicatif.</div>`:""}<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:11px"><span style="color:var(--dim)">Perçu ${_yr} : <b style="color:var(--grn)">${fmt_(drYtd)}€</b> · Total : <b style="color:var(--grn)">${fmt_(drTot)}€</b></span></div>${dr.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${dr.slice().reverse().map((x)=>{const _ri=dr.indexOf(x);return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px"><span style="color:var(--dim)">${x.date} · ${esc(x.poche||"")}${x.ticker?" · "+esc(x.ticker):""}</span><span style="display:flex;align-items:center;gap:8px"><span class="mono" style="color:var(--grn)">+${fmt_(x.montant)}€</span><button onclick="delDivReceived(${_ri})" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;line-height:1">✕</button></span></div>`}).join("")}</div>`:""}<div onclick="addDivReceived('')" style="text-align:center;margin-top:10px;font-size:12px;color:var(--acc);cursor:pointer">➕ Enregistrer un dividende perçu</div></div></div>`:""}
+${anaSub==="pos"?`
 <div class="card">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-<div class="section" style="margin:0">Score santé positions</div>
+<div class="section" style="margin:0">Score santé positions <span onclick="scoreHelp()" style="font-size:11px;color:var(--acc);cursor:pointer;font-weight:400">?</span></div>
 <div style="font-size:9px;color:var(--mut)">S≥9&nbsp;A≥7&nbsp;B≥5&nbsp;C≥3&nbsp;D&lt;3</div>
 </div>
+<div style="font-size:9px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">Profil de notation</div>
+<div style="display:flex;gap:5px;margin-bottom:8px">${[["croissance","Croissance"],["equilibre","Équilibré"],["dividende","Dividende"]].map(pp=>`<button onclick="setScoreProfile('${pp[0]}')" style="flex:1;padding:5px 0;border-radius:6px;border:1px solid ${prof===pp[0]?"var(--acc)":"var(--bdr)"};background:${prof===pp[0]?"var(--acc)":"transparent"};color:${prof===pp[0]?"#fff":"var(--dim)"};font-size:10px;font-weight:600;cursor:pointer">${pp[1]}</button>`).join("")}</div>
 <div style="display:flex;gap:6px;margin-bottom:8px"><button onclick="setScSort('best')" style="flex:1;padding:5px 0;border-radius:6px;border:1px solid ${scSort==="best"?"var(--acc)":"var(--bdr)"};background:${scSort==="best"?"var(--acc)":"transparent"};color:${scSort==="best"?"#fff":"var(--dim)"};font-size:11px;font-weight:600;cursor:pointer">Meilleurs</button><button onclick="setScSort('watch')" style="flex:1;padding:5px 0;border-radius:6px;border:1px solid ${scSort==="watch"?"var(--amb)":"var(--bdr)"};background:${scSort==="watch"?"var(--amb)":"transparent"};color:${scSort==="watch"?"#fff":"var(--dim)"};font-size:11px;font-weight:600;cursor:pointer">À surveiller</button></div>
 <div class="hide-scroll" style="display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px">${["tout"].concat(activePoches.map(e=>e[0])).map(e=>`<button onclick="setScEnv('${escAttr(e)}')" style="padding:4px 10px;border-radius:12px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ${scEnv===e?"var(--acc)":"var(--bdr)"};background:${scEnv===e?"var(--acc)":"transparent"};color:${scEnv===e?"#fff":"var(--dim)"}">${e==="tout"?"Toutes":esc(e)}</button>`).join("")}</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9px;color:var(--dim)">
 <div>🟢 P&L% · ⚖️ Poids</div>
-<div>💸 Dividende · 📈 Momentum</div>
+<div>💸 Dividende · 📈 7j · 🎯 Cible</div>
 </div>
 ${(()=>{let list=sc2.slice();if(scEnv!=="tout")list=list.filter(p=>p.poche===scEnv);if(scSort==="watch")list=list.reverse();const shown=scOpen?list:list.slice(0,5);if(!shown.length)return`<div style="font-size:11px;color:var(--mut);text-align:center;padding:10px">Aucune position dans ce filtre.</div>`;return shown.map(p=>{const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 4px;border-radius:3px;font-size:8px;background:${cr.c==="g"?"#34d39920":cr.c==="r"?"#f8717120":"#fbbf2420"};color:${cr.c==="g"?"var(--grn)":cr.c==="r"?"var(--red)":"var(--amb)"};">${cr.n} ${cr.v}</span>`).join("");return`<div style="padding:5px 0;border-bottom:1px solid #1e203018"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="font-weight:700;font-size:11px;width:48px;color:var(--txt)">${esc(p.ticker)}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div></div><span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span></div><div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div></div>`}).join("")+(list.length>5?`<div onclick="toggleSc()" style="text-align:center;color:var(--acc);font-size:12px;cursor:pointer;padding:10px 0 2px">${scOpen?"▲ Réduire":"▼ Voir les "+list.length+" positions"}</div>`:"");})()}
-</div></div>`;}}
+</div>`:""}
+</div>`;}}
 
 
 if(tab==="alerts"){const d=ga();const un=d.alerts.filter(a=>a.at),nr=d.alerts.filter(a=>a.nr),ab=d.alerts.filter(a=>!a.at&&!a.nr);
@@ -1355,6 +1354,13 @@ window.scrollSec=(id)=>{const el=document.getElementById(id);if(el)el.scrollInto
 window.addDivReceived=(poche)=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Dividende perçu</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:11px;color:var(--dim);line-height:1.5">Enregistre un dividende <b style="color:var(--txt)">réellement encaissé</b>. C'est un historique de revenu : ça <b style="color:var(--txt)">n'ajoute rien</b> à ton patrimoine.</div><div class="field"><label>Montant net perçu (€)</label><input id="dr_amt" inputmode="decimal" placeholder="ex: 45,20"></div><div class="field"><label>Enveloppe</label><select id="dr_poche" style="width:100%;background:#1a1b25;border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt)">${poches.map(p=>`<option value="${escAttr(p)}" ${p===poche?"selected":""}>${esc(p)}</option>`).join("")}</select></div><div class="field"><label>Ticker / source (optionnel)</label><input id="dr_tk" placeholder="ex: AI" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Date</label><input id="dr_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><button class="btn btn-p" onclick="saveDivReceived()">Enregistrer</button>`)};
 window.saveDivReceived=()=>{const amt=pn(document.getElementById("dr_amt").value);if(!amt||amt<=0){const inp=document.getElementById("dr_amt");if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir un montant";inp.focus();}return;}const poche=document.getElementById("dr_poche").value;const tk=(document.getElementById("dr_tk").value||"").trim().toUpperCase();const date=document.getElementById("dr_date").value||new Date().toISOString().slice(0,10);if(!D.divReceived)D.divReceived=[];D.divReceived.push({date:date,poche:poche,ticker:tk||"",montant:Math.round(amt*100)/100});cm();save();};
 window.delDivReceived=(idx)=>{if(!D.divReceived||!D.divReceived[idx])return;const x=D.divReceived[idx];if(!confirm(`Supprimer ce dividende perçu (${x.montant} €) ?`))return;D.divReceived.splice(idx,1);cm();save();};
+window.setAnaSub=v=>{anaSub=v;R();};
+window.setScoreProfile=v=>{if(!D.prefs)D.prefs={};D.prefs.scoreProfile=v;R();save();};
+window.scoreHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Comment marche le score ?</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);line-height:1.6">Chaque position part de <b style="color:var(--txt)">5/10</b>, puis gagne ou perd des points sur 5 critères :<br><br>🟢 <b style="color:var(--txt)">P&L%</b> : ta plus/moins-value latente (pondérée : crypto plus tolérante, fonds plus sévère).<br>⚖️ <b style="color:var(--txt)">Poids</b> : la taille de la ligne (idéal 8–22% ; trop petite ou trop grosse = pénalité).<br>💸 <b style="color:var(--txt)">Dividende</b> : le rendement courant (bonus seulement).<br>📈 <b style="color:var(--txt)">7j</b> : le momentum sur 7 jours.<br>🎯 <b style="color:var(--txt)">Cible</b> : bonus si le cours est proche/sous ta cible d'achat (opportunité).<br><br><b style="color:var(--txt)">Le profil</b> repondère ces critères :<br>• <b style="color:var(--txt)">Croissance</b> : ignore le dividende, valorise le momentum.<br>• <b style="color:var(--txt)">Dividende</b> : valorise fortement le rendement.<br>• <b style="color:var(--txt)">Équilibré</b> : tout à poids égal.<br><br>Note finale bornée entre 1 et 10 → S≥9, A≥7, B≥5, C≥3, D&lt;3.</div>`)};
+window.editTaxes=()=>{const tr=(D.prefs&&D.prefs.taxRates)||{};const tg=(D.prefs&&D.prefs.taxGlobal!=null)?D.prefs.taxGlobal:30;const keys=Object.keys(D.poches);const ss="width:72px;background:#1a1b25;border:1px solid var(--bdr);border-radius:8px;padding:6px;color:var(--txt);text-align:right";sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Fiscalité des dividendes</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><p style="font-size:11px;color:var(--dim);margin-bottom:14px;line-height:1.5">Taux d'imposition appliqué au calcul "Net". Le taux global s'applique partout sauf si tu renseignes un taux spécifique pour une enveloppe.</p><div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid var(--bdr)"><span style="flex:1;font-size:13px;font-weight:600">Taux global</span><input id="tx_global" value="${tg}" inputmode="decimal" style="${ss}"><span style="color:var(--dim);font-size:12px">%</span></div><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Par enveloppe (laisse vide = taux global)</div>${keys.map((k,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:13px">${esc(k)}</span><input id="tx_${i}" value="${tr[k]!=null?tr[k]:""}" placeholder="${tg}" inputmode="decimal" style="${ss}"><span style="color:var(--dim);font-size:12px">%</span></div>`).join("")}<button class="btn btn-p" style="margin-top:6px" onclick="saveTaxes()">Enregistrer</button>`);window._txKeys=keys;};
+window.saveTaxes=()=>{const keys=window._txKeys||Object.keys(D.poches);if(!D.prefs)D.prefs={};const g=document.getElementById("tx_global");D.prefs.taxGlobal=g?pn(g.value):30;const tr={};keys.forEach((k,i)=>{const el=document.getElementById("tx_"+i);if(el&&String(el.value).trim()!=="")tr[k]=pn(el.value);});D.prefs.taxRates=tr;cm();save();};
+window.editTargets=()=>{const tg=D.targetAlloc||{};const en=!(D.prefs&&D.prefs.targetEnabled===false);const keys=[...Object.keys(D.poches),"Cash"];const total=keys.reduce((s,k)=>s+(tg[k]||0),0);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Allocation cible</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><label style="display:flex;align-items:center;gap:8px;margin-bottom:14px;padding:10px;border:1px solid var(--bdr);border-radius:10px;background:#1a1b25;cursor:pointer"><input type="checkbox" id="tg_enabled" ${en?"checked":""}><span style="font-size:13px;font-weight:600">Utiliser une allocation cible</span></label><p style="font-size:11px;color:var(--dim);margin-bottom:14px">Si activée, définis ta répartition cible (%) par enveloppe. Idéalement le total fait 100%. Sinon décoche : aucune cible, aucun rappel.</p>${keys.map((k,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span style="flex:1;font-size:13px">${esc(k)}</span><input id="tg_${i}" value="${tg[k]||0}" inputmode="decimal" oninput="updTgTotal()" style="width:70px;background:#1a1b25;border:1px solid var(--bdr);border-radius:8px;padding:6px;color:var(--txt);text-align:right"><span style="color:var(--dim);font-size:12px">%</span></div>`).join("")}<div id="tg_total" style="text-align:right;font-size:12px;color:${total===100?"var(--grn)":"var(--amb)"};margin:10px 0;font-weight:600">Total : ${total}%</div><button class="btn btn-p" onclick="saveTargets()">Enregistrer</button>`);window._tgKeys=keys;};
+window.saveTargets=()=>{const keys=window._tgKeys||[...Object.keys(D.poches),"Cash"];const nt={};keys.forEach((k,i)=>{const el=document.getElementById("tg_"+i);if(el)nt[k]=pn(el.value);});D.targetAlloc=nt;if(!D.prefs)D.prefs={};const en=document.getElementById("tg_enabled");D.prefs.targetEnabled=en?en.checked:true;cm();save();};
 window.setHtf=v=>{htf=v;R()};
 // RESTAURATION fb23f43 : setter pour le filtre d'enveloppe sur l'onglet Analyse
 window.setAEnv=v=>{aEnvSel=v;R()};
