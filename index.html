@@ -135,7 +135,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v";
+let D=null,H=[],tab="home",sel=null,htf="tout",aEnvSel="tout",hMode="v",scOpen=false,scSort="best",scEnv="tout",divNet=false;
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
 let cd=900,cdTimer=null;
 window.cashflows = [];
@@ -293,6 +293,17 @@ function getCutoffs() {
    return { "1s":now-7*86400000, "wtd":wtd, "1m":now-30*86400000, "3m":now-90*86400000, "mtd":mtd, "1a":now-365*86400000, "ytd":ytd, "tout":0 };
 }
 
+function despike(arr, key){
+  if(!Array.isArray(arr)||arr.length<3)return arr;
+  const out=arr.map(x=>({...x}));
+  for(let i=1;i<out.length-1;i++){
+    const a=out[i-1][key],b=out[i][key],c=out[i+1][key];
+    if(a==null||b==null||c==null)continue;
+    const refMax=Math.max(Math.abs(a),Math.abs(c),1);
+    if(Math.abs(b-a)/refMax>0.4 && Math.abs(b-c)/refMax>0.4 && Math.abs(a-c)/refMax<0.15){ out[i][key]=(a+c)/2; }
+  }
+  return out;
+}
 function makeBtns(opts, active, fn, bdrBottom=false) {
    return `<div class="hide-scroll" style="display:flex; gap:6px; padding-bottom:${bdrBottom?'8px':'4px'}; margin-bottom:${bdrBottom?'8px':'12px'}; ${bdrBottom?'border-bottom:1px solid var(--bdr);':''}">` + 
    opts.map(o => {
@@ -334,6 +345,7 @@ async function pullFromSupabase() {
       targetAlloc: pf.target_alloc || {},
       immobilier: pf.immobilier || {},
       sales: pf.sales || [],
+      divReceived: pf.div_received || [],
       poches: {},
       migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6
     };
@@ -390,6 +402,7 @@ async function pushToSupabase() {
       immobilier: D.immobilier || {},
       target_alloc: D.targetAlloc || {},
       sales: D.sales || [],
+      div_received: D.divReceived || [],
       hist: H.slice(-1000)
     }).eq('id', window.currentPfId);
     
@@ -474,6 +487,7 @@ async function migrateToSupabase() {
       immobilier: D.immobilier || {},
       target_alloc: D.targetAlloc || {},
       sales: D.sales || [],
+      div_received: D.divReceived || [],
       hist: H || []
     }]).select();
     
@@ -1039,9 +1053,9 @@ window.delSale=(idx)=>{if(!D.sales||!D.sales[idx])return;const s=D.sales[idx];if
 window.eImmo=()=>{const im=D.immobilier||{valeurEstimee:0,capitalRestant:0};const m=im.mortgage||{};sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Immobilier</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Valeur estimée du bien (€)</label><input id="iv" value="${im.valeurEstimee||''}" inputmode="decimal" placeholder="ex: 250000"></div><div style="margin:16px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Crédit principal <span style="text-transform:none;color:var(--mut)">— laisse vide si pas de crédit</span></div><div class="field"><label>Capital restant dû (€)</label><input id="imc" value="${m.mainCapital||''}" inputmode="decimal" placeholder="ex: 180000"></div><div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Taux annuel (%)</label><input id="imt" value="${m.mainTaux?(m.mainTaux*100).toFixed(2):''}" inputmode="decimal" placeholder="3.5"></div><div class="field" style="flex:1"><label>Mensualité (€)</label><input id="imm" value="${m.mainMensualite||''}" inputmode="decimal" placeholder="950"></div></div><div style="margin:16px 0 8px;font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">PTZ <span style="text-transform:none;color:var(--mut)">— prêt à taux zéro, optionnel</span></div><div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Capital PTZ (€)</label><input id="ipc" value="${m.ptzCapital||''}" inputmode="decimal" placeholder="30000"></div><div class="field" style="flex:1"><label>Mensualité PTZ (€)</label><input id="ipm" value="${m.ptzMensualite||''}" inputmode="decimal" placeholder="100"></div></div><div class="field"><label>Date du dernier prélèvement</label><input id="ild" type="date" value="${m.lastPayment||new Date().toISOString().slice(0,10)}"></div><button class="btn btn-p" onclick="saveImmo()">Enregistrer</button><p style="font-size:10px;color:var(--mut);margin-top:10px;line-height:1.4">Avec taux + mensualité renseignés, le capital restant se met à jour automatiquement chaque mois et la date de fin de prêt est calculée.</p>`)};
 window.saveImmo=()=>{const val=pn(document.getElementById('iv').value);const mc=pn(document.getElementById('imc').value);const mt=pn(document.getElementById('imt').value);const mm=pn(document.getElementById('imm').value);const pc=pn(document.getElementById('ipc').value);const pm=pn(document.getElementById('ipm').value);const ld=document.getElementById('ild').value||new Date().toISOString().slice(0,10);if(!(val>0))return alert("Renseigne au moins la valeur du bien.");D.immobilier.valeurEstimee=val;if(mc>0||pc>0){D.immobilier.mortgage={mainCapital:mc>0?mc:0,mainTaux:mt>0?mt/100:0,mainMensualite:mm>0?mm:0,ptzCapital:pc>0?pc:0,ptzMensualite:pm>0?pm:0,lastPayment:ld};D.immobilier.capitalRestant=Math.round((mc+pc)*100)/100;applyMortgagePayments();}else{delete D.immobilier.mortgage;D.immobilier.capitalRestant=0;}cm();save();};
 
-window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`)};
+window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">${esc(tk)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}"></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" value="${p.cours}" inputmode="decimal"></div><div class="field"><label>Cible</label><input id="mi" value="${p.cible||''}" inputmode="decimal"></div></div><div class="field"><label>Dividende annuel (€/action) — optionnel</label><input id="md" value="${p.dividend||''}" inputmode="decimal" placeholder="ex: 3.20"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`)};
 
-window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value.trim(); const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(!newTicker)return alert("Le ticker ne peut pas être vide."); if(newQty<0)return alert("La quantité ne peut pas être négative."); if(newPru<0||newCours<0)return alert("Le PRU et le cours ne peuvent pas être négatifs."); if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pocheName,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; cm();save()};
+window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value.trim(); const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; if(!newTicker)return alert("Le ticker ne peut pas être vide."); if(newQty<0)return alert("La quantité ne peut pas être négative."); if(newPru<0||newCours<0)return alert("Le PRU et le cours ne peuvent pas être négatifs."); if(newQty<p.qty){ const diff=p.qty-newQty; askSale(pocheName,otk,diff,p.pru,p.titre,"partial",{newTitre,newTicker,newQty,newPru,newCours,newCible}); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; if(newCible)p.cible=pn(newCible);else delete p.cible; const _md=document.getElementById("md");if(_md){const _d=pn(_md.value);if(_d>0)p.dividend=_d;else delete p.dividend;} cm();save()};
 
 window.dP=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; askSale(pocheName,tk,p.qty,p.pru,p.titre,"full",null)};
 
@@ -1205,7 +1219,7 @@ if(aEnvSel !== "tout") {
   if(chartData.length === 0) chartData = [{t: Date.now(), v: d.tN}];
 }
 
-const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"ytd", l:"YTD"},{v:"1a", l:"1A"},{v:"tout", l:"TOUT"}];
 const envOpts = [{v:"tout", l:"TOUT"}, {v:"Cash", l:"CASH"}, {v:"Immobilier", l:"IMMO"}, ...Object.keys(D.poches).map(k=>({v:k, l:k.toUpperCase()}))];
 
 const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
@@ -1220,13 +1234,26 @@ const totalActiveVal = activePoches.reduce((s, [n,p]) => s + p.valeur, 0);
 let avgScore = 5; if (totalActiveVal > 0) { avgScore = pocheScores.reduce((s,x) => s + (x.sc * (x.val / totalActiveVal)), 0); } else if (pocheScores.length > 0) { avgScore = pocheScores.reduce((s,x) => s + x.sc, 0) / pocheScores.length; }
 const avgCl = avgScore>=7?"var(--grn)":avgScore>=5?"var(--amb)":"var(--red)";
 
-h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Analyse</h2>
+const tFv=d.tF||1;
+const sect=sd.reduce((s,x)=>s+x[1],0)||1;
+const netF=(p)=>p.poche==="CTO"?0.7:1;
+const dpx=dp.map(p=>({...p,ydc:p.pru>0?p.dv/p.pru*100:0,dtNet:p.dt*netF(p)}));
+const tdNet=dpx.reduce((s,p)=>s+p.dtNet,0);
+const tdShown=divNet?tdNet:td;
+const dr=D.divReceived||[];const _yr=new Date().getFullYear();
+const drYtd=dr.filter(x=>String(x.date||"").slice(0,4)===String(_yr)).reduce((s,x)=>s+(x.montant||0),0);
+const drTot=dr.reduce((s,x)=>s+(x.montant||0),0);
+const reb=ad.filter(a=>Math.abs(a.dv)>2).map(a=>({n:a.n,dv:a.dv,eur:Math.round(Math.abs(a.dv)/100*d.tF)}));
+const synC=(()=>{const out=[];const mx=ad.slice().sort((a,b)=>Math.abs(b.dv)-Math.abs(a.dv))[0];if(mx&&Math.abs(mx.dv)>5){const eur=Math.round(Math.abs(mx.dv)/100*d.tF);out.push(["⚠️",`${mx.dv>0?"Surpondéré":"Sous-pondéré"} <b>${esc(mx.n)}</b> ${mx.dv>0?"+":""}${mx.dv.toFixed(1)} pts (~${fmt_(eur)}€) vs ta cible`,mx.dv>0?"var(--amb)":"var(--acc)"]);}const byPl=d.ap.map(p=>({...p,pct:p.pru>0?(p.cours-p.pru)/p.pru*100:0})).filter(p=>isFinite(p.pct)&&p.qty>0).sort((a,b)=>b.pct-a.pct);if(byPl.length){const top=byPl[0];out.push(["📈",`Meilleure ligne : <b>${esc(top.ticker)}</b> ${top.pct>=0?"+":""}${top.pct.toFixed(1)}%`,"var(--grn)"]);const bot=byPl[byPl.length-1];if(bot&&bot.ticker!==top.ticker&&bot.pct<0)out.push(["📉",`Plus faible : <b>${esc(bot.ticker)}</b> ${bot.pct.toFixed(1)}%`,"var(--red)"]);}if(td>0)out.push(["💸",`Dividendes projetés : <b>${fmt_(td)}€/an</b> (${(td/tFv*100).toFixed(1)}% du portefeuille)`,"var(--grn)"]);if(d.nA>0)out.push(["🔔",`<b>${d.nA}</b> position(s) sous leur cible`,"var(--red)"]);return out.slice(0,4);})();
+h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Analyse</h2>
+<div class="hide-scroll" style="display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px">${[["sec-perf","Performance"],["sec-rep","Répartition"],["sec-rev","Revenus"],["sec-pos","Positions"]].map(s=>`<button onclick="scrollSec('${s[0]}')" style="padding:6px 12px;border-radius:14px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid var(--bdr);background:var(--card);color:var(--dim);white-space:nowrap;flex-shrink:0">${s[1]}</button>`).join("")}</div>
+${synC.length?`<div class="card" style="margin-bottom:10px"><div class="section">Synthèse</div><div style="display:flex;flex-direction:column;gap:7px">${synC.map(s=>`<div style="display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.4"><span style="flex-shrink:0">${s[0]}</span><span style="color:var(--dim)">${s[1]}</span></div>`).join("")}</div></div>`:""}
+<div id="sec-perf"></div>
 <div class="card" style="margin-bottom:10px; padding:16px 12px 12px;">
 ${makeBtns(timeOpts, htf, "setHtf", true)}
 ${makeBtns(envOpts, aEnvSel, "setAEnv")}
-${lc(chartData, "v", 300, 160)}
+${lc(despike(chartData,"v"), "v", 300, 160)}
 </div>
-
 <div class="card" style="margin-bottom:10px">
 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
 <div class="section" style="margin:0">Score global portefeuille</div>
@@ -1243,34 +1270,27 @@ ${pocheScores.map(x=>`
 </div>`).join('')}
 </div>
 </div>
-<div class="card"><div class="section">Secteurs</div><div style="display:flex;align-items:center;gap:10px">${dn(sd,scol,100)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${sd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:6px;height:6px;border-radius:50%;background:${scol[i]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${fmt_(d[1])}€</span></div>`).join("")}</div></div></div>
-<div class="card"><div class="section">Devises</div><div style="display:flex;gap:8px">${cdat.map(d=>{const pc=d[1]/ct*100;return`<div style="flex:1;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:${d[0]==="EUR"?"var(--acc)":"var(--grn)"}">${pc.toFixed(0)}%</div><div style="font-size:12px;font-weight:600;margin-top:2px">${d[0]}</div><div style="font-size:10px;color:var(--dim)">${fmt_(d[1])} €</div><div style="margin-top:6px;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${d[0]==="EUR"?"var(--acc)":"var(--grn)"};border-radius:3px"></div></div></div>`}).join("")}</div></div>
-<div class="card"><div class="section" style="display:flex;justify-content:space-between;align-items:center">Cible vs Actuel <span onclick="editTargets()" style="color:var(--acc);font-size:11px;cursor:pointer;font-weight:400">✎ Modifier</span></div>${ad.map(a=>{const cl=Math.abs(a.dv)>5?"var(--red)":Math.abs(a.dv)>2?"var(--amb)":"var(--grn)";return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px"><span style="width:70px;color:var(--dim);font-size:9px">${a.n}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;overflow:hidden"><div style="position:absolute;left:${Math.min(a.tg,a.ac)}%;width:${Math.abs(a.dv)}%;height:100%;background:${cl}44"></div><div style="position:absolute;left:${a.ac}%;width:3px;height:100%;background:${PCOL[a.n]||"var(--acc)"};border-radius:2px"></div></div><span class="mono" style="font-size:10px;width:30px;text-align:right;color:${cl}">${a.dv>0?"+":""}${a.dv.toFixed(1)}</span></div>`}).join("")}</div>
-<div class="card"><div style="display:flex;justify-content:space-between;margin-bottom:6px"><div class="section" style="margin:0">Dividendes</div><span class="mono" style="font-size:13px;font-weight:700;color:var(--grn)">${fmt_(td)} €/an</span></div>${dp.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span style="color:var(--dim)">${p.ticker}</span><span class="mono"><span style="color:var(--grn)">${fmt_(p.dt)}€</span> <span style="color:var(--mut)">(${p.yd.toFixed(1)}%)</span></span></div>`).join("")}</div>
+<div id="sec-rep"></div>
+<div class="card"><div class="section">Secteurs</div><div style="display:flex;align-items:center;gap:10px">${dn(sd,scol,100)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${sd.map((dd,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:6px;height:6px;border-radius:50%;background:${scol[i]}"></div><span style="color:var(--dim);flex:1">${dd[0]}</span><span class="mono" style="font-weight:500">${fmt_(dd[1])}€ <span style="color:var(--mut)">${(dd[1]/sect*100).toFixed(0)}%</span></span></div>`).join("")}</div></div></div>
+<div class="card"><div class="section">Devises</div><div style="display:flex;gap:8px">${cdat.map(dd=>{const pc=dd[1]/ct*100;return`<div style="flex:1;text-align:center"><div class="mono" style="font-size:20px;font-weight:700;color:${dd[0]==="EUR"?"var(--acc)":"var(--grn)"}">${pc.toFixed(0)}%</div><div style="font-size:12px;font-weight:600;margin-top:2px">${dd[0]}</div><div style="font-size:10px;color:var(--dim)">${fmt_(dd[1])} €</div><div style="margin-top:6px;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${dd[0]==="EUR"?"var(--acc)":"var(--grn)"};border-radius:3px"></div></div></div>`}).join("")}</div></div>
+<div class="card"><div class="section" style="display:flex;justify-content:space-between;align-items:center">Cible vs Actuel <span onclick="editTargets()" style="color:var(--acc);font-size:11px;cursor:pointer;font-weight:400">✎ Modifier</span></div>${ad.map(a=>{const cl=Math.abs(a.dv)>5?"var(--red)":Math.abs(a.dv)>2?"var(--amb)":"var(--grn)";return`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;font-size:10px"><span style="width:70px;color:var(--dim);font-size:9px">${a.n}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;position:relative;overflow:hidden"><div style="position:absolute;left:${Math.min(a.tg,a.ac)}%;width:${Math.abs(a.dv)}%;height:100%;background:${cl}44"></div><div style="position:absolute;left:${a.ac}%;width:3px;height:100%;background:${PCOL[a.n]||"var(--acc)"};border-radius:2px"></div></div><span class="mono" style="font-size:10px;width:30px;text-align:right;color:${cl}">${a.dv>0?"+":""}${a.dv.toFixed(1)}</span></div>`}).join("")}${reb.length?`<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Pour viser ta cible :</div><div style="display:flex;flex-wrap:wrap;gap:5px">${reb.map(r=>`<span style="font-size:10px;padding:3px 7px;border-radius:6px;background:${r.dv>0?"#f8717115":"#34d39915"};color:${r.dv>0?"var(--red)":"var(--grn)"}">${esc(r.n)} ${r.dv>0?"−":"+"}${fmt_(r.eur)}€</span>`).join("")}</div></div>`:""}</div>
+<div id="sec-rev"></div>
+<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section" style="margin:0">Dividendes</div><div style="display:flex;align-items:center;gap:8px"><div style="display:flex;background:#1a1b25;border-radius:6px;padding:2px"><button onclick="setDivNet(false)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${!divNet?"var(--acc)":"transparent"};color:${!divNet?"#fff":"var(--dim)"}">Brut</button><button onclick="setDivNet(true)" style="padding:3px 8px;border-radius:4px;border:none;cursor:pointer;font-size:10px;font-weight:600;background:${divNet?"var(--acc)":"transparent"};color:${divNet?"#fff":"var(--dim)"}">Net</button></div><span class="mono" style="font-size:13px;font-weight:700;color:var(--grn)">${fmt_(tdShown)} €/an</span></div></div><div style="display:flex;gap:6px;margin-bottom:10px"><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">≈ par mois</div><div class="mono" style="font-size:13px;font-weight:600;color:var(--grn);margin-top:2px">${fmt_(tdShown/12)} €</div></div><div style="flex:1;background:#1a1b25;border-radius:8px;padding:7px;text-align:center"><div style="font-size:9px;color:var(--dim);text-transform:uppercase">Rendement</div><div class="mono" style="font-size:13px;font-weight:600;margin-top:2px">${(tdShown/tFv*100).toFixed(2)}%</div></div></div>${dpx.length?dpx.map(p=>`<div style="display:flex;justify-content:space-between;padding:3px 0;font-size:10px"><span style="color:var(--dim)">${esc(p.ticker)}</span><span class="mono"><span style="color:var(--grn)">${fmt_(divNet?p.dtNet:p.dt)}€</span> <span style="color:var(--mut)">(crt ${p.yd.toFixed(1)}% · PRU ${p.ydc.toFixed(1)}%)</span></span></div>`).join(""):`<div style="font-size:10px;color:var(--mut);text-align:center;padding:6px">Aucun dividende renseigné. Ajoute-le en modifiant une position.</div>`}${divNet?`<div style="font-size:9px;color:var(--mut);margin-top:6px;line-height:1.4">Net = estimation (CTO −30% PFU ; PEA/PEE/AV non taxés à la perception). Indicatif.</div>`:""}<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)"><div style="font-size:11px"><span style="color:var(--dim)">Perçu ${_yr} : <b style="color:var(--grn)">${fmt_(drYtd)}€</b> · Total : <b style="color:var(--grn)">${fmt_(drTot)}€</b></span></div>${dr.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${dr.slice().reverse().map((x)=>{const _ri=dr.indexOf(x);return`<div style="display:flex;justify-content:space-between;align-items:center;font-size:10px"><span style="color:var(--dim)">${x.date} · ${esc(x.poche||"")}${x.ticker?" · "+esc(x.ticker):""}</span><span style="display:flex;align-items:center;gap:8px"><span class="mono" style="color:var(--grn)">+${fmt_(x.montant)}€</span><button onclick="delDivReceived(${_ri})" style="background:none;border:none;color:var(--mut);font-size:13px;cursor:pointer;line-height:1">✕</button></span></div>`}).join("")}</div>`:""}<div onclick="addDivReceived('')" style="text-align:center;margin-top:10px;font-size:12px;color:var(--acc);cursor:pointer">➕ Enregistrer un dividende perçu</div></div></div>
+<div id="sec-pos"></div>
 <div class="card">
-<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
 <div class="section" style="margin:0">Score santé positions</div>
 <div style="font-size:9px;color:var(--mut)">S≥9&nbsp;A≥7&nbsp;B≥5&nbsp;C≥3&nbsp;D&lt;3</div>
 </div>
+<div style="display:flex;gap:6px;margin-bottom:8px"><button onclick="setScSort('best')" style="flex:1;padding:5px 0;border-radius:6px;border:1px solid ${scSort==="best"?"var(--acc)":"var(--bdr)"};background:${scSort==="best"?"var(--acc)":"transparent"};color:${scSort==="best"?"#fff":"var(--dim)"};font-size:11px;font-weight:600;cursor:pointer">Meilleurs</button><button onclick="setScSort('watch')" style="flex:1;padding:5px 0;border-radius:6px;border:1px solid ${scSort==="watch"?"var(--amb)":"var(--bdr)"};background:${scSort==="watch"?"var(--amb)":"transparent"};color:${scSort==="watch"?"#fff":"var(--dim)"};font-size:11px;font-weight:600;cursor:pointer">À surveiller</button></div>
+<div class="hide-scroll" style="display:flex;gap:5px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px">${["tout"].concat(activePoches.map(e=>e[0])).map(e=>`<button onclick="setScEnv('${escAttr(e)}')" style="padding:4px 10px;border-radius:12px;font-size:10px;font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0;border:1px solid ${scEnv===e?"var(--acc)":"var(--bdr)"};background:${scEnv===e?"var(--acc)":"transparent"};color:${scEnv===e?"#fff":"var(--dim)"}">${e==="tout"?"Toutes":esc(e)}</button>`).join("")}</div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:8px;font-size:9px;color:var(--dim)">
 <div>🟢 P&L% · ⚖️ Poids</div>
 <div>💸 Dividende · 📈 Momentum</div>
 </div>
-${sc2.map(p=>{
-const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";
-const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 4px;border-radius:3px;font-size:8px;background:${cr.c==='g'?'#34d39920':cr.c==='r'?'#f8717120':'#fbbf2420'};color:${cr.c==='g'?'var(--grn)':cr.c==='r'?'var(--red)':'var(--amb)'};">${cr.n} ${cr.v}</span>`).join('');
-return`<div style="padding:5px 0;border-bottom:1px solid #1e203018">
-<div style="display:flex;align-items:center;gap:5px;margin-bottom:3px">
-<span style="font-weight:700;font-size:11px;width:48px;color:var(--txt)">${p.ticker}</span>
-<div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden">
-<div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div>
-</div>
-<span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span>
-</div>
-<div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div>
-</div>`;
-}).join("")}
+${(()=>{let list=sc2.slice();if(scEnv!=="tout")list=list.filter(p=>p.poche===scEnv);if(scSort==="watch")list=list.reverse();const shown=scOpen?list:list.slice(0,5);if(!shown.length)return`<div style="font-size:11px;color:var(--mut);text-align:center;padding:10px">Aucune position dans ce filtre.</div>`;return shown.map(p=>{const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 4px;border-radius:3px;font-size:8px;background:${cr.c==="g"?"#34d39920":cr.c==="r"?"#f8717120":"#fbbf2420"};color:${cr.c==="g"?"var(--grn)":cr.c==="r"?"var(--red)":"var(--amb)"};">${cr.n} ${cr.v}</span>`).join("");return`<div style="padding:5px 0;border-bottom:1px solid #1e203018"><div style="display:flex;align-items:center;gap:5px;margin-bottom:3px"><span style="font-weight:700;font-size:11px;width:48px;color:var(--txt)">${esc(p.ticker)}</span><div style="flex:1;height:5px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px;transition:width .3s"></div></div><span class="mono" style="color:${cl};font-weight:700;font-size:11px;width:24px;text-align:right" title="${p.sc}/10">${p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D"}</span></div><div style="display:flex;flex-wrap:wrap;gap:2px;padding-left:53px">${crits}</div></div>`}).join("")+(list.length>5?`<div onclick="toggleSc()" style="text-align:center;color:var(--acc);font-size:12px;cursor:pointer;padding:10px 0 2px">${scOpen?"▲ Réduire":"▼ Voir les "+list.length+" positions"}</div>`:"");})()}
 </div></div>`;}}
+
 
 if(tab==="alerts"){const d=ga();const un=d.alerts.filter(a=>a.at),nr=d.alerts.filter(a=>a.nr),ab=d.alerts.filter(a=>!a.at&&!a.nr);
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Alertes</h2>`;
@@ -1291,7 +1311,7 @@ const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
 let r = H.filter(x => x.t >= cut);
 if(r.length === 0) r = [{t: Date.now(), v: d.tN, pl: d.tP}];
 
-const timeOpts = [{v:"1s", l:"1S"},{v:"wtd", l:"WTD"},{v:"1m", l:"1M"},{v:"mtd", l:"MTD"},{v:"1a", l:"1A"},{v:"ytd", l:"YTD"},{v:"tout", l:"TOUT"}];
+const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"ytd", l:"YTD"},{v:"1a", l:"1A"},{v:"tout", l:"TOUT"}];
 
 h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
 <div class="card" style="padding:16px 12px 12px;">
@@ -1300,7 +1320,7 @@ ${makeBtns(timeOpts, htf, "setHtf", true)}
 <button onclick="setHMode('v')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'var(--acc)':'transparent'}; color:${hMode==='v'?'#fff':'var(--dim)'}; transition:all 0.2s">Valeur</button>
 <button onclick="setHMode('pl')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'var(--acc)':'transparent'}; color:${hMode==='pl'?'#fff':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
 </div>
-${lc(r, hMode, 300, 180)}
+${lc(despike(r, hMode), hMode, 300, 180)}
 </div>`;
 
 if(D.sales&&D.sales.length){
@@ -1327,6 +1347,14 @@ window.addEventListener('popstate', (event) => { if (event.state) { tab = event.
 window.gt=id=>{ if(id==="home")sel=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.oP=n=>{ sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 window.aEnv=()=>{const n=prompt("Nom de la nouvelle enveloppe:");if(!n)return;if(D.poches[n])return alert("Existe déjà");D.poches[n]={sante:"7,0",positions:[]};save()};
+window.setScSort=v=>{scSort=v;R()};
+window.setScEnv=v=>{scEnv=v;R()};
+window.toggleSc=()=>{scOpen=!scOpen;R()};
+window.setDivNet=v=>{divNet=v;R()};
+window.scrollSec=(id)=>{const el=document.getElementById(id);if(el)el.scrollIntoView({behavior:"smooth",block:"start"});};
+window.addDivReceived=(poche)=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Dividende perçu</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#1a1b25;border-radius:10px;padding:10px;margin-bottom:14px;font-size:11px;color:var(--dim);line-height:1.5">Enregistre un dividende <b style="color:var(--txt)">réellement encaissé</b>. C'est un historique de revenu : ça <b style="color:var(--txt)">n'ajoute rien</b> à ton patrimoine.</div><div class="field"><label>Montant net perçu (€)</label><input id="dr_amt" inputmode="decimal" placeholder="ex: 45,20"></div><div class="field"><label>Enveloppe</label><select id="dr_poche" style="width:100%;background:#1a1b25;border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt)">${poches.map(p=>`<option value="${escAttr(p)}" ${p===poche?"selected":""}>${esc(p)}</option>`).join("")}</select></div><div class="field"><label>Ticker / source (optionnel)</label><input id="dr_tk" placeholder="ex: AI" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Date</label><input id="dr_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><button class="btn btn-p" onclick="saveDivReceived()">Enregistrer</button>`)};
+window.saveDivReceived=()=>{const amt=pn(document.getElementById("dr_amt").value);if(!amt||amt<=0){const inp=document.getElementById("dr_amt");if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir un montant";inp.focus();}return;}const poche=document.getElementById("dr_poche").value;const tk=(document.getElementById("dr_tk").value||"").trim().toUpperCase();const date=document.getElementById("dr_date").value||new Date().toISOString().slice(0,10);if(!D.divReceived)D.divReceived=[];D.divReceived.push({date:date,poche:poche,ticker:tk||"",montant:Math.round(amt*100)/100});cm();save();};
+window.delDivReceived=(idx)=>{if(!D.divReceived||!D.divReceived[idx])return;const x=D.divReceived[idx];if(!confirm(`Supprimer ce dividende perçu (${x.montant} €) ?`))return;D.divReceived.splice(idx,1);cm();save();};
 window.setHtf=v=>{htf=v;R()};
 // RESTAURATION fb23f43 : setter pour le filtre d'enveloppe sur l'onglet Analyse
 window.setAEnv=v=>{aEnvSel=v;R()};
