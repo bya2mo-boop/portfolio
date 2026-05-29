@@ -968,15 +968,17 @@ function lc(data, k, w=300, h=180) {
 
   const col = isPos ? "#34d399" : "#f87171";
 
-  let ptLine="", ptArea="";
-  vs.forEach((v, i) => {
-    const x = pdX + (i / (vs.length - 1)) * cw;
-    const y = pt + ch - ((v - dMin) / rg * ch);
-    ptLine += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
-    if(i === 0) ptArea = `M${x.toFixed(1)},${pt+ch} L${x.toFixed(1)},${y.toFixed(1)}`;
-    else ptArea += ` L${x.toFixed(1)},${y.toFixed(1)}`;
-  });
-  ptArea += ` L${pdX+cw},${pt+ch} Z`;
+  const P = vs.map((v,i)=>({x: pdX+(i/(vs.length-1))*cw, y: pt+ch-((v-dMin)/rg*ch)}));
+  const K = 0.16;
+  let curveCmds = "";
+  for(let i=0;i<P.length-1;i++){
+    const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||P[i+1];
+    const c1x=p1.x+(p2.x-p0.x)*K, c1y=p1.y+(p2.y-p0.y)*K;
+    const c2x=p2.x-(p3.x-p1.x)*K, c2y=p2.y-(p3.y-p1.y)*K;
+    curveCmds += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+  }
+  const ptLine = `M${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}` + curveCmds;
+  const ptArea = `M${P[0].x.toFixed(1)},${(pt+ch).toFixed(1)} L${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}` + curveCmds + ` L${(pdX+cw).toFixed(1)},${(pt+ch).toFixed(1)} Z`;
 
   const diffPct = startVal !== 0 ? (diff / Math.abs(startVal) * 100) : 0;
   const diffSign = isPos ? "+" : "";
@@ -996,9 +998,13 @@ function lc(data, k, w=300, h=180) {
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block">
     <defs>
       <linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${col}" stop-opacity="0.25"/>
-        <stop offset="100%" stop-color="${col}" stop-opacity="0.0"/>
+        <stop offset="0%" stop-color="${col}" stop-opacity="0.32"/>
+        <stop offset="55%" stop-color="${col}" stop-opacity="0.10"/>
+        <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
       </linearGradient>
+      <filter id="glow-${uid}" x="-20%" y="-30%" width="140%" height="160%">
+        <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="${col}" flood-opacity="0.45"/>
+      </filter>
     </defs>
 
     <text id="lcv-${uid}" x="0" y="14" font-size="16" font-weight="bold" fill="var(--txt)" font-family="monospace">${fmt_(endVal)}</text>
@@ -1009,7 +1015,9 @@ function lc(data, k, w=300, h=180) {
     ${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}
 
     <path d="${ptArea}" fill="url(#g-${uid})"/>
-    <path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="${ptLine}" fill="none" stroke="${col}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow-${uid})"/>
+    <circle cx="${P[P.length-1].x.toFixed(1)}" cy="${P[P.length-1].y.toFixed(1)}" r="6" fill="${col}" opacity="0.25"><animate attributeName="r" values="4;8;4" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.35;0;0.35" dur="2.4s" repeatCount="indefinite"/></circle>
+    <circle cx="${P[P.length-1].x.toFixed(1)}" cy="${P[P.length-1].y.toFixed(1)}" r="3" fill="${col}"/>
 
     <text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mx)}</text>
     <text x="${w}" y="${pt+ch+10}" font-size="9" fill="var(--dim)" text-anchor="end">${fmt_(mn)}</text>
