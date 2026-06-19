@@ -367,8 +367,8 @@ async function pullFromSupabase() {
       migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6, migV7: localD.migV7
     };
 
-    const defaultPoches = ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
-    defaultPoches.forEach(p => newD.poches[p] = {sante: "5,0", positions: []});
+    const savedOrder = (pf.prefs && Array.isArray(pf.prefs.pocheOrder) && pf.prefs.pocheOrder.length) ? pf.prefs.pocheOrder : ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
+    savedOrder.forEach(p => { if(!newD.poches[p]) newD.poches[p] = {sante: "5,0", positions: []}; });
 
     if (posData) {
       posData.forEach(pos => {
@@ -570,7 +570,7 @@ const loadLocal=()=>{
   }catch(e){return{D:null,H:[]}}
 };
 
-async function save(){rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
+async function save(){if(D&&D.poches){if(!D.prefs)D.prefs={};D.prefs.pocheOrder=Object.keys(D.poches);}rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
 
 // ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
@@ -842,20 +842,9 @@ async function applyPortfolioMigrations(){
   if(D.poches.PEA.positions.length === 0 && D.cash === 0) return false;
 
   let changed=false;
-  if(!D.migV2){
-    if(!D.sales)D.sales=[];
-    if(!D.sales.some(s=>s.ticker==="CDC-D"&&Math.abs(s.qty-141.13)<0.01)){
-      D.sales.push({date:"2026-04-24",poche:"PEE",ticker:"CDC-D",titre:"CDC Diversifié ISR",qty:141.13,pru:6.40,net:1807.40,brut:1909.24,pl:904.17});
-    }
-    D.migV2=true; changed=true;
-  }
-  if(!D.migV3){
-    if(!D.sales)D.sales=[];
-    if(!D.sales.some(s=>s.ticker==="HIST-2025")){
-      D.sales.push({date:"2025-12-31",poche:"Historique",ticker:"HIST-2025",titre:"P&L réalisé 2025",qty:1,pru:0,net:722.40,brut:722.40,pl:722.40});
-    }
-    D.migV3=true; changed=true;
-  }
+  // migV2/migV3 retirees : elles injectaient des donnees personnelles chez tous les comptes (fuite). On marque juste comme appliquees.
+  if(!D.migV2){D.migV2=true;}
+  if(!D.migV3){D.migV3=true;}
   if(!D.migV4){
     Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
       if(!pos.sector&&SECTORS[pos.ticker])pos.sector=SECTORS[pos.ticker];
@@ -1216,7 +1205,7 @@ const ac=d.al.map(a=>PCOL[a[0]]||"var(--mut)");
 h+=`<div class="fade"><div style="margin-bottom:20px"><div class="section">Portefeuille</div><div class="mono" style="font-size:32px;font-weight:700;letter-spacing:-1px;margin-top:4px">${fmt_(d.tN)} <span style="font-size:16px;color:var(--dim)">€</span></div><div class="mono" style="font-size:13px;color:${d.tP>=0?"var(--grn)":"var(--red)"};font-weight:500;margin-top:2px">${fL(d.tP)}</div>${(()=>{const sales=D.sales||[];if(!sales.length)return"";const tot=sales.reduce((s,v)=>s+v.pl,0);return`<div class="mono" style="font-size:11px;color:${tot>=0?"var(--grn)":"var(--red)"};opacity:.8;font-weight:500;margin-top:1px">Réalisé ${fL(tot)}</div>`})()}<div style="font-size:10px;color:var(--mut);margin-top:4px">MAJ ${D.updatedAt} · EUR/USD ${fmt2_(D.eurUsd)}</div></div>`;
 
 if(d.nA)h+=`<div onclick="gt('alerts')" class="card card-tap blink" style="background:#f8717118;border-color:#f8717144"><span style="font-size:12px;color:var(--red);font-weight:600">⚡ ${d.nA} alerte(s) cible → ${d.alerts.filter(a=>a.at).map(a=>a.ticker).join(", ")}</span></div>`;
-h+=`<div class="card"><div class="section">Répartition</div><div style="display:flex;align-items:center;gap:12px">${dn(d.al,ac,120)}<div style="flex:1;display:flex;flex-direction:column;gap:4px">${d.al.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px"><div style="width:7px;height:7px;border-radius:50%;background:${ac[i]};flex-shrink:0"></div><span style="color:var(--dim);flex:1">${a[0]}</span><span class="mono" style="font-weight:500;font-size:10px">${((a[1]/d.tF)*100).toFixed(1)}%</span></div>`).join("")}</div></div></div>`;
+h+=`<div class="card"><div class="section">Répartition</div><div style="display:flex;align-items:center;gap:12px">${dn(d.al,ac,120)}<div style="flex:1;display:flex;flex-direction:column;gap:4px">${d.al.map((a,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:11px"><div style="width:7px;height:7px;border-radius:50%;background:${ac[i]};flex-shrink:0"></div><span style="color:var(--dim);flex:1">${a[0]}</span><span class="mono" style="font-weight:500;font-size:10px">${((a[1]/(d.tF||1))*100).toFixed(1)}%</span></div>`).join("")}</div></div></div>`;
 const im=D.immobilier,pg=im.valeurEstimee>0?(im.valeurEstimee-im.capitalRestant)/im.valeurEstimee*100:0;
 const _proj=im.mortgage?mortgageProjection(im.mortgage):null;
 h+=`<div class="card card-tap" onclick="eImmo()"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div class="section" style="margin-bottom:4px">Immobilier <span style="color:var(--acc);font-size:9px">✎</span></div><div class="mono" style="font-size:17px;font-weight:700;margin-top:4px">${fmt_(im.equityNette||0)} €</div>${im.mortgage?`<div style="margin-top:6px;font-size:9px;color:var(--mut);line-height:1.5">${im.mortgage.ptzCapital>0?`<div>PTZ (0%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.ptzCapital)} €</span></div>`:""}${im.mortgage.mainCapital>0?`<div>Principal (${(im.mortgage.mainTaux*100).toFixed(2)}%) <span class="mono" style="color:var(--dim)">${fmt_(im.mortgage.mainCapital)} €</span></div>`:""}</div>`:""}</div><div style="text-align:right;font-size:10px;color:var(--dim)"><div>Valeur ${fmt_(im.valeurEstimee)} €</div><div>Restant ${fmt_(im.capitalRestant)} €</div><div style="margin-top:3px;height:4px;width:70px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-left:auto"><div style="height:100%;width:${Math.min(100,Math.max(0,pg))}%;background:var(--acc);border-radius:2px"></div></div>${im.mortgage&&(im.mortgage.ptzMensualite+im.mortgage.mainMensualite)>0?`<div style="margin-top:6px;font-size:9px;color:var(--mut)">Mens. ${fmt2_(im.mortgage.ptzMensualite+im.mortgage.mainMensualite)} €</div>`:""}</div></div>${_proj?`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--bdr);display:flex;justify-content:space-between;font-size:9px;color:var(--mut)"><span>Soldé ~ <span style="color:var(--dim)">${String(_proj.endDate.getMonth()+1).padStart(2,"0")}/${_proj.endDate.getFullYear()}</span></span><span>Intérêts restants <span style="color:var(--dim)">${fmt_(_proj.totalInterest)} €</span></span></div>`:""}</div>`;
@@ -1272,7 +1261,7 @@ const envOpts = [{v:"tout", l:"TOUT"}, {v:"Cash", l:"CASH"}, {v:"Immobilier", l:
 
 const sm_={};d.ap.forEach(p=>{const s=p.sector||SECTORS[p.ticker]||"Autre";sm_[s]=(sm_[s]||0)+p.valeur});const sd=Object.entries(sm_).map(([n,v])=>[n,Math.round(v)]).sort((a,b)=>b[1]-a[1]);const scol=sd.map(d=>SCOL[d[0]]||"var(--mut)");
 const cm_={EUR:D.cash};d.ap.forEach(p=>{const c=curOf(p);cm_[c]=(cm_[c]||0)+p.valeur});const cdat=Object.entries(cm_).map(([n,v])=>[n,Math.round(v)]);const ct=cdat.reduce((s,x)=>s+x[1],0)||1;
-const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/d.tF*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
+const tg=D.targetAlloc||{};const ad=d.al.map(a=>({n:a[0],v:a[1],ac:a[1]/(d.tF||1)*100,tg:tg[a[0]]||0})).map(a=>({...a,dv:a.ac-a.tg}));
 const dp=d.ap.map(p=>{const dv=p.dividend||DIVS[p.ticker]||0;return{...p,dv,dt:p.qty*dv,yd:p.cours>0?dv/p.cours*100:0}}).filter(p=>p.dv>0);const td=dp.reduce((s,p)=>s+p.dt,0);
 const sc2=d.ap.map(p=>{ const res=scorePos(p,p.poche); return{...p,sc:res.score,crit:res.crit}; }).sort((a,b)=>b.sc-a.sc);
 
@@ -1350,7 +1339,7 @@ ${anaSub==="pos"?`
 ${(()=>{const solid=sc2.filter(p=>p.sc>=7).length;const moy=sc2.filter(p=>p.sc>=5&&p.sc<7).length;const surv=sc2.filter(p=>p.sc<5).length;return `<div style="display:flex;justify-content:space-around;text-align:center;margin-bottom:10px;padding:9px 0;background:#1a1b25;border-radius:10px"><div><div class="mono" style="font-size:17px;font-weight:700;color:var(--grn)">${solid}</div><div style="font-size:9px;color:var(--dim)">🟢 solides</div></div><div><div class="mono" style="font-size:17px;font-weight:700;color:var(--amb)">${moy}</div><div style="font-size:9px;color:var(--dim)">🟡 moyennes</div></div><div><div class="mono" style="font-size:17px;font-weight:700;color:var(--red)">${surv}</div><div style="font-size:9px;color:var(--dim)">🔴 à surveiller</div></div></div>`;})()}
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><select onchange="setScEnv(this.value)" style="flex:1;padding:7px 10px;border-radius:8px;background:#1a1b25;color:var(--txt);border:1px solid var(--bdr);font-size:12px;font-weight:600;font-family:inherit"><option value="tout" ${scEnv==="tout"?"selected":""}>Toutes les enveloppes</option>${activePoches.map(e=>`<option value="${escAttr(e[0])}" ${scEnv===e[0]?"selected":""}>${esc(e[0])}</option>`).join("")}</select><button onclick="setScSort('${scSort==="watch"?"best":"watch"}')" style="padding:7px 12px;border-radius:8px;border:1px solid ${scSort==="watch"?"var(--amb)":"var(--bdr)"};background:${scSort==="watch"?"var(--amb)":"transparent"};color:${scSort==="watch"?"#fff":"var(--dim)"};font-size:11px;font-weight:600;cursor:pointer;white-space:nowrap">⚠️ À surveiller</button></div>
 <div style="font-size:9px;color:var(--mut);margin-bottom:8px;text-align:center">Tape une ligne pour voir le détail du score</div>
-${(()=>{let list=sc2.slice();if(scEnv!=="tout")list=list.filter(p=>p.poche===scEnv);if(scSort==="watch")list=list.reverse();const shown=scOpen?list:list.slice(0,5);if(!shown.length)return`<div style="font-size:11px;color:var(--mut);text-align:center;padding:10px">Aucune position dans ce filtre.</div>`;return shown.map(p=>{const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";const grade=p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D";const pp=p.plPct||0;const exp=scExpand===p.poche+"|"+p.ticker;const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 5px;border-radius:3px;font-size:9px;background:${cr.c==="g"?"#34d39920":cr.c==="r"?"#f8717120":"#fbbf2420"};color:${cr.c==="g"?"var(--grn)":cr.c==="r"?"var(--red)":"var(--amb)"}">${cr.n} ${cr.v}</span>`).join(" ");return`<div onclick="toggleScRow('${escAttr(p.poche)}|${escAttr(p.ticker)}')" style="padding:7px 0;border-bottom:1px solid #1e203018;cursor:pointer"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:700;font-size:12px;width:50px;color:var(--txt)">${esc(p.ticker)}</span><div style="flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px"></div></div><span class="mono" style="font-size:11px;font-weight:600;width:48px;text-align:right;color:${pp>=0?"var(--grn)":"var(--red)"}">${fP(pp)}</span><span class="mono" style="color:${cl};font-weight:700;font-size:12px;width:16px;text-align:right" title="${p.sc}/10">${grade}</span></div>${exp?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;padding-left:58px">${crits||'<span style=\"font-size:9px;color:var(--mut)\">Aucun détail</span>'}</div>`:""}</div>`}).join("")+(list.length>5?`<div onclick="toggleSc()" style="text-align:center;color:var(--acc);font-size:12px;cursor:pointer;padding:10px 0 2px">${scOpen?"▲ Réduire":"▼ Voir les "+list.length+" positions"}</div>`:"");})()}
+${(()=>{let list=sc2.slice();if(scEnv!=="tout")list=list.filter(p=>p.poche===scEnv);if(scSort==="watch")list=list.reverse();const shown=scOpen?list:list.slice(0,5);if(!shown.length)return`<div style="font-size:11px;color:var(--mut);text-align:center;padding:10px">Aucune position dans ce filtre.</div>`;return shown.map(p=>{const cl=p.sc>=7?"var(--grn)":p.sc>=5?"var(--amb)":"var(--red)";const grade=p.sc>=9?"S":p.sc>=7?"A":p.sc>=5?"B":p.sc>=3?"C":"D";const pp=p.plPct||0;const exp=scExpand===p.poche+"|"+p.ticker;const crits=(p.crit||[]).map(cr=>`<span style="padding:1px 5px;border-radius:3px;font-size:9px;background:${cr.c==="g"?"#34d39920":cr.c==="r"?"#f8717120":"#fbbf2420"};color:${cr.c==="g"?"var(--grn)":cr.c==="r"?"var(--red)":"var(--amb)"}">${cr.n} ${cr.v}</span>`).join(" ");return`<div onclick="toggleScRow('${escAttr(p.poche)}|${escAttr(p.ticker)}')" style="padding:7px 0;border-bottom:1px solid #1e203018;cursor:pointer"><div style="display:flex;align-items:center;gap:8px"><span title="${escAttr(p.ticker)}" style="font-weight:700;font-size:12px;flex:0 0 88px;max-width:88px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--txt)">${esc(p.ticker)}</span><div style="flex:1;height:6px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${p.sc*10}%;background:${cl};border-radius:3px"></div></div><span class="mono" style="font-size:11px;font-weight:600;width:48px;text-align:right;color:${pp>=0?"var(--grn)":"var(--red)"}">${fP(pp)}</span><span class="mono" style="color:${cl};font-weight:700;font-size:12px;width:16px;text-align:right" title="${p.sc}/10">${grade}</span></div>${exp?`<div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:6px;padding-left:58px">${crits||'<span style=\"font-size:9px;color:var(--mut)\">Aucun détail</span>'}</div>`:""}</div>`}).join("")+(list.length>5?`<div onclick="toggleSc()" style="text-align:center;color:var(--acc);font-size:12px;cursor:pointer;padding:10px 0 2px">${scOpen?"▲ Réduire":"▼ Voir les "+list.length+" positions"}</div>`:"");})()}
 </div>`:""}
 ${anaSub==="hist"?histHtml():""}
 </div>`;}}
