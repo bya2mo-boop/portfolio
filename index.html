@@ -89,6 +89,7 @@ if ('serviceWorker' in navigator) {
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
+async function fetchT(url,opt,ms=18000){const c=new AbortController();const t=setTimeout(()=>c.abort(),ms);try{return await fetch(url,{...(opt||{}),signal:c.signal});}finally{clearTimeout(t);}}
 let API_KEYS = {
   SUPABASE_URL: "https://skpoxnjrryivehcbykho.supabase.co",
   SUPABASE_ANON: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNrcG94bmpycnlpdmVoY2J5a2hvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc2NDcyMzcsImV4cCI6MjA5MzIyMzIzN30.4MYy6PKx_Nm2viA7FDO3bP2wu-R8iTw7KrStuueNSYw"
@@ -592,7 +593,7 @@ async function fetchCrypto(){
   const ids=Object.values(CG).join(",");
   const got={};
   try{
-    const r=await fetch(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
+    const r=await fetchT(`https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=usd`);
     if(!r.ok)throw new Error("CG "+r.status);
     const d=await r.json();
     Object.entries(CG).forEach(([t,id])=>{if(d[id]?.usd)got[t]=d[id].usd});
@@ -602,7 +603,7 @@ async function fetchCrypto(){
   for(const [tkr,pair] of Object.entries(COINBASE)){
     if(got[tkr])continue;
     try{
-      const r=await fetch(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
+      const r=await fetchT(`https://api.exchange.coinbase.com/products/${pair}/ticker`);
       if(r.ok){
         const j=await r.json();
         if(j.price)got[tkr]=parseFloat(j.price);
@@ -613,7 +614,7 @@ async function fetchCrypto(){
   for(const [tkr,sym] of Object.entries(BINANCE)){
     if(got[tkr])continue;
     try{
-      const r=await fetch(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`);
+      const r=await fetchT(`https://api.binance.com/api/v3/ticker/price?symbol=${sym}`);
       if(r.ok){
         const j=await r.json();
         if(j.price)got[tkr]=parseFloat(j.price);
@@ -638,7 +639,7 @@ async function fetchStocks(){
   // Cours US via le Worker (clé Finnhub côté serveur, cache edge 5 min)
   try{
     const list=[...tickers].join(",");
-    const r=await fetch(`${WORKER_URL}/?usquote=${encodeURIComponent(list)}`);
+    const r=await fetchT(`${WORKER_URL}/?usquote=${encodeURIComponent(list)}`);
     if(r.ok){
       const j=await r.json();
       return j.quotes||{};
@@ -663,7 +664,7 @@ async function fetchEuStocks(){
   const targetUrl = `https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?symbols=${encodeURIComponent(symbols)}&_t=${Date.now()}`;
 
   try {
-    const r = await fetch(targetUrl);
+    const r = await fetchT(targetUrl);
     if(r.ok) {
        const j = await r.json();
        if(j.quoteResponse && j.quoteResponse.result) {
@@ -679,7 +680,7 @@ async function fetchEuStocks(){
 
 async function fetchFxRates(){
   try{
-    const r=await fetch("https://api.exchangerate-api.com/v4/latest/EUR");
+    const r=await fetchT("https://api.exchangerate-api.com/v4/latest/EUR");
     if(r.ok){const j=await r.json();return j.rates||null}
   }catch{}
   return null;
@@ -687,7 +688,7 @@ async function fetchFxRates(){
 
 async function fetchGold(){
   try{
-    const r=await fetch("https://api.gold-api.com/price/XAU");
+    const r=await fetchT("https://api.gold-api.com/price/XAU");
     if(r.ok){
       const j=await r.json();
       if(j.price){
@@ -708,7 +709,7 @@ async function refreshPrices(){
   st.loading=true;
   st.loadingSince=Date.now();
   R();
-  const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},90000);
+  const _rpTimeout=setTimeout(()=>{if(st.loading){st.loading=false;cd=900;R();}},35000);
   let cnt=0,ok=false;
   const nowMs = Date.now();
 
@@ -974,6 +975,8 @@ function applyMortgagePayments(){
 function updateCountdown(){
   const el=document.getElementById("cd");
   if(el)el.textContent=`(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})`;
+  const u=document.getElementById("upStat");
+  if(u)u.textContent=(st.loading&&Date.now()-st.loadingSince<30000)?"Mise à jour…":(st.lastUp||"—");
 }
 
 // ══════════════ GRAPHIQUES & DONUT ══════════════
@@ -1235,7 +1238,7 @@ const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'b
 
 if(!D)return; const d=ga(); const $=document.getElementById("app"); if(!$) return; let h="";
 
-h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v67</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="togglePriv()" style="background:none;border:none;color:${isPriv()?"var(--acc)":"var(--dim)"};font-size:16px;padding:4px;cursor:pointer;margin-right:2px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
+h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v68</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?`<span id="cd" class="mono" style="font-size:10px;color:var(--mut)">(${Math.floor(cd/60)}:${String(cd%60).padStart(2,"0")})</span>`:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="togglePriv()" style="background:none;border:none;color:${isPriv()?"var(--acc)":"var(--dim)"};font-size:16px;padding:4px;cursor:pointer;margin-right:2px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
 
 // ─── 1c : bannière de résilience (visible quand un refresh n'a rien pu actualiser) ───
 const _totPos=Object.values(D.poches).reduce((s,p)=>s+p.positions.length,0);
@@ -1507,7 +1510,7 @@ async function refreshDivs(){
     Object.entries(D.poches).forEach(([n,p])=>{ if(n==="Crypto")return; p.positions.forEach(pos=>{ const t=pos.ticker; if(!t||CG[t]||t==="50PESO")return; let ys; if(pos.avSymbol)ys=pos.avSymbol; else if(KNOWN_EU[t])ys=KNOWN_EU[t]; else ys=t; map[t]=ys; }); });
     const syms=[...new Set(Object.values(map))];
     if(!syms.length)return;
-    const r=await fetch(`${WORKER_URL}/?divs=${encodeURIComponent(syms.join(","))}&_t=${Date.now()}`);
+    const r=await fetchT(`${WORKER_URL}/?divs=${encodeURIComponent(syms.join(","))}&_t=${Date.now()}`);
     if(!r.ok)return;
     const j=await r.json();
     if(!j||!j.divs)return;
