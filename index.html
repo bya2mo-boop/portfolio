@@ -151,7 +151,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",hMode="v",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",benchSel=null,expQuote=null,expPeriod="1a",convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bFilter="tout",bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="tout",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",benchSel=null,expQuote=null,expPeriod="1a",convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null;
 const CMP_COLS=["#6c8cff","#a78bfa","#38bdf8","#fb923c"];
 let _pruVals={tot:"",pl:"",un:""};
 function _resetTools(){_pruVals={tot:"",pl:"",un:""};convAmt=100;convFrom="USD";convTo="EUR";}
@@ -320,16 +320,6 @@ function flattenAnoms(arr,segs){if(!segs||!segs.length)return arr;const out=arr.
 function applyPosSort(arr){const m=(D.prefs&&D.prefs.posSort)||'val_desc';const a=[...arr];const pp=x=>(x.plPct!=null?x.plPct:(x.pru>0?((x.cours-x.pru)/x.pru*100):0));switch(m){case 'val_asc':return a.sort((x,y)=>(x.valeur||0)-(y.valeur||0));case 'az':return a.sort((x,y)=>String(x.ticker||'').localeCompare(String(y.ticker||'')));case 'pl_desc':return a.sort((x,y)=>pp(y)-pp(x));case 'pl_asc':return a.sort((x,y)=>pp(x)-pp(y));default:return a.sort((x,y)=>(y.valeur||0)-(x.valeur||0));}}
 function _lcHover(e,uid){const o=window._LC&&window._LC[uid];if(!o)return;if(e.touches&&e.cancelable)e.preventDefault();const cx=e.touches?e.touches[0].clientX:e.clientX;const r=e.currentTarget.getBoundingClientRect();let rel=(cx-r.left)/r.width;rel=Math.max(0,Math.min(1,rel));const i=Math.round(rel*(o.xs.length-1));const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(!ln||!cc)return;const ptCol=(o.baseline!=null&&o.vs[i]<o.baseline)?o.red:o.grn;ln.setAttribute("x1",o.xs[i]);ln.setAttribute("x2",o.xs[i]);ln.setAttribute("opacity","0.6");ln.setAttribute("stroke",ptCol);cc.setAttribute("cx",o.xs[i]);cc.setAttribute("cy",o.ys[i]);cc.setAttribute("opacity","1");cc.setAttribute("fill",ptCol);if(v)v.textContent=(Math.abs(o.vs[i])>=1000?fmt_(o.vs[i]):Number(o.vs[i]).toFixed(2));if(d){d.textContent=o.tsf[i];d.setAttribute("fill","var(--dim)");}}
 function _lcOut(uid){const o=window._LC&&window._LC[uid];if(!o)return;const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(ln)ln.setAttribute("opacity","0");if(cc)cc.setAttribute("opacity","0");if(v)v.textContent=o.d1;if(d){d.textContent=o.d2;d.setAttribute("fill",o.col);}}
-function makeBtns(opts, active, fn, bdrBottom=false) {
-   return `<div style="display:grid; grid-template-columns:repeat(3,1fr); gap:6px; padding-bottom:${bdrBottom?'8px':'4px'}; margin-bottom:${bdrBottom?'8px':'12px'}; ${bdrBottom?'border-bottom:1px solid var(--bdr);':''}">` + 
-   opts.map(o => {
-     const ac = active === o.v;
-     const bg = ac ? "var(--acc)" : "transparent";
-     const co = ac ? "#fff" : "var(--dim)";
-     const bd = ac ? "var(--acc)" : "var(--bdr)";
-     return `<button onclick="${fn}('${o.v}')" style="padding:6px 12px; border-radius:6px; font-size:11px; font-weight:700; cursor:pointer; border:1px solid ${bd}; background:${bg}; color:${co}; transition:all 0.2s; text-align:center;">${esc(o.l)}</button>`;
-   }).join("") + `</div>`;
-}
 
 function histHtml(){
 const cutoffs=getCutoffs();const cut=cutoffs[htf]||0;
@@ -347,35 +337,30 @@ const tot=D.sales.reduce((a,sa)=>a+(sa.pl||0),0);let s=chartCard+`<div class="ca
 
 function _relTime(ts){const diff=Date.now()-ts,day=86400000;if(diff<3600000)return "à l'instant";if(diff<day)return "il y a "+Math.max(1,Math.round(diff/3600000))+"h";if(diff<30*day)return "il y a "+Math.round(diff/day)+" j";if(diff<365*day)return "il y a "+Math.round(diff/(30*day))+" mois";const y=Math.round(diff/(365*day));return "il y a "+y+" an"+(y>1?"s":"");}
 
-function _convChartSvg(items){if(!items.length)return `<div style="font-size:11px;color:var(--mut);text-align:center;padding:20px 6px">Note au moins une conviction (🔥) sur une position pour voir ce graphique.</div>`;
-const maxP=Math.max(20,Math.ceil((Math.max(...items.map(i=>i.poids))*1.15)/5)*5);
-const X0=52,X1=386,Y0=44,Y1=250;
-const xf=p=>X0+(Math.min(p,maxP)/maxP)*(X1-X0);
-const yf=c=>Y1-((c-1)/4)*(Y1-Y0);
-const rf=p=>Math.max(6,Math.min(15,5+p*0.4));
-const sorted=items.slice().sort((a,b)=>a.poids-b.poids);
-let dots="";
-sorted.forEach((it,idx)=>{
-  const cx=xf(it.poids),cy=yf(it.conv),r=rf(it.poids);
-  const col=it.flagged?"#fbbf24":"#6c8cff";
-  const above=idx%2===0;
-  const ly=above?Math.max(14,cy-r-7):Math.min(266,cy+r+13);
-  dots+=`<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r.toFixed(1)}" fill="${col}33" stroke="${col}" stroke-width="${it.flagged?2.2:1.5}"/><text x="${cx.toFixed(1)}" y="${ly.toFixed(1)}" fill="${it.flagged?"#fbbf24":"#e8e9ed"}" font-size="9.5" text-anchor="middle" font-weight="700">${esc(it.tk)}</text>`;
-});
-const grid=[1,2,3,4,5].map(c=>`<line x1="${X0}" y1="${yf(c).toFixed(1)}" x2="${X1}" y2="${yf(c).toFixed(1)}" stroke="#242739" stroke-dasharray="${c===3?"3 4":"2 6"}"/>`).join("");
-const ticks=[1,2,3,4,5].map(c=>`<text x="38" y="${(yf(c)+3).toFixed(1)}" fill="#72768c" font-size="9.5" text-anchor="end">${c}🔥</text>`).join("");
-return `<svg viewBox="0 0 400 300" width="100%" height="270" style="overflow:visible;display:block;margin-top:6px">
-${grid}
-<line x1="${X0}" y1="${Y0-6}" x2="${X0}" y2="${Y1}" stroke="#2c2f45"/>
-<line x1="${X0}" y1="${Y1}" x2="${X1}" y2="${Y1}" stroke="#2c2f45"/>
-${ticks}
-<text x="${X0}" y="270" fill="#72768c" font-size="9.5">0%</text>
-<text x="${(X0+X1)/2}" y="270" fill="#72768c" font-size="9.5" text-anchor="middle">poids dans l'enveloppe</text>
-<text x="${X1}" y="270" fill="#72768c" font-size="9.5" text-anchor="end">${maxP}%</text>
-${dots}
-</svg>`;}
+function _convChartSvg(items){if(!items.length)return `<div style="font-size:11px;color:var(--mut);text-align:center;padding:20px 6px">Note au moins une conviction (🔥) sur une position pour voir cette liste.</div>`;
+const maxP=Math.max(...items.map(i=>i.poids),1);
+const sorted=items.slice().sort((a,b)=>b.poids-a.poids);
+return sorted.map((it,i)=>{
+  const flames=[1,2,3,4,5].map(n=>`<span style="opacity:${n<=it.conv?1:.2}">🔥</span>`).join("");
+  const barPct=(it.poids/maxP*100).toFixed(0);
+  const barCol=it.flagged?"var(--amb)":"var(--acc)";
+  return `<div style="padding:8px 0;${i<sorted.length-1?"border-bottom:1px solid var(--sep)":""}">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+<span style="font-size:12.5px;font-weight:700">${esc(it.tk)}${it.flagged?` <span style="font-size:9px;color:var(--amb)">⚠</span>`:""}</span>
+<span style="font-size:11px;letter-spacing:1px">${flames}</span>
+</div>
+<div style="display:flex;align-items:center;gap:8px">
+<div style="flex:1;height:6px;background:var(--inp);border-radius:3px;overflow:hidden"><div style="height:100%;width:${barPct}%;background:${barCol};border-radius:3px"></div></div>
+<span class="mono" style="font-size:10.5px;color:var(--dim);width:36px;text-align:right">${it.poids}%</span>
+</div>
+</div>`;
+}).join("");}
 
-function convTabHtml(){const d=ga();const cv=(D.prefs&&D.prefs.conv)||{};const items=d.ap.filter(x=>!x.manual&&cv[x.ticker]).map(x=>{const c=cv[x.ticker],pw=x.poids||0;const flagged=(c<=2&&pw>15)||(c>=4&&pw<3);return{tk:x.ticker,titre:x.titre,poche:x.poche,conv:c,poids:pw,flagged};});
+function convTabHtml(){const d=ga();const cv=(D.prefs&&D.prefs.conv)||{};const allItems=d.ap.filter(x=>!x.manual&&cv[x.ticker]).map(x=>{const c=cv[x.ticker],pw=x.poids||0;const flagged=(c<=2&&pw>15)||(c>=4&&pw<3);return{tk:x.ticker,titre:x.titre,poche:x.poche,conv:c,poids:pw,flagged};});
+const envNames=[...new Set(allItems.map(i=>i.poche))];
+if(convEnv!=="tout"&&!envNames.includes(convEnv))convEnv="tout";
+const items=convEnv==="tout"?allItems:allItems.filter(i=>i.poche===convEnv);
+const envSelectHtml=envNames.length>1?`<select onchange="setConvEnv(this.value)" style="width:100%;margin-top:8px;padding:7px 10px;border-radius:8px;background:var(--inp);color:var(--txt);border:1px solid var(--bdr);font-size:12px;font-weight:600;font-family:inherit"><option value="tout" ${convEnv==="tout"?"selected":""}>Toutes les enveloppes</option>${envNames.map(n=>`<option value="${escAttr(n)}" ${convEnv===n?"selected":""}>${esc(n)}</option>`).join("")}</select>`:"";
 const flaggedItems=items.filter(i=>i.flagged);
 const chartHtml=_convChartSvg(items);
 const flagsHtml=flaggedItems.length?`<div class="card" style="font-size:11.5px;line-height:1.8">`+flaggedItems.map(f=>{const msg=f.conv<=2?`grosse position (${f.poids}%) mais conviction faible (${f.conv}🔥)`:`conviction forte (${f.conv}🔥) mais toute petite position (${f.poids}%)`;return `<div><span style="font-size:9px;background:#fbbf2422;color:var(--amb);border-radius:99px;padding:2px 7px;font-weight:700;margin-right:5px">⚠</span><b>${esc(f.tk)}</b> — ${msg}</div>`;}).join("")+`</div>`:"";
@@ -392,7 +377,7 @@ const planCard=(hidePlan||!relevant.length)?"":`<div class="card" style="text-al
 const reactivatePlanLink=(hidePlan&&relevant.length)?`<div onclick="toggleConvHidePlan(false)" style="text-align:center;font-size:11px;color:var(--mut);cursor:pointer;margin:2px 0 10px">Réactiver le compteur de plans de sortie</div>`:"";
 const jr=(D.prefs&&D.prefs.journal)||{};let entries=[];Object.keys(jr).forEach(tk=>{(jr[tk]||[]).forEach(e=>entries.push({tk,d:e.d,t:e.t}));});entries.sort((a,b)=>b.d-a.d);entries=entries.slice(0,8);
 const journalCard=entries.length?`<div class="card"><div class="section">Dernières décisions</div>${entries.map((e,i)=>`<div style="padding:8px 0;${i<entries.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700">${esc(e.tk)}</span><span style="font-size:10px;color:var(--mut)">${_relTime(e.d)}</span></div><div style="font-size:11.5px;color:var(--dim);line-height:1.4;margin-top:2px">${esc(e.t)}</div></div>`).join("")}</div>`:`<div class="card" style="text-align:center;padding:16px;color:var(--mut);font-size:11.5px">Ton journal de décisions apparaîtra ici (note-le depuis une fiche position).</div>`;
-return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div>${chartHtml}</div>
+return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div>${envSelectHtml}${chartHtml}</div>
 ${flagsHtml}
 ${planCard}
 ${reactivatePlanLink}
@@ -1344,7 +1329,7 @@ const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'b
 
 if(!D)return; const d=ga(); const $=document.getElementById("app"); if(!$) return; let h="";
 
-h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v97</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?``:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="togglePriv()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${isPriv()?"var(--acc)":"var(--dim)"};width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="toggleTheme()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
+h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v98</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?``:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="togglePriv()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${isPriv()?"var(--acc)":"var(--dim)"};width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="toggleTheme()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
 
 // ─── 1c : bannière de résilience (visible quand un refresh n'a rien pu actualiser) ───
 const _totPos=Object.values(D.poches).reduce((s,p)=>s+p.positions.length,0);
@@ -1396,9 +1381,10 @@ h+=`<div onclick="gerer()" style="text-align:center;border:1px dashed #2c2f45;bo
 
 function _convGapBadge(x){if(x.manual)return"";const _cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])||0;D.prefs=D.prefs||{};D.prefs.dismissedConvGap=D.prefs.dismissedConvGap||{};const _dcg=D.prefs.dismissedConvGap;if(!_cv){delete _dcg[x.ticker];return"";}const _pw=x.poids||0;let _msg=null;if(_cv<=2&&_pw>15)_msg="Conviction faible ("+_cv+"🔥) mais grosse position ("+_pw+"% de l’enveloppe).";else if(_cv>=4&&_pw<3)_msg="Conviction forte ("+_cv+"🔥) mais toute petite position ("+_pw+"%).";if(!_msg){delete _dcg[x.ticker];return"";}if(_dcg[x.ticker])return"";const _msgSafe=_msg.replace(/'/g,"’");return ` <span onclick="event.stopPropagation();toast('${escAttr(_msgSafe)}')" title="Écart conviction / poids" style="font-size:13px;cursor:pointer;display:inline-block;padding:9px 6px;margin:-9px -3px;vertical-align:middle">⚖️</span><span onclick="event.stopPropagation();dismissConvGap('${escAttr(x.ticker)}')" title="Ignorer" style="font-size:11px;color:var(--mut);cursor:pointer;display:inline-block;padding:9px 7px;margin:-9px -4px -9px -1px;vertical-align:middle">✕</span>`;}
 window.dismissConvGap=(tk)=>{D.prefs=D.prefs||{};D.prefs.dismissedConvGap=D.prefs.dismissedConvGap||{};D.prefs.dismissedConvGap[tk]=true;save();};
-window.convChartHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Conviction vs poids</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);line-height:1.6">Chaque point = une position notée (🔥). L'idée : ta plus grosse conviction devrait aussi être ta plus grosse ligne.<br><br><b style="color:var(--txt)">Axe vertical</b> : ta conviction (1 à 5 🔥), notée sur la fiche de la position.<br><b style="color:var(--txt)">Axe horizontal</b> : le poids de la ligne dans son enveloppe (ex : 20% du CTO).<br><br><b style="color:var(--txt)">Exemple</b> : NVDA à 🔥5 et 30% du CTO → en haut à droite, bien aligné. ETH à 🔥1 mais 20% de Crypto → en bas mais loin à droite, ça sort du lot.<br><br>Les points <b style="color:var(--amb)">cerclés en orange</b> sont ces décalages : conviction forte sur une toute petite ligne, ou conviction faible sur une grosse ligne. Rien d'obligatoire à corriger — juste de quoi repérer un oubli ou une thèse à revoir. Une position sans 🔥 n'apparaît pas ici : va sur sa fiche pour lui en mettre une.</div>`)};
+window.convChartHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Conviction vs poids</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);line-height:1.6">Une ligne par position notée (🔥). L'idée : ta plus grosse conviction devrait aussi être ta plus grosse ligne.<br><br><b style="color:var(--txt)">Les flammes</b> : ta conviction (1 à 5), notée sur la fiche de la position.<br><b style="color:var(--txt)">La barre</b> : le poids de la ligne dans son enveloppe (ex : 20% du CTO). Les lignes sont triées de la plus grosse à la plus petite.<br><br><b style="color:var(--txt)">Exemple</b> : NVDA à 🔥5 avec une grosse barre → bien aligné. ETH à 🔥1 mais avec une grosse barre quand même → ça sort du lot, en orange.<br><br>Rien d'obligatoire à corriger — juste de quoi repérer un oubli ou une thèse à revoir. Une position sans 🔥 n'apparaît pas ici : va sur sa fiche pour lui en mettre une.</div>`)};
 window.toggleConvHideThesis=(v)=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=v;save();R();};
 window.toggleConvHidePlan=(v)=>{D.prefs=D.prefs||{};D.prefs.convHidePlan=v;save();R();};
+window.setConvEnv=v=>{convEnv=v;R();};
 if(tab==="posfiche"){const _pfh=posFicheHtml();if(!_pfh){pfTk=null;pfPoche=null;tab=(_pfFrom&&_pfFrom.tab)||"home";_pfFrom=null;return R();}h+=_pfh;}
 if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}
 if(p.positions.length===0){
@@ -1547,43 +1533,10 @@ h+=`</div>`;}
 
 // ─── RESTAURATION fb23f43 : onglet HISTORIQUE ──────────────────────────────
 if(tab==="alerts"){h+=catAgendaHtml();}
-if(tab==="history"){
-const d=ga();
-if(H.length<2&&(!D.sales||D.sales.length===0)){
-h+=`<div class="fade" style="text-align:center;padding:40px 10px"><h2 style="font-size:18px;font-weight:700;margin-bottom:16px">Historique</h2><div style="font-size:32px;margin-bottom:12px">📈</div><div style="font-size:13px;color:var(--dim);line-height:1.5;max-width:280px;margin:0 auto 20px">L'historique apparaîtra ici après les premières mises à jour de cours. Ajoute des positions et laisse l'app collecter les données.</div><button class="btn" style="background:var(--card);border:1px solid var(--acc);color:var(--acc)" onclick="gt('home')">Retour</button></div>`;
-} else {
-const cutoffs=getCutoffs(); const cut=cutoffs[htf]||0;
-
-let r = H.filter(x => x.t >= cut);
-if(r.length === 0) r = [{t: Date.now(), v: d.tN, pl: d.tP}];
-
-const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"ytd", l:"YTD"},{v:"1a", l:"1A"},{v:"tout", l:"TOUT"}];
-
-h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700;margin-bottom:10px">Historique</h2>
-<div class="card" style="padding:16px 12px 12px;">
-${makeBtns(timeOpts, htf, "setHtf", true)}
-<div style="display:flex; background:var(--inp); border-radius:8px; padding:4px; margin-bottom:12px;">
-<button onclick="setHMode('v')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='v'?'var(--acc)':'transparent'}; color:${hMode==='v'?'#fff':'var(--dim)'}; transition:all 0.2s">Valeur</button>
-<button onclick="setHMode('pl')" style="flex:1; padding:6px 0; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; border:none; background:${hMode==='pl'?'var(--acc)':'transparent'}; color:${hMode==='pl'?'#fff':'var(--dim)'}; transition:all 0.2s">P&L Latent</button>
-</div>
-${lc(despike(r, hMode), hMode, 300, 180)}
-</div>`;
-
-if(D.sales&&D.sales.length){
-h+=`<div class="card" style="margin-top:16px"><div class="section">Transactions Réalisées</div><div style="display:flex;flex-direction:column;gap:12px">`;
-[...D.sales].reverse().forEach((s,i)=>{const _ri=D.sales.length-1-i;
-h+=`<div style="display:flex;justify-content:space-between;align-items:center;${i<D.sales.length-1?'border-bottom:1px solid var(--bdr);padding-bottom:12px':''}">
-<div><div style="font-size:13px;font-weight:700">${esc(s.titre||s.ticker||"Transaction")}</div><div style="font-size:10px;color:var(--dim)">${s.date} · ${esc(s.poche||"")}</div></div>
-<div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div class="mono" style="font-size:13px">${fmt2_(s.net)} €</div><div class="mono" style="font-size:11px;color:${s.pl>=0?'var(--grn)':'var(--red)'}">${s.pl>=0?'+':''}${fmt2_(s.pl)} €</div></div><button onclick="delSale(${_ri})" style="background:none;border:none;color:var(--mut);font-size:15px;cursor:pointer;padding:2px 4px;line-height:1">✕</button></div>
-</div>`;
-});
-h+=`</div></div>`;
-}else{h+=`<div style="text-align:center;color:var(--mut);padding:40px;font-size:13px">Aucune transaction enregistrée.</div>`;}
-h+=`</div>`;
-}}
 
 if(tab==="bourse"){if(cmpOpen)h+=cmpHtml();else if(aSym)h+=actionPageHtml();else h+=bourseHtml();}
 if($) $.innerHTML=h;
+if(tab==="bourse"&&aSym&&!cmpOpen&&aTab==="chart")setTimeout(drawAChart,30);
 const tabs=[["bourse","Bourse"],["analyse","Analyse"],["alerts","Alertes"],["home","Patrimoine"]];
 const _pfNavTab=_pfFrom?(_pfFrom.tab==="detail"?(window._dFrom||"home"):_pfFrom.tab):"home";
 document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]===(window._dFrom||"home"))||(tab==="posfiche"&&t[0]===_pfNavTab);return`<button class="nav-btn${ac?" active":""}" onclick="${t[0]==='home'?'goHome()':"gt('"+t[0]+"')"}"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
@@ -1657,7 +1610,6 @@ function quoteCardHtml(){const q=expQuote;if(!q)return"";if(q.loading)return `<d
 function _inBourse(n){const p=D.poches[n];if(!p)return false;if(p.showIn==="bourse")return true;if(p.showIn==="hors")return false;return _famOf(n)==="cote";}
 function _bPos(){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
 function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
-window.setBFilter=f=>{bFilter=f;R();};
 window.setConv=(tk,n)=>{D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};if(D.prefs.conv[tk]===n)delete D.prefs.conv[tk];else D.prefs.conv[tk]=n;save();};
 window.saveThese=(tk)=>{const v=((document.getElementById("fTh")||{}).value||"").trim();D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};if(v)D.prefs.notes[tk]=v;else delete D.prefs.notes[tk];save();toast("Thèse enregistrée");};
 window.savePlan=(poche,tk)=>{const px=pn((document.getElementById("fPx")||{}).value);const pc=pn((document.getElementById("fPc")||{}).value);D.prefs=D.prefs||{};D.prefs.plan=D.prefs.plan||{};if(px>0)D.prefs.plan[tk]={px,pct:(pc>0?pc:null)};else delete D.prefs.plan[tk];save();};
@@ -1723,12 +1675,12 @@ const _fmtBig=v=>{if(v==null)return "—";const a=Math.abs(v);if(a>=1e12)return 
 function _findHolding(sym,tkGuess){if(!D||!D.poches)return null;const res=[];Object.entries(D.poches).forEach(([n,pk])=>{(pk.positions||[]).forEach(x=>{if(_ySym(x)===sym||(tkGuess&&x.ticker===tkGuess)){res.push({poche:n,x});}});});return res.length?res:null;}
 
 window.aClose=()=>{aSym=null;_resetTools();if(_aFrom){tab=_aFrom.tab;sel=_aFrom.sel;if(_aFrom.bSub)bSub=_aFrom.bSub;_aFrom=null;}else{tab="bourse";}R();};
-window.setATab=t=>{aTab=t;R();if(t==="chart")setTimeout(drawAChart,30);if(t==="desc")loadDesc();};
-window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();setTimeout(drawAChart,30);};
+window.setATab=t=>{aTab=t;R();if(t==="desc")loadDesc();};
+window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();};
 window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);};
 window.aOpen=async(sym,name,cur,tkGuess)=>{if(!aSym){_aFrom={tab,sel,bSub};}cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=cur||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null};tab="bourse";R();loadAChart();loadASummary();};
-async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();if(aTab==="chart")setTimeout(drawAChart,30);}
-async function loadASummary(){try{const d=await fundFetch("summary",aSym);aData.sum=d;const fd=await fundFetch("fund",aSym);aData.fund=fd;}catch(e){}if(aSym)R();if(aTab==="chart")setTimeout(drawAChart,30);}
+async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
+async function loadASummary(){try{const d=await fundFetch("summary",aSym);aData.sum=d;const fd=await fundFetch("fund",aSym);aData.fund=fd;}catch(e){}if(aSym)R();}
 async function loadDesc(){if(aData.descLoaded&&aData.sum&&aData.sum.desc)return;aData.descLoaded=true;if(!aData.sum||!aData.sum.desc){try{aData.sum=await fundFetch("summary",aSym);}catch(e){}}R();}
 window.trDesc=async()=>{const t=aData.sum&&aData.sum.desc;if(!t)return;const btn=document.getElementById("trBtn");if(btn)btn.textContent="Traduction…";try{const r=await fetchT(`${FUND_URL}/?tr=${encodeURIComponent(t)}&to=fr`,null,15000);const j=await r.json();if(j&&j.text){aData.descFr=j.text;R();}else if(btn)btn.textContent="Traduction indisponible";}catch(e){if(btn)btn.textContent="Traduction indisponible";}};
 
@@ -1910,7 +1862,6 @@ const inp=(id,ph,v)=>`<div style="display:flex;align-items:center;gap:8px;margin
 const inpPl=(id,ph,v)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:11px;color:var(--dim);flex:1">${ph}</span><span onclick="togglePruSign()" title="Inverser le signe (perte / gain)" style="cursor:pointer;font-size:13px;color:var(--acc);font-weight:800;padding:7px 10px;margin:-7px -2px;border:1px solid var(--bdr);border-radius:6px">±</span><input id="${id}" inputmode="decimal" value="${esc(String(v))}" oninput="_pruCalc()" style="width:100px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-family:var(--font-mono);font-size:12px;text-align:right"></div>`;
 let initRes="";if(t>0&&u>0&&!isNaN(p2)){const pru=(t-p2)/u;initRes=`<div style="border-top:1px solid var(--sep);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--dim)">PRU estimé</span><span class="mono" style="font-size:16px;font-weight:800;color:var(--acc)">${isPriv()?"•••":pru.toFixed(2)+" €"}</span></div><div style="font-size:10px;color:var(--mut);margin-top:4px">Investi ≈ ${isPriv()?"•••":Math.round(t-p2).toLocaleString("fr-FR")+" €"} · Prix unité actuel ≈ ${isPriv()?"•••":(t/u).toFixed(2)+" €"}</div>`;}
 return `<div class="card"><div style="font-size:12px;font-weight:600">🧮 Calculateur de PRU</div><div style="font-size:10px;color:var(--mut);margin-bottom:12px">Pour un actif sans PRU (AV, fonds non coté…)</div>${inp("pruTot","Valeur totale (€)",tot)}${inpPl("pruPl","Plus/moins-value (€)",pl)}${inp("pruUn","Nombre d'unités",un)}<div id="pruRes">${initRes}</div></div>`;}
-window.setPru=(k,v)=>{_pruVals=_pruVals||{};_pruVals[k]=v;_pruCalc();};
 window.togglePruSign=()=>{const e=document.getElementById("pruPl");if(!e)return;const v=parseFloat(String(e.value).replace(",","."))||0;e.value=String(-v);_pruCalc();};
 window._pruCalc=()=>{const g=id=>{const e=document.getElementById(id);return e?parseFloat(String(e.value).replace(",",".")):NaN;};const t=g("pruTot"),p2=g("pruPl"),u=g("pruUn");const out=document.getElementById("pruRes");if(!out)return;if(t>0&&u>0&&!isNaN(p2)){const pru=(t-p2)/u;out.innerHTML=`<div style="border-top:1px solid var(--sep);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--dim)">PRU estimé</span><span class="mono" style="font-size:16px;font-weight:800;color:var(--acc)">${isPriv()?"•••":pru.toFixed(2)+" €"}</span></div><div style="font-size:10px;color:var(--mut);margin-top:4px">Investi ≈ ${isPriv()?"•••":Math.round(t-p2).toLocaleString("fr-FR")+" €"} · Prix unité actuel ≈ ${isPriv()?"•••":(t/u).toFixed(2)+" €"}</div>`;_pruVals={tot:String(isNaN(t)?"":t),pl:String(isNaN(p2)?"":p2),un:String(isNaN(u)?"":u)};}else{out.innerHTML="";}};
 function segHtml(opts,act,fn){return `<div style="display:flex;border:1px solid var(--bdr);border-radius:10px;overflow-x:auto;background:var(--card);-webkit-overflow-scrolling:touch">`+opts.map(o=>`<span onclick="${fn}('${escAttr(String(o[0]))}')" style="flex:1 0 auto;text-align:center;font-size:11px;padding:8px 12px;cursor:pointer;white-space:nowrap;${act===o[0]?"background:var(--acc);color:#fff;font-weight:700":"color:var(--dim)"}">${esc(o[1])}</span>`).join("")+`</div>`;}
@@ -2026,7 +1977,6 @@ window.togglePriv=()=>{if(!D.prefs)D.prefs={};D.prefs.privacyMode=!D.prefs.priva
 window.setHtf=v=>{htf=v;R()};
 // RESTAURATION fb23f43 : setter pour le filtre d'enveloppe sur l'onglet Analyse
 window.setAEnv=v=>{aEnvSel=v;R()};
-window.setHMode=m=>{hMode=m;R()};
 window.refreshPrices=refreshPrices;
 
 init();
