@@ -151,8 +151,13 @@ const ETF_BREAKDOWN_BY_TICKER={
 function _countryName(code){if(!code)return"";if(code===DIVERSIFIED_CODE)return"Diversifié / non réparti";return COUNTRY_NAMES[code]||code.toUpperCase();}
 const CUR_COUNTRY={EUR:"fr",USD:"us",GBP:"gb",CHF:"ch",JPY:"jp",CAD:"ca",AUD:"au",HKD:"cn",TWD:"tw"};
 function _isFundEnv(pocheName){return pocheName==="Assurance Vie"||pocheName==="PEE";}
-function _defaultCountry(x,pocheName){if(KNOWN_DIVERSIFIED_ETF.has(x.ticker)||_isFundEnv(pocheName||x.poche))return DIVERSIFIED_CODE;const cur=curOf(x);return CUR_COUNTRY[cur]||"us";}
-function _autoCountry(x,pocheName){if(KNOWN_DIVERSIFIED_ETF.has(x.ticker))return DIVERSIFIED_CODE;const auto=(D.prefs&&D.prefs.paysAuto)||{};return auto[x.ticker]||_defaultCountry(x,pocheName);}
+function _defaultCountry(x,pocheName){if(KNOWN_DIVERSIFIED_ETF.has(x.ticker)||_isFundEnv(pocheName||x.poche)||(typeof CG!=="undefined"&&CG[x.ticker])||x.ticker==="50PESO")return DIVERSIFIED_CODE;const eh=D.prefs&&D.prefs.etfHoldings&&D.prefs.etfHoldings[x.ticker];if(eh&&eh.isFund&&(!eh.parts||!eh.parts.length))return DIVERSIFIED_CODE;const cur=curOf(x);return CUR_COUNTRY[cur]||"us";}
+function _autoCountry(x,pocheName){if(KNOWN_DIVERSIFIED_ETF.has(x.ticker))return DIVERSIFIED_CODE;
+  // un fonds/ETF confirmé (via ?holdings=) sans détail exploitable ne doit jamais retomber sur le pays de domiciliation
+  // légale du fonds (ex: Luxembourg/Irlande) ni sur la devinette devise→pays : c'est trompeur, on préfère "Diversifié".
+  const eh=D.prefs&&D.prefs.etfHoldings&&D.prefs.etfHoldings[x.ticker];
+  if(eh&&eh.isFund&&(!eh.parts||!eh.parts.length))return DIVERSIFIED_CODE;
+  const auto=(D.prefs&&D.prefs.paysAuto)||{};return auto[x.ticker]||_defaultCountry(x,pocheName);}
 function _positionCountry(x,pocheName){const ov=(D.prefs&&D.prefs.paysOverride)||{};return ov[x.ticker]||_autoCountry(x,pocheName);}
 const YAHOO_COUNTRY_TO_CODE={"United States":"us","France":"fr","Germany":"de","United Kingdom":"gb","Japan":"jp","China":"cn","Netherlands":"nl","Switzerland":"ch","Canada":"ca","Australia":"au","Italy":"it","Spain":"es","Belgium":"be","Sweden":"se","Denmark":"dk","Norway":"no","Finland":"fi","Ireland":"ie","Luxembourg":"lu","South Korea":"kr","India":"in","Brazil":"br","Mexico":"mx","South Africa":"za","Singapore":"sg","Taiwan":"tw","Austria":"at","Portugal":"pt","Poland":"pl","Greece":"gr","Turkey":"tr","Israel":"il","United Arab Emirates":"ae","Saudi Arabia":"sa","Russia":"ru","Indonesia":"id","Thailand":"th","Malaysia":"my","Philippines":"ph","Vietnam":"vn","New Zealand":"nz","Argentina":"ar","Chile":"cl","Colombia":"co","Egypt":"eg","Nigeria":"ng","Kenya":"ke","Czech Republic":"cz","Hungary":"hu","Romania":"ro","Ukraine":"ua","Iceland":"is","Hong Kong":"cn","Jersey":"gb","Bermuda":"us","Cayman Islands":"us"};
 async function refreshCountries(){
@@ -201,7 +206,12 @@ async function refreshEtfHoldings(){
     for(const t of tickers){
       try{
         const h=await fundFetch("holdings",map[t]);
-        if(!h||h.error||!h.holdings||!h.holdings.length){eh[t]={parts:[],at:Date.now()};saveLocal();continue;}
+        // "isFund" : le Worker a confirmé que ce symbole est bien un fonds/ETF (famille, catégorie ou secteurs connus),
+        // même si le détail ligne par ligne est absent chez Yahoo (fréquent sur les petits fonds européens). Dans ce cas
+        // il ne faut surtout pas retomber sur la devinette pays-par-devise (ex: un ETF Émergents en EUR ne doit pas
+        // s'afficher "France") : on classe proprement en Diversifié plutôt que d'inventer un pays.
+        const isFund=!!(h&&!h.error&&(h.family||h.category||(h.sectors&&h.sectors.length)||(h.holdings&&h.holdings.length)));
+        if(!h||h.error||!h.holdings||!h.holdings.length){eh[t]={parts:[],isFund,at:Date.now()};saveLocal();continue;}
         const parts=[];
         const BATCH=4;
         for(let i=0;i<h.holdings.length;i+=BATCH){
@@ -209,9 +219,9 @@ async function refreshEtfHoldings(){
           const res=await Promise.all(batch.map(async hd=>{if(!hd.symbol||!hd.pct)return null;try{const s=await fundFetch("summary",hd.symbol);const code=(s&&s.pays)?(YAHOO_COUNTRY_TO_CODE[s.pays]||null):null;return code?[code,hd.pct]:null;}catch(e){return null;}}));
           res.forEach(r=>{if(r)parts.push(r);});
         }
-        eh[t]={parts,holdings:h.holdings.slice(0,10),category:h.category||null,at:Date.now()};
+        eh[t]={parts,isFund:true,holdings:h.holdings.slice(0,10),category:h.category||null,at:Date.now()};
         saveLocal();R();
-      }catch(e){eh[t]={parts:[],at:Date.now()};saveLocal();}
+      }catch(e){eh[t]={parts:[],isFund:false,at:Date.now()};saveLocal();}
     }
     if(currentUser)pushToSupabase();R();
   }catch(e){}
