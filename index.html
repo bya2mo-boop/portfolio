@@ -2114,16 +2114,22 @@ const c=_positionCountry(x);exp[c]=(exp[c]||0)+(x.valeur||0);});
 const total=Object.values(exp).reduce((s,v)=>s+v,0);
 if(total<=0)return"";
 const light=(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light");
-const landCol=light?"#d7dbea":"#333a58";
+const landCol=light?"#d7dbea":"#232637";
 const accCol=light?"#3f66e0":"#6c8cff";
 // paliers fix\u00e9s sur le vrai % du portefeuille (pas relatif au pays le plus expos\u00e9) : deux pays \u00e0 45% et 17% doivent se voir clairement diff\u00e9rents
 const tierOp=pct=>pct>=25?1:pct>=10?0.82:pct>=5?0.64:pct>=2?0.46:pct>=0.5?0.3:0.18;
-const svgBody=WORLD_MAP_BODY.replace(/(<(?:path|g) id="cvwm_)([a-z_]+)(")/g,(m,pre,code,post)=>{
+let svgBody=WORLD_MAP_BODY.replace(/(<(?:path|g) id="cvwm_)([a-z_]+)(")/g,(m,pre,code,post)=>{
   const v=exp[code]||0;
   if(v<=0)return `${pre}${code}${post} fill="${landCol}"`;
   const op=tierOp(v/total*100).toFixed(2);
   return `${pre}${code}${post} fill="${accCol}" fill-opacity="${op}"`;
 });
+// le jeu de données source (flekschas/simple-world-map) contient ~170 petits fragments de terre (zones disputées,
+// îlots) jamais rattachés à un code pays — vérifié à l'identique dans le fichier source d'origine, rien perdu lors
+// de l'intégration. Ils comptaient jusqu'ici sur l'héritage CSS du fill posé sur la balise <svg> parente, ce qui
+// s'est révélé peu fiable sur certains navigateurs (Safari/iOS notamment) : on leur applique maintenant la couleur
+// "terre" directement sur chaque balise, sans dépendre d'aucun héritage.
+svgBody=svgBody.replace(/<(path|g)(?![^>]*\bfill=)/g,`<$1 fill="${landCol}"`);
 const diversifiedV=exp[DIVERSIFIED_CODE]||0;
 const list=Object.entries(exp).filter(([code])=>code!==DIVERSIFIED_CODE).sort((a,b)=>b[1]-a[1]).map(([code,v])=>({code,v,pct:v/total*100}));
 const shown=list.slice(0,8);
