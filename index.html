@@ -129,6 +129,7 @@ function curSym(c){return CUR_SYM[c]||c||"€";}
 function curOf(x){return (x&&x.currency)?x.currency:"EUR";}
 const EXCH_CUR={NMS:"USD",NYQ:"USD",NGM:"USD",ASE:"USD",PCX:"USD",BTS:"USD",NASDAQ:"USD",NYSE:"USD",PAR:"EUR",AMS:"EUR",BRU:"EUR",MIL:"EUR",GER:"EUR",FRA:"EUR",MCE:"EUR",EBS:"EUR",PARIS:"EUR",AMSTERDAM:"EUR",MILAN:"EUR",FRANKFURT:"EUR",XETRA:"EUR",MADRID:"EUR",LSE:"GBP",LON:"GBP",LONDON:"GBP",SWX:"CHF",EBS_CH:"CHF",ZURICH:"CHF",TOR:"CAD",TSX:"CAD",TORONTO:"CAD",JPX:"JPY",TYO:"JPY",TOKYO:"JPY",HKG:"HKD","HONG KONG":"HKD",ASX:"AUD",SYDNEY:"AUD",TAI:"TWD",TWO:"TWD",TAIWAN:"TWD"};
 function _guessCur(ex){return EXCH_CUR[String(ex||"").toUpperCase()]||"";}
+const ISIN_RE=/^[A-Z]{2}[A-Z0-9]{10}$/i;
 const KNOWN_EU={AI:"AI.PA",SU:"SU.PA",VCT:"VCT.PA",VIE:"VIE.PA",WKL:"WKL.AS",VU:"VU.PA","2DG":"2DG.F",MC:"MC.PA",OR:"OR.PA"};
 function toEur(cur){try{if(!cur||cur==="EUR")return 1;const fr=D&&D.prefs&&D.prefs.fxRates&&D.prefs.fxRates[cur];if(fr&&fr>0)return 1/fr;if(cur==="USD")return 1/((D&&D.eurUsd)||1.1);}catch(e){}return 1;}
 const WORLD_MAP_VB="30.767 241.591 784.077 458.627";
@@ -174,30 +175,33 @@ async function refreshCountries(){
     D.prefs.paysAutoTs=Date.now();
     saveLocal();if(currentUser)pushToSupabase();R();
   }catch(e){}
-  try{if(!D.prefs||!D.prefs.etfHoldingsTs||Date.now()-D.prefs.etfHoldingsTs>30*24*3600000)refreshEtfHoldings();}catch(e){}
 }
 // pour un ETF/fonds sans pays résolu (donc probablement pas une entreprise unique) : va chercher ses principales lignes détenues
 // (nouvelle fonction ?holdings= du Worker), puis le pays de chaque ligne (réutilise le même mécanisme que refreshCountries)
 // pour reconstruire une vraie répartition géographique au lieu de deviner — fonctionne pour n'importe quel ETF, pas seulement ceux déjà connus
+// appelée indépendamment de refreshCountries (pas imbriquée dedans) : sinon son cache de 7 jours bloque aussi celle-ci sans raison.
+// Le cache est par ticker (30j si résolu, 3j si échec/non reconnu) plutôt qu'un verrou global, pour qu'un ticker jamais tenté
+// (ex: position tout juste ajoutée, ou ancien blocage levé par une mise à jour du code) soit toujours retenté au prochain cycle.
 async function refreshEtfHoldings(){
   try{
     if(!D||!D.poches)return;
+    if(!D.prefs)D.prefs={};
+    if(!D.prefs.etfHoldings)D.prefs.etfHoldings={};
+    const eh=D.prefs.etfHoldings;
     const map={};
     Object.entries(D.poches).forEach(([n,p])=>{p.positions.forEach(pos=>{const t=pos.ticker;if(!t||(typeof CG!=="undefined"&&CG[t])||ETF_BREAKDOWN_BY_TICKER[t])return;
-      // "manual" ne veut dire que "pas de cours en direct" (cas courant des fonds d'assurance vie/PEE) : on tente quand même
-      // la recherche Yahoo, elle échoue proprement (repli "Diversifié") si le code interne du fonds n'est pas reconnu.
       const auto=(D.prefs&&D.prefs.paysAuto)||{};
       if(auto[t])return;
+      const prev=eh[t];
+      if(prev){const ttl=(prev.parts&&prev.parts.length)?30*24*3600000:3*24*3600000;if(Date.now()-(prev.at||0)<ttl)return;}
       map[t]=_ySym(pos);
     });});
     const tickers=Object.keys(map);
-    if(!tickers.length){D.prefs=D.prefs||{};D.prefs.etfHoldingsTs=Date.now();saveLocal();return;}
-    if(!D.prefs)D.prefs={};
-    if(!D.prefs.etfHoldings)D.prefs.etfHoldings={};
+    if(!tickers.length)return;
     for(const t of tickers){
       try{
         const h=await fundFetch("holdings",map[t]);
-        if(!h||h.error||!h.holdings||!h.holdings.length)continue;
+        if(!h||h.error||!h.holdings||!h.holdings.length){eh[t]={parts:[],at:Date.now()};saveLocal();continue;}
         const parts=[];
         const BATCH=4;
         for(let i=0;i<h.holdings.length;i+=BATCH){
@@ -205,14 +209,58 @@ async function refreshEtfHoldings(){
           const res=await Promise.all(batch.map(async hd=>{if(!hd.symbol||!hd.pct)return null;try{const s=await fundFetch("summary",hd.symbol);const code=(s&&s.pays)?(YAHOO_COUNTRY_TO_CODE[s.pays]||null):null;return code?[code,hd.pct]:null;}catch(e){return null;}}));
           res.forEach(r=>{if(r)parts.push(r);});
         }
-        if(parts.length){
-          D.prefs.etfHoldings[t]={parts,holdings:h.holdings.slice(0,10),category:h.category||null,at:Date.now()};
-          saveLocal();R();
-        }
-      }catch(e){}
+        eh[t]={parts,holdings:h.holdings.slice(0,10),category:h.category||null,at:Date.now()};
+        saveLocal();R();
+      }catch(e){eh[t]={parts:[],at:Date.now()};saveLocal();}
     }
-    D.prefs.etfHoldingsTs=Date.now();
-    saveLocal();if(currentUser)pushToSupabase();R();
+    if(currentUser)pushToSupabase();R();
+  }catch(e){}
+}
+// pour une position dont le "ticker" est en fait un ISIN brut (ex: import CSV avec une colonne ISIN, ou saisie manuelle
+// sans passer par la recherche) : retrouve le vrai symbole boursier via la recherche Yahoo (le même moteur que la
+// recherche par ISIN de l'écran d'ajout), et l'enregistre en avSymbol. Comme _ySym() lit toujours avSymbol en priorité,
+// ça débloque d'un coup les prix en direct, les fondamentaux, la répartition géographique et les holdings ETF pour
+// cette position, sans rien changer ailleurs.
+async function _resolveIsin(isin){
+  try{
+    const r=await fetchT(`${WORKER_URL}/?search=${encodeURIComponent(isin)}`,{},10000);
+    if(!r.ok)return null;
+    const j=await r.json();
+    const q=(j.quotes||[]).find(m=>m.symbol&&m.quoteType!=="CURRENCY");
+    if(!q)return null;
+    return {sym:q.symbol,cur:q.currency||_guessCur(q.exchange)||_guessCur(q.exchDisp)||null};
+  }catch(e){return null;}
+}
+async function refreshIsinSymbols(){
+  try{
+    if(!D||!D.poches)return;
+    if(!D.prefs)D.prefs={};
+    if(!D.prefs.isinFailed)D.prefs.isinFailed={};
+    const targets=[];
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
+      const t=pos.ticker;
+      if(!t||pos.avSymbol||!ISIN_RE.test(t))return;
+      const failedAt=D.prefs.isinFailed[t];
+      if(failedAt&&Date.now()-failedAt<7*24*3600000)return;
+      targets.push(pos);
+    }));
+    if(!targets.length)return;
+    const BATCH=4;
+    for(let i=0;i<targets.length;i+=BATCH){
+      const batch=targets.slice(i,i+BATCH);
+      await Promise.all(batch.map(async pos=>{
+        const res=await _resolveIsin(pos.ticker);
+        if(res&&res.sym){
+          pos.avSymbol=res.sym;
+          if(res.cur&&!pos.currency)pos.currency=res.cur;
+          delete D.prefs.isinFailed[pos.ticker];
+        }else{
+          D.prefs.isinFailed[pos.ticker]=Date.now();
+        }
+      }));
+      saveLocal();R();
+    }
+    if(currentUser)pushToSupabase();
   }catch(e){}
 }
 const DIVS={AI:3.20,SU:3.90,VIE:1.35,WKL:2.19,VU:0.90,NVDA:0.04,TSM:2.17};
@@ -977,7 +1025,9 @@ async function refreshPrices(){
     if(currentUser) pushToSupabase();
     fetchEarnDay();
     try{if(!D.prefs||!D.prefs.divAutoTs||Date.now()-D.prefs.divAutoTs>12*3600000)refreshDivs();}catch(e){}
+    try{await refreshIsinSymbols();}catch(e){}
     try{if(!D.prefs||!D.prefs.paysAutoTs||Date.now()-D.prefs.paysAutoTs>7*24*3600000)refreshCountries();}catch(e){}
+    try{refreshEtfHoldings();}catch(e){}
   }catch(e){console.error(e)}
   finally{
     clearTimeout(_rpTimeout);
@@ -1424,7 +1474,7 @@ window.manualKeep=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].position
 window.togglePatNoPerf=()=>{if(!D.prefs)D.prefs={};D.prefs.noPerfPatrimoine=(D.prefs.noPerfPatrimoine===false);save();};
 window.toggleManualFields=()=>{const cb=document.getElementById("mManual");if(!cb)return;const on=cb.checked;const root=document.getElementById("modal-root")||document;const setField=(id,show)=>{const el=document.getElementById(id);if(!el)return;const f=el.closest(".field");if(f)f.style.display=show?"":"none";};const setRow=(id,show)=>{const el=document.getElementById(id);if(!el)return;const r=el.closest(".row");if(r)r.style.display=show?"":"none";};const relabel=(id,txt)=>{const el=document.getElementById(id);if(!el)return;const f=el.closest(".field");if(!f)return;const l=f.querySelector("label");if(l)l.textContent=txt;};const srch=document.getElementById("srch");if(srch){const f=srch.closest(".field");if(f)f.style.display=on?"none":"";}root.querySelectorAll("div").forEach(d=>{if(!d.children.length&&d.textContent.trim().startsWith("\u2014 ou saisir")){d.style.display=on?"none":"";}});setField("mi",!on);setRow("mih",!on);setField("md",!on);relabel("mp",on?"Prix d'achat":"PRU");relabel("mx",on?"Valeur actuelle":"Cours");const mq=document.getElementById("mq");if(on&&mq&&!mq.value)mq.value="1";const npr=document.getElementById("mNoPerfRow");if(npr)npr.style.display=on?"":"none";};
 window.aPos=(pocheName)=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Ajouter à ${esc(pocheName)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Rechercher (nom ou ISIN)</label><div style="display:flex;gap:6px"><input id="srch" placeholder="ex: TotalEnergies, FR0000120271" style="flex:1"><button class="btn" style="background:var(--acc);color:#fff;padding:8px 14px;font-size:13px" onclick="srcStock()">🔍</button></div><div id="srchRes" style="margin-top:8px"></div></div><div style="text-align:center;color:var(--mut);font-size:10px;margin:6px 0">— ou saisir manuellement —</div><div class="field"><label>Nom</label><input id="mt" placeholder="ex: Apple"></div><div class="field"><label>Ticker</label><input id="mk" placeholder="AAPL ou nom (LVMH…)" oninput="this.value=this.value.toUpperCase();tSug(this.value)" autocomplete="off"><div id="mkSug" style="background:var(--card);border-radius:8px;overflow:hidden;max-height:190px;overflow-y:auto"></div></div><div class="field"><label>Devise</label><select id="mcur" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit"><option value="EUR">€ EUR</option><option value="USD">$ USD</option><option value="GBP">£ GBP</option><option value="CHF">CHF</option><option value="JPY">¥ JPY</option><option value="HKD">HK$ HKD</option><option value="TWD">NT$ TWD</option><option value="CAD">C$ CAD</option><option value="AUD">A$ AUD</option></select></div><div class="field"><label>Secteur</label><input id="ms" list="secteur-list" placeholder="ex: Technology"><datalist id="secteur-list"><option value="Tech"></option><option value="Semi"></option><option value="Space"></option><option value="Énergie"></option><option value="Industrie"></option><option value="Défense"></option><option value="Utilities"></option><option value="Services"></option><option value="Construction"></option><option value="Crypto"></option><option value="Fonds"></option><option value="Quantum"></option><option value="Or"></option><option value="Autre"></option></datalist></div><label style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:12px;color:var(--dim);cursor:pointer"><input type="checkbox" id="mManual" onchange="toggleManualFields()"> 🏷️ Actif non coté (valeur manuelle, pas de cours boursier)</label><div id="mNoPerfRow" style="display:none;margin:-6px 0 12px"><label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--dim);cursor:pointer"><input type="checkbox" id="mNoPerf"> 📊 Exclure de l'analyse de performance</label></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" placeholder="10" inputmode="decimal"></div><div class="field"><label>PRU</label><input id="mp" placeholder="150" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Cours</label><input id="mx" placeholder="155" inputmode="decimal"></div><div class="field"><label>Alerte ↓ bas</label><input id="mi" placeholder="optionnel" inputmode="decimal"></div></div><div class="row"><div class="field"><label>Alerte ↑ haut</label><input id="mih" placeholder="optionnel" inputmode="decimal"></div><div class="field"><label style="opacity:.5;font-size:10px">sens</label><div style="font-size:10px;color:var(--mut);line-height:1.3">↓ si ça descend dessous<br>↑ si ça monte dessus</div></div></div><div class="field"><label>Dividende annuel (€) — optionnel</label><input id="md" placeholder="ex: 3.20" inputmode="decimal"></div><button class="btn btn-p" style="margin-top:8px" onclick="doA('${escAttr(pocheName)}')">Ajouter</button>`); setTimeout(()=>{const s=document.getElementById("srch");if(s)s.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();srcStock()}})},100); };
-window.srcStock=async()=>{ const q=document.getElementById("srch").value.trim(); const out=document.getElementById("srchRes"); if(!q){out.innerHTML="";return} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`; const isISIN=/^[A-Z]{2}[A-Z0-9]{10}$/i.test(q.trim()); let searchQuery=q.trim(); if(isISIN){ try{ const figiResp=await fetch("https://api.openfigi.com/v3/mapping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([{idType:"ID_ISIN",idValue:q.trim().toUpperCase()}])}); if(figiResp.ok){ const figiData=await figiResp.json(); const matches=figiData[0]?.data; if(matches&&matches.length>0){ out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m.ticker||"";const name=m.name||"";const exch=m.exchCode||"";const cur=m.currency||_guessCur(m.exchCode)||"";const secType=m.securityType||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:var(--inp)" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:10px;color:var(--mut)">${esc(exch)} · ${esc(secType)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">ISIN non résolu, recherche par nom…</div>`; } try{ const yhResp=await fetch(`https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?search=${encodeURIComponent(searchQuery)}`); if(yhResp.ok){ const yhData=await yhResp.json(); const quotes=(yhData.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol); if(quotes.length>0){ out.innerHTML=quotes.slice(0,8).map((m,i)=>{ const sym=m.symbol||"";const name=m.longname||m.shortname||"";const exch=m.exchange||"";const cur=m.currency||_guessCur(m.exchange)||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:var(--inp)" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:10px;color:var(--mut)">${esc(exch)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat. Vérifie l'orthographe ou saisis manuellement.</div>`; };
+window.srcStock=async()=>{ const q=document.getElementById("srch").value.trim(); const out=document.getElementById("srchRes"); if(!q){out.innerHTML="";return} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`; const isISIN=ISIN_RE.test(q.trim()); let searchQuery=q.trim(); if(isISIN){ try{ const figiResp=await fetch("https://api.openfigi.com/v3/mapping",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify([{idType:"ID_ISIN",idValue:q.trim().toUpperCase()}])}); if(figiResp.ok){ const figiData=await figiResp.json(); const matches=figiData[0]?.data; if(matches&&matches.length>0){ out.innerHTML=matches.slice(0,8).map((m,i)=>{ const sym=m.ticker||"";const name=m.name||"";const exch=m.exchCode||"";const cur=m.currency||_guessCur(m.exchCode)||"";const secType=m.securityType||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:var(--inp)" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:10px;color:var(--mut)">${esc(exch)} · ${esc(secType)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">ISIN non résolu, recherche par nom…</div>`; } try{ const yhResp=await fetch(`https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev/?search=${encodeURIComponent(searchQuery)}`); if(yhResp.ok){ const yhData=await yhResp.json(); const quotes=(yhData.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol); if(quotes.length>0){ out.innerHTML=quotes.slice(0,8).map((m,i)=>{ const sym=m.symbol||"";const name=m.longname||m.shortname||"";const exch=m.exchange||"";const cur=m.currency||_guessCur(m.exchange)||""; return `<div onclick="pickStock(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:var(--inp)" data-sym="${esc(sym)}" data-name="${esc(name)}" data-cur="${esc(cur)}"><div style="font-size:12px;font-weight:600">${esc(sym)} <span style="color:var(--dim);font-weight:400">· ${esc(cur)}</span></div><div style="font-size:10px;color:var(--dim)">${esc(name)}</div><div style="font-size:10px;color:var(--mut)">${esc(exch)}</div></div>`; }).join(""); return; } } }catch(e){} out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat. Vérifie l'orthographe ou saisis manuellement.</div>`; };
 window.pickStock=async(idx)=>{ const items=document.querySelectorAll("#srchRes > div[data-sym]"); if(!items[idx])return; const el=items[idx]; const sym=el.getAttribute("data-sym")||""; const name=el.getAttribute("data-name")||""; const cur=el.getAttribute("data-cur")||""; document.getElementById("mt").value=name; const ticker=sym.includes(".")?sym.split(".")[0]:sym; document.getElementById("mk").value=ticker; const msEl=document.getElementById("ms"); const mdEl=document.getElementById("md"); if(msEl && SECTORS[ticker]) msEl.value=SECTORS[ticker]; const root=document.getElementById("modal-root"); root.dataset.pickedSym=sym; root.dataset.pickedCur=cur; const _mc=document.getElementById("mcur"); if(_mc&&cur){const u=String(cur).toUpperCase(); if([..._mc.options].some(o=>o.value===u)){_mc.value=u;}else{const op=document.createElement("option");op.value=u;op.textContent=curSym(u)+" "+u;_mc.appendChild(op);_mc.value=u;}} items.forEach(x=>x.style.background="var(--inp)"); el.style.background="#34d39922"; setTimeout(()=>{document.getElementById("mq").focus()},100); };
 window.doA=(pocheName)=>{ const tk=document.getElementById("mk").value.trim(); if(!tk)return toast("Renseigne un ticker."); if((D.poches[pocheName].positions||[]).some(x=>String(x.ticker).toUpperCase()===tk.toUpperCase()))return toast(tk+" est déjà dans cette enveloppe. Ouvre la position et utilise \"+ Acheter\" pour l'augmenter."); const _q=pn(document.getElementById("mq").value); const _p=pn(document.getElementById("mp").value); const _x=pn(document.getElementById("mx").value); if(_q<=0)return toast("La quantité doit être supérieure à 0."); if(_p<0||_x<0)return toast("Le PRU et le cours ne peuvent pas être négatifs."); const root=document.getElementById("modal-root"); const pickedSym=root.dataset.pickedSym||""; const pickedCur=root.dataset.pickedCur||""; const pos={ titre:document.getElementById("mt").value||tk, ticker:tk, qty:_q, pru:_p, cours:_x }; const _curSel=document.getElementById("mcur"); pos.currency=(_curSel&&_curSel.value)?_curSel.value:(pickedCur||"EUR"); if(pickedSym)pos.avSymbol=pickedSym;delete root.dataset.pickedSym;delete root.dataset.pickedCur; const ci=document.getElementById("mi").value; if(ci){const _c=pn(ci); if(_c>0)pos.cible=_c;} const cih=document.getElementById("mih")?document.getElementById("mih").value:""; if(cih){const _ch=pn(cih); if(_ch>0)pos.cibleHaut=_ch;} const secVal=document.getElementById("ms")?.value; if(secVal) pos.sector=secVal; const divVal=document.getElementById("md")?.value; if(divVal){const _d=pn(divVal); if(_d>=0)pos.dividend=_d;} const _man=(document.getElementById("mManual")||{}).checked;if(_man){pos.manual=true;pos.manualUpdated=Date.now();const _np=(document.getElementById("mNoPerf")||{}).checked;if(!D.prefs)D.prefs={};if(!D.prefs.noPerfTickers)D.prefs.noPerfTickers=[];if(_np){pos.noPerf=true;if(!D.prefs.noPerfTickers.includes(pos.ticker))D.prefs.noPerfTickers.push(pos.ticker);}else{D.prefs.noPerfTickers=D.prefs.noPerfTickers.filter(t=>t!==pos.ticker);}if(!D.prefs)D.prefs={};if(!D.prefs.manualTickers)D.prefs.manualTickers=[];if(!D.prefs.manualUpdatedAt)D.prefs.manualUpdatedAt={};if(!D.prefs.manualTickers.includes(pos.ticker))D.prefs.manualTickers.push(pos.ticker);D.prefs.manualUpdatedAt[pos.ticker]=pos.manualUpdated;} D.poches[pocheName].positions.push(pos); cm(); save(); };
 
