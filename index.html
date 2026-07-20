@@ -89,7 +89,33 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
+const APP_VERSION = "143";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
+// Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
+// version en cache navigateur même après un déploiement → "je déploie mais rien
+// ne change". On va chercher la vraie version en ligne (sans cache) et, si elle
+// diffère de celle qui tourne, on propose de recharger proprement (URL cache-bustée).
+let _updDismissed = false;
+async function checkForUpdate(){
+  try{
+    const r = await fetch("index.html?_v=" + Date.now(), { cache: "no-store" });
+    if(!r.ok) return;
+    const t = await r.text();
+    const m = t.match(/APP_VERSION\s*=\s*"(\d+)"/);
+    if(m && m[1] && m[1] !== APP_VERSION && !_updDismissed) showUpdateBanner(m[1]);
+  }catch(e){}
+}
+function showUpdateBanner(v){
+  if(document.getElementById("updBanner")) return;
+  const b = document.createElement("div");
+  b.id = "updBanner";
+  b.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9999;background:var(--acc);color:#fff;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600;box-shadow:0 -4px 16px rgba(0,0,0,.3)";
+  b.innerHTML = `<span>Nouvelle version disponible (v${v})</span><span style="display:flex;gap:8px"><button id="updReload" style="background:#fff;color:var(--acc);border:none;border-radius:8px;padding:7px 14px;font-weight:700;font-size:13px;cursor:pointer">Recharger</button><button id="updClose" style="background:none;border:1px solid rgba(255,255,255,.5);color:#fff;border-radius:8px;padding:7px 12px;font-size:13px;cursor:pointer">Plus tard</button></span>`;
+  document.body.appendChild(b);
+  document.getElementById("updReload").onclick = () => { location.href = location.pathname + "?v=" + v; };
+  document.getElementById("updClose").onclick = () => { _updDismissed = true; b.remove(); };
+}
+document.addEventListener("visibilitychange", () => { if(!document.hidden) checkForUpdate(); });
 function applyTheme(){try{const t=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";document.documentElement.classList.toggle("light",t==="light");}catch(e){}}
 window.toggleTheme=()=>{try{const cur=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";const nx=cur==="light"?"dark":"light";try{localStorage.setItem("cvTheme",nx)}catch(e){}if(window.D&&D){D.prefs=D.prefs||{};D.prefs.theme=nx;}applyTheme();R();if(window.D&&D&&typeof saveLocal==="function")saveLocal();if(window.D&&D&&typeof pushToSupabase==="function"&&currentUser)setTimeout(pushToSupabase,50);}catch(e){}};
 applyTheme();
@@ -1563,7 +1589,7 @@ const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'b
 
 if(!D)return; const d=ga(); const $=document.getElementById("app"); if(!$) return; let h="";
 
-h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v142</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?``:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="openSearchModal('view')" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--acc);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Rechercher">🔎</button><button onclick="togglePriv()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${isPriv()?"var(--acc)":"var(--dim)"};width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="toggleTheme()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
+h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:50%;background:#a78bfa33;color:#a78bfa;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:50%;background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--amb)":st.ok?"var(--grn)":st.ok===false?"var(--red)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:11px;color:var(--dim)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:10px;color:var(--mut);opacity:.6;margin-left:4px">v${APP_VERSION}</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?``:""}${st.sync===true?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#34d39922;color:var(--grn)">☁ Sync</span>':st.sync===false?'<span style="font-size:10px;padding:2px 5px;border-radius:4px;background:#f8717122;color:var(--red)">☁ Offline</span>':""}</div><div><button onclick="openSearchModal('view')" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--acc);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Rechercher">🔎</button><button onclick="togglePriv()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${isPriv()?"var(--acc)":"var(--dim)"};width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button onclick="toggleTheme()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);width:34px;height:34px;font-size:15px;cursor:pointer;margin-right:6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} style="background:none;border:1px solid var(--bdr);border-radius:8px;color:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--mut)":"var(--acc)"};font-size:13px;padding:4px 8px;cursor:pointer;font-weight:600">↻</button></div></div>`;
 
 // ─── 1c : bannière de résilience (visible quand un refresh n'a rien pu actualiser) ───
 const _totPos=Object.values(D.poches).reduce((s,p)=>s+p.positions.length,0);
@@ -2557,6 +2583,8 @@ window.setAEnv=v=>{aEnvSel=v;R()};
 window.refreshPrices=refreshPrices;
 
 init();
+setTimeout(checkForUpdate, 4000);
+setInterval(checkForUpdate, 300000);
 </script>
 <script>
 (function(){function snap(){var n=document.querySelector('.nav');if(!n)return;n.style.bottom='1px';n.offsetHeight;n.style.bottom='0';}
