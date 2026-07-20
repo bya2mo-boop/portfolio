@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "148";
+const APP_VERSION = "149";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -717,6 +717,7 @@ async function pullFromSupabase() {
           lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
           currency: pos.currency || (oldPos ? oldPos.currency : null),
           avSymbol: pos.av_symbol || (oldPos ? oldPos.avSymbol : null),
+          isin: pos.isin || (oldPos ? oldPos.isin : null),
           manual: !!(pf.prefs && pf.prefs.manualTickers && pf.prefs.manualTickers.includes(pos.ticker)),
           noPerf: !!(pf.prefs && pf.prefs.noPerfTickers && pf.prefs.noPerfTickers.includes(pos.ticker)),
           manualUpdated: (pf.prefs && pf.prefs.manualUpdatedAt && pf.prefs.manualUpdatedAt[pos.ticker]) || null
@@ -777,7 +778,8 @@ async function pushToSupabase() {
           sector: pos.sector || null,
           dividend: pos.dividend || null,
           av_symbol: pos.avSymbol || null,
-          currency: pos.currency || null
+          currency: pos.currency || null,
+          isin: pos.isin || null
         };
         if(dbMatch) {
           toUpdate.push({ id: dbMatch.id, ...payload });
