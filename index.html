@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "146";
+const APP_VERSION = "147";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2127,7 +2127,28 @@ isin:["ISIN","Code international du titre","Identifiant unique et mondial de la 
 rev:["Revenus","Chiffre d'affaires annuel","Le total des ventes de l'entreprise sur l'année."],
 net:["Bénéfice net","Résultat net annuel","Ce qui reste une fois toutes les charges et impôts payés."]
 };
-window._metricInfo=(k,val)=>{const d=_METRIC_DEFS[k];if(!d)return;sm(`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><h3 style="font-size:17px;font-weight:700">${d[0]}</h3>${val?`<span class="mono" style="font-size:16px;font-weight:700;color:var(--acc)">${esc(String(val))}</span>`:""}</div><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${d[1]}</div><p style="font-size:13px;color:var(--txt);line-height:1.55;margin:0">${d[2]}</p><button class="btn" style="width:100%;margin-top:16px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Fermer</button>`);};
+// Repères de lecture (à quel niveau une valeur est jugée bonne/élevée). Ordres de grandeur, varient selon le secteur.
+const _METRIC_REPERE={
+per:"sous ~15 = plutôt bon marché, au-dessus de ~25 = cher (sauf forte croissance).",
+fper:"plus bas que le PER actuel = bénéfices attendus en hausse.",
+pb:"sous 1 = décoté, au-dessus de ~3 = cher (dépend du secteur).",
+beta:"~1 = comme le marché, au-dessus de 1,3 = volatile, sous 0,8 = défensive.",
+mBrute:"au-dessus de ~40 % = confortable (très variable selon le secteur).",
+mOp:"au-dessus de ~15 % = solide.",
+mNette:"au-dessus de ~10 % = bonne rentabilité.",
+roe:"au-dessus de 15 % = qualité, au-dessus de 20 % = excellent.",
+debtEq:"sous 100 % = raisonnable, au-dessus de 200 % = très endettée.",
+netCash:"positive = solide ; négative = dépend de la capacité à rembourser.",
+divY:"2 à 5 % = classique, au-dessus de 6 % = élevé (vérifier si c'est tenable).",
+payout:"sous 60 % = confortable, au-dessus de 80 % = tendu.",
+revG:"au-dessus de 10 %/an = bonne dynamique.",
+epsG:"au-dessus de 10 %/an = croissance solide.",
+cap:"plus de 200 Md = très grande valeur, moins de 2 Md = petite valeur.",
+fcf:"positif et croissant = entreprise saine.",
+rev:"une hausse régulière année après année est bon signe.",
+net:"idéalement en hausse et sans à-coups."
+};
+window._metricInfo=(k,val)=>{const d=_METRIC_DEFS[k];if(!d)return;sm(`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><h3 style="font-size:17px;font-weight:700">${d[0]}</h3>${val?`<span class="mono" style="font-size:16px;font-weight:700;color:var(--acc)">${esc(String(val))}</span>`:""}</div><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">${d[1]}</div><p style="font-size:13px;color:var(--txt);line-height:1.55;margin:0">${d[2]}</p>${_METRIC_REPERE[k]?`<p style="font-size:12px;color:var(--mut);line-height:1.5;margin:10px 0 0">👉 ${_METRIC_REPERE[k]}</p>`:""}<button class="btn" style="width:100%;margin-top:16px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Fermer</button>`);};
 // Graphe en barres HTML (fines, arrondies, années sous chaque barre, valeurs négatives gérées, cliquable → définition).
 function fBars(title,pts,color,defKey){if(!pts||pts.length<2)return "";const vs=pts.map(q=>q[1]);const mx=Math.max.apply(null,vs.map(v=>Math.abs(v)))||1;const n=pts.length;const last=vs[n-1];let cagr=null;if(vs[0]>0&&last>0&&n>1)cagr=(Math.pow(last/vs[0],1/(n-1))-1)*100;const hasNeg=vs.some(v=>v<0);
 const bar=(v)=>`<div style="width:52%;max-width:38px;height:${(Math.abs(v)/mx*100).toFixed(1)}%;min-height:3px;background:${v>=0?color:"var(--red)"};border-radius:${v>=0?"4px 4px 0 0":"0 0 4px 4px"};opacity:.9"></div>`;
@@ -2188,10 +2209,10 @@ window.addJournalId=tk=>{const el=document.getElementById("aJn_"+tk);const v=((e
 window.aAddFlow=()=>{const names=Object.keys(D.poches||{}).filter(n=>_inBourse(n));if(!names.length){toast("Crée d'abord une enveloppe dans Patrimoine.");return;}sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:16px;font-weight:700">Ajouter ${esc(aName||aSym)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);margin-bottom:10px">Dans quelle enveloppe ?</div>`+names.map(n=>`<button class="btn" style="width:100%;margin-bottom:6px;text-align:left" onclick="aAddTo('${escAttr(n)}')">${esc(n)}</button>`).join(""));};
 window.aAddTo=(poche)=>{const tk=(aSym.includes(".")?aSym.split(".")[0]:aSym);const existing=(D.poches[poche].positions||[]).find(x=>String(x.ticker).toUpperCase()===tk.toUpperCase());if(existing){cm();toast(tk+" est déjà dans cette enveloppe.");ePos(poche,existing.ticker);return;}const pos={titre:aName||tk,ticker:tk,qty:0,pru:0,cours:0,currency:aCur||"EUR"};if(aSym.includes("."))pos.avSymbol=aSym;if(aData&&aData.isin)pos.isin=aData.isin;D.poches[poche].positions.push(pos);cm();save();toast("Ajouté — édite la quantité et le PRU");const h=_findHolding(aSym,tk);if(h){aTab="portf";R();ePos(poche,tk);}};
 
-function actionPageHtml(){const bars=aData.ohlc||[];let cours=null,dp=null;if(bars.length){cours=bars[bars.length-1].c;const first=bars[0].c;if(first)dp=(cours-first)/first*100;}const _hp=_findHolding(aSym,aData.tkGuess);if(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0){cours=_hp[0].x.cours;}
+function actionPageHtml(){const bars=aData.ohlc||[];let cours=null,dp=null;if(bars.length){cours=bars[bars.length-1].c;const first=bars[0].c;if(first)dp=(cours-first)/first*100;}const _hp=_findHolding(aSym,aData.tkGuess);if(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0){cours=_hp[0].x.cours;}const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
 let h=`<div class="fade">`;
-h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
+h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
 if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${dp.toFixed(1)} % (${esc(aPeriod)})</span>`:""}</div>`;
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["portf","Mon portefeuille"]];
 h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-bottom:12px;overflow-x:auto">`+tabs.map(t=>`<span onclick="setATab('${t[0]}')" style="font-size:13px;padding-bottom:8px;white-space:nowrap;cursor:pointer;${aTab===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
