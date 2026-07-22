@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "156";
+const APP_VERSION = "157";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1041,14 +1041,14 @@ async function refreshPrices(){
 
     try{
       const cp=await fetchCrypto();
-      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){_applyPx(p,cp[p.ticker],nowMs);if(window._cryptoChg&&window._cryptoChg[p.ticker]!=null)p.dayPct=window._cryptoChg[p.ticker];cnt++}});
+      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){_applyPx(p,cp[p.ticker],nowMs);if(window._cryptoChg&&window._cryptoChg[p.ticker]!=null){p.dayPct=window._cryptoChg[p.ticker];p.dayPctAt=nowMs;}cnt++}});
       ok=true;
     }catch(e){}
 
     try{
       const sp=await fetchStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
-        if(sp[pos.ticker]!=null){_applyPx(pos,sp[pos.ticker],nowMs);const _pc=(window._usPrevClose||{})[pos.ticker];if(_pc>0){pos.prevClose=_pc;pos.dayPct=(pos.cours-_pc)/_pc*100;}cnt++}
+        if(sp[pos.ticker]!=null){_applyPx(pos,sp[pos.ticker],nowMs);const _pc=(window._usPrevClose||{})[pos.ticker];if(_pc>0){pos.prevClose=_pc;pos.dayPct=(pos.cours-_pc)/_pc*100;pos.dayPctAt=nowMs;}cnt++}
       }));
       ok=true;
     }catch(e){}
@@ -1057,7 +1057,7 @@ async function refreshPrices(){
       const eup=await fetchEuStocks();
       Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
         const eu=eup[pos.ticker];
-        if(eu!=null){_applyPx(pos,eu.price,nowMs);pos.quoteTs=eu.t?eu.t*1000:null;pos.w52h=eu.w52h;pos.w52l=eu.w52l;if(eu.pc>0){pos.prevClose=eu.pc;pos.dayPct=(pos.cours-eu.pc)/eu.pc*100;}cnt++}
+        if(eu!=null){_applyPx(pos,eu.price,nowMs);pos.quoteTs=eu.t?eu.t*1000:null;pos.w52h=eu.w52h;pos.w52l=eu.w52l;if(eu.pc>0){pos.prevClose=eu.pc;pos.dayPct=(pos.cours-eu.pc)/eu.pc*100;pos.dayPctAt=nowMs;}cnt++}
       }));
     }catch(e){console.warn("EU stocks fail:",e)}
 
@@ -1913,6 +1913,8 @@ function _periodChange(days,nd){if(!days||days.length<2)return null;const now=da
 function _inBourse(n){const p=D.poches[n];if(!p)return false;const si=(D.prefs&&D.prefs.pocheShowIn&&D.prefs.pocheShowIn[n])||p.showIn;if(si==="bourse")return true;if(si==="hors")return false;return _famOf(n)==="cote";}
 function _bPos(){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
 function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
+// Variation du jour "fiable" pour l'agrégat : seulement une vraie source intraday (crypto / clôture officielle US ou EU) horodatée aujourd'hui. Exclut manuels, fonds (VL) et livrets qui ne bougent pas en séance.
+function _dayLive(x){if(!x||x.manual)return null;if(!x.dayPctAt)return null;if(new Date(x.dayPctAt).toDateString()!==new Date().toDateString())return null;return _dayPctOf(x);}
 window.setConv=(tk,n)=>{D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};n=Math.max(0,Math.min(100,Math.round(Number(n)||0)));if(n<=0)delete D.prefs.conv[tk];else D.prefs.conv[tk]=n;save();};
 function _convColor(v){return v>=70?"var(--grn)":v>=40?"var(--amb)":"var(--mut)";}
 window.saveThese=(tk)=>{const v=((document.getElementById("fTh")||{}).value||"").trim();D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};if(v)D.prefs.notes[tk]=v;else delete D.prefs.notes[tk];save();toast("Thèse enregistrée");};
@@ -2212,6 +2214,7 @@ window.aAddFlow=()=>{const names=Object.keys(D.poches||{}).filter(n=>_inBourse(n
 window.aAddTo=(poche)=>{const tk=(aSym.includes(".")?aSym.split(".")[0]:aSym);const existing=(D.poches[poche].positions||[]).find(x=>String(x.ticker).toUpperCase()===tk.toUpperCase());if(existing){cm();toast(tk+" est déjà dans cette enveloppe.");ePos(poche,existing.ticker);return;}const pos={titre:aName||tk,ticker:tk,qty:0,pru:0,cours:0,currency:aCur||"EUR"};if(aSym.includes("."))pos.avSymbol=aSym;if(aData&&aData.isin)pos.isin=aData.isin;D.poches[poche].positions.push(pos);cm();save();toast("Ajouté — édite la quantité et le PRU");const h=_findHolding(aSym,tk);if(h){aTab="portf";R();ePos(poche,tk);}};
 
 function actionPageHtml(){const bars=aData.ohlc||[];let cours=null,dp=null;if(bars.length){cours=bars[bars.length-1].c;const first=bars[0].c;if(first)dp=(cours-first)/first*100;}const _hp=_findHolding(aSym,aData.tkGuess);if(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0){cours=_hp[0].x.cours;}const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
+if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="undefined"&&CG[aSym])){aData._isinTried=true;tickerToIsin(aSym).then(is=>{if(is){aData.isin=is;R();}});}
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
 let h=`<div class="fade">`;
 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
@@ -2492,7 +2495,7 @@ window._pruCalc=()=>{const g=id=>{const e=document.getElementById(id);return e?p
 function segHtml(opts,act,fn){return `<div style="display:flex;border:1px solid var(--bdr);border-radius:10px;overflow-x:auto;background:var(--card);-webkit-overflow-scrolling:touch">`+opts.map(o=>`<span onclick="${fn}('${escAttr(String(o[0]))}')" style="flex:1 0 auto;text-align:center;font-size:11px;padding:8px 12px;cursor:pointer;white-space:nowrap;${act===o[0]?"background:var(--acc);color:#fff;font-weight:700":"color:var(--dim)"}">${esc(o[1])}</span>`).join("")+`</div>`;}
 window.setBSub=v=>{if(bSub==="resume"&&v!=="resume")_resetTools();if(v==="suivi")watchListOpen=null;bSub=v;R();};
 function bourseHtml(){const bl=_bPos();const F0=x=>Math.round(x).toLocaleString("fr-FR");
-let tot=0,inv=0,dayE=0,dayB=0;bl.forEach(r=>{tot+=r.v;inv+=(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x));const dp=_dayPctOf(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;}});
+let tot=0,inv=0,dayE=0,dayB=0;bl.forEach(r=>{tot+=r.v;inv+=(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x));const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;}});
 const pv=tot-inv;const pvPct=inv>0?pv/inv*100:0;const dayPct=dayB>0?dayE/dayB*100:null;
 let sh=`<div class="fade">`;
 sh+=`<div style="display:flex;gap:20px;border-bottom:1px solid var(--bdr);margin:4px 0 14px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Liste de suivi"]].map(t=>`<span onclick="setBSub('${t[0]}')" style="font-size:14px;padding-bottom:9px;cursor:pointer;${bSub===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
@@ -2504,7 +2507,7 @@ if(bSub==="resume"){
 sh+=`<div class="card"><div style="font-size:10px;color:var(--mut)">Valeur bourse</div><div class="mono" style="font-size:28px;font-weight:800;letter-spacing:-1px;margin:4px 0 2px">${fmtE_(tot)} €</div><div style="font-size:11px;color:var(--mut);margin-bottom:8px">sur ${fmtE_(inv)} € investis</div><span class="mono" style="font-size:11px;padding:3px 10px;border-radius:99px;background:${pv>=0?"#34d39918":"#f8717118"};color:${pv>=0?"var(--grn)":"var(--red)"}">${pv>=0?"+":""}${pvPct.toFixed(1)} % de plus-value</span></div>`;
 sh+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">`;
 sh+=`<div class="card" style="margin-bottom:0;padding:12px"><div style="font-size:10px;color:var(--mut)">Variation depuis le départ</div><div class="mono" style="font-size:17px;font-weight:800;margin:4px 0 5px;color:${pv>=0?"var(--grn)":"var(--red)"}">${pv>=0?"+":""}${isPriv()?"•••":F0(pv)+" €"}</div><span class="mono" style="font-size:11px;padding:2px 8px;border-radius:99px;background:${pv>=0?"#34d39918":"#f8717118"};color:${pv>=0?"var(--grn)":"var(--red)"}">${pvPct>=0?"+":""}${pvPct.toFixed(1)} %</span></div>`;
-sh+=`<div class="card" style="margin-bottom:0;padding:12px"><div style="font-size:10px;color:var(--mut)">Variation du jour</div><div class="mono" style="font-size:17px;font-weight:800;margin:4px 0 5px;color:${dayE>=0?"var(--grn)":"var(--red)"}">${dayPct!=null?(dayE>=0?"+":"")+fmtE_(dayE)+" €":"—"}</div>${dayPct!=null?`<span class="mono" style="font-size:11px;padding:2px 8px;border-radius:99px;background:${dayE>=0?"#34d39918":"#f8717118"};color:${dayE>=0?"var(--grn)":"var(--red)"}">${dayPct>=0?"+":""}${dayPct.toFixed(2)} %</span>`:`<span style="font-size:10px;color:var(--mut)">dès la prochaine séance</span>`}</div>`;
+sh+=`<div class="card" style="margin-bottom:0;padding:12px"><div style="font-size:10px;color:var(--mut);display:flex;align-items:center;gap:4px">Variation du jour<span onclick="event.stopPropagation();toast('Somme des mouvements de marché du jour, uniquement sur tes valeurs cotées et rafraîchies ce jour. Les fonds (VL), livrets et lignes manuelles ne bougent pas en séance : ils ne sont pas comptés ici.')" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer">?</span></div><div class="mono" style="font-size:17px;font-weight:800;margin:4px 0 5px;color:${dayE>=0?"var(--grn)":"var(--red)"}">${dayPct!=null?(dayE>=0?"+":"")+fmtE_(dayE)+" €":"—"}</div>${dayPct!=null?`<span class="mono" style="font-size:11px;padding:2px 8px;border-radius:99px;background:${dayE>=0?"#34d39918":"#f8717118"};color:${dayE>=0?"var(--grn)":"var(--red)"}">${dayPct>=0?"+":""}${dayPct.toFixed(2)} %</span>`:`<span style="font-size:10px;color:var(--mut)">dès la prochaine séance</span>`}</div>`;
 sh+=`</div>`;
 const dd2=pNames.map(n=>[n,byP[n].v]);
 sh+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 2px 6px">Répartition par enveloppe</div>`;
