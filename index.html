@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "157";
+const APP_VERSION = "158";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2002,7 +2002,18 @@ try{
   }
 }catch(e){}}
 async function loadDesc(){if(aData.descLoaded&&aData.sum&&aData.sum.desc)return;aData.descLoaded=true;if(!aData.sum||!aData.sum.desc){try{aData.sum=await fundFetch("summary",aSym);}catch(e){}}R();}
-window.trDesc=async()=>{const t=aData.sum&&aData.sum.desc;if(!t)return;const btn=document.getElementById("trBtn");if(btn)btn.textContent="Traduction…";try{const r=await fetchT(`${FUND_URL}/?tr=${encodeURIComponent(t)}&to=fr`,null,15000);const j=await r.json();if(j&&j.text){aData.descFr=j.text;R();}else if(btn)btn.textContent="Traduction indisponible";}catch(e){if(btn)btn.textContent="Traduction indisponible";}};
+// ─── Traduction : le worker (?tr=) dépend d'un service tiers qui tombe souvent.
+// On garde le worker en 1er, puis repli direct navigateur (les 2 API autorisent le CORS).
+function _chunkText(t,max){const parts=String(t).split(/([.!?]\s+)/);const out=[];let cur="";for(let i=0;i<parts.length;i++){const p=parts[i];if(cur.length+p.length>max&&cur){out.push(cur);cur="";}if(p.length>max){for(let k=0;k<p.length;k+=max)out.push(p.slice(k,k+max));}else cur+=p;}if(cur.trim())out.push(cur);return out.filter(s=>s.trim());}
+async function _trGtx(t,to){const r=await fetchT(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(to)}&dt=t&q=${encodeURIComponent(t)}`,null,15000);if(!r.ok)return null;const j=await r.json();if(!j||!j[0]||!j[0].length)return null;return j[0].map(s=>(s&&s[0])?s[0]:"").join("");}
+async function _trMM(t,to){const r=await fetchT(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(t)}&langpair=${encodeURIComponent("en|"+to)}`,null,15000);if(!r.ok)return null;const j=await r.json();const x=j&&j.responseData&&j.responseData.translatedText;return (x&&Number(j.responseStatus)===200)?x:null;}
+async function _trChunked(fn,text,to,max){const parts=_chunkText(text,max);const out=[];for(const p of parts){const s=await fn(p,to);if(!s)return null;out.push(s);}return out.length?out.join(" ").replace(/\s+/g," ").trim():null;}
+async function _translate(text,to){to=to||"fr";
+  try{const r=await fetchT(`${FUND_URL}/?tr=${encodeURIComponent(text)}&to=${to}`,null,15000);const j=await r.json();if(j&&j.text)return j.text;}catch(e){}
+  try{const s=await _trChunked(_trGtx,text,to,1500);if(s)return s;}catch(e){}
+  try{const s=await _trChunked(_trMM,text,to,450);if(s)return s;}catch(e){}
+  return null;}
+window.trDesc=async()=>{const t=aData.sum&&aData.sum.desc;if(!t)return;const btn=document.getElementById("trBtn");if(btn)btn.textContent="Traduction…";const out=await _translate(t,"fr");if(out){aData.descFr=out;R();}else if(btn)btn.textContent="Traduction indisponible";};
 
 let _aHoverIdx=null;
 function drawAChart(){
