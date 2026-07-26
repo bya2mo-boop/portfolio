@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "187";
+const APP_VERSION = "188";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -508,13 +508,15 @@ function getCutoffs() {
    return { "1s":now-7*86400000, "wtd":wtd, "1m":now-30*86400000, "3m":now-90*86400000, "mtd":mtd, "1a":now-365*86400000, "ytd":ytd, "tout":0 };
 }
 
-// Sur les vues longues, on ne garde que le DERNIER relevé de chaque journée : depuis que l'axe est
-// temporel, les multiples relevés d'un même jour se superposent sur la même abscisse et n'ajoutent
-// que du bruit. Sur 1 semaine, l'intra-journée a du sens : on garde tout.
-function _parJour(arr){
-  if(!Array.isArray(arr)||arr.length<2||htf==="1s")return arr;
+// On ne garde que le DERNIER relevé de chaque tranche : depuis que l'axe est temporel, des relevés
+// rapprochés se superposent sur la même abscisse et n'ajoutent que du bruit (l'app enregistre parfois
+// dix points en dix minutes). Une journée sur les vues longues ; sur 1 semaine, une heure — assez fin
+// pour garder le détail intra-journée, assez large pour éliminer les empilements.
+function _echantillonne(arr){
+  if(!Array.isArray(arr)||arr.length<2)return arr;
+  const cle = htf==="1s" ? (t=>Math.floor(t/3600000)) : (t=>new Date(t).toDateString());
   const m=new Map();
-  arr.forEach(p=>{ m.set(new Date(p.t).toDateString(), p); });
+  arr.forEach(p=>{ m.set(cle(p.t), p); });
   return [...m.values()].sort((a,b)=>a.t-b.t);
 }
 function despike(arr, key){
@@ -583,7 +585,7 @@ function _patriCurveHtml(){
   // Même règle que la courbe bourse : on ignore les relevés sans détail par enveloppe. Ce sont les
   // tout premiers, enregistrés pendant la saisie du patrimoine — les inclure ferait passer la fin de
   // la saisie pour un gain (un bond de +41 % en un jour). Mieux vaut ne rien tracer qu'inventer.
-  const rh=_parJour(H.filter(x=>x.t>=cut&&x.v!=null&&x.env&&Object.keys(x.env).length>0));
+  const rh=_echantillonne(H.filter(x=>x.t>=cut&&x.v!=null&&x.env&&Object.keys(x.env).length>0));
   const opts=[["1s","1S"],["1m","1M"],["3m","3M"],["ytd","YTD"],["1a","1A"],["tout","TOUT"]];
   return `<div class="card" style="margin-bottom:10px;padding:16px 12px 12px"><div class="section" style="margin-bottom:2px">Évolution de ton patrimoine</div><div style="font-size:10px;color:var(--mut);margin-bottom:10px">tout compris : bourse, liquidités, immobilier</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${opts.map(o=>`<button onclick="setHtf('${o[0]}')" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===o[0]?"var(--acc)":"var(--bdr)"};background:${htf===o[0]?"var(--acc)":"transparent"};color:${htf===o[0]?"#fff":"var(--dim)"}">${o[1]}</button>`).join("")}</div>${lc(despike(rh,"v"),"v",300,150)}</div>`;
 }
@@ -1442,8 +1444,17 @@ function lc(data, k, w=300, h=180, pctBase=null) {
   const lerp=(a,b,t)=>a+(b-a)*t;
   for(let i=0;i<P.length-1;i++){
     const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||P[i+1];
-    const c1x=p1.x+(p2.x-p0.x)*K, c1y=p1.y+(p2.y-p0.y)*K;
-    const c2x=p2.x-(p3.x-p1.x)*K, c2y=p2.y-(p3.y-p1.y)*K;
+    // Les points de contrôle sont tirés de l'écartement des VOISINS. Avec des points régulièrement
+    // espacés c'est sans danger, mais depuis que l'axe est temporel l'espacement est très irrégulier
+    // (une nuit de 16 h, puis dix relevés en dix minutes) : le contrôle atterrissait alors loin
+    // au-delà du point d'arrivée et la courbe faisait des boucles et des pics. On borne donc l'offset
+    // à la moitié du segment courant. Sur des points bien espacés, le min retient toujours K : le
+    // tracé est identique à avant. Le lissage ne s'atténue que là où il déraillait.
+    const spanA=p2.x-p0.x, spanB=p3.x-p1.x, segx=p2.x-p1.x;
+    const kA = spanA>0 ? Math.min(K, segx/spanA*0.5) : 0;
+    const kB = spanB>0 ? Math.min(K, segx/spanB*0.5) : 0;
+    const c1x=p1.x+spanA*kA, c1y=p1.y+(p2.y-p0.y)*kA;
+    const c2x=p2.x-spanB*kB, c2y=p2.y-(p3.y-p1.y)*kB;
     curveCmds += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
     const v1=vs[i], v2=vs[i+1], s1=v1>=baseline, s2=v2>=baseline;
     if(s1===s2){
@@ -1779,7 +1790,7 @@ const _envCur = _envOK.indexOf(aEnvSel) >= 0 ? aEnvSel : "tout";
 // Série complète, AVANT filtre de période : la détection de saut/chute doit porter sur la série
 // réellement affichée (la bourse), pas sur le patrimoine — sinon on coupe l'historique au mauvais endroit.
 const _serie = H.map(x => ({ t: x.t, v: _envCur === "tout" ? _bourseVal(x) : (x.env && x.env[_envCur] !== undefined ? x.env[_envCur] : null) })).filter(x => x.v !== null);
-let chartData = _parJour(_serie.filter(x => x.t >= cut));
+let chartData = _echantillonne(_serie.filter(x => x.t >= cut));
 if(chartData.length === 0) chartData = [{t: Date.now(), v: (_envCur === "tout" ? d.bV : (D.poches[_envCur] ? D.poches[_envCur].valeur : 0))}];
 // Seul despike() reste : il ne corrige qu'un pic isolé (une valeur qui saute puis revient tout de
 // suite, ex. un taux de change raté). Les anciens lissages "début d'historique" et "paliers" ont été
