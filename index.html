@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "183";
+const APP_VERSION = "187";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -451,6 +451,10 @@ function downsampleH(){
 
 function rc(d){
   if(!d||!d.poches)return d;
+  // Migration : les réglages de lissage des courbes ont été supprimés (ils maquillaient de vraies
+  // tendances). On efface les clés devenues inutiles ; elles disparaîtront à la prochaine sauvegarde
+  // normale, sans écriture déclenchée exprès.
+  if(d.prefs){ delete d.prefs.seedMode; delete d.prefs.smoothMid; }
   const eurUsd=d.eurUsd||1.1;
   Object.entries(d.poches).forEach(([pocheName,p])=>{
     p.positions.forEach(x=>{
@@ -504,6 +508,15 @@ function getCutoffs() {
    return { "1s":now-7*86400000, "wtd":wtd, "1m":now-30*86400000, "3m":now-90*86400000, "mtd":mtd, "1a":now-365*86400000, "ytd":ytd, "tout":0 };
 }
 
+// Sur les vues longues, on ne garde que le DERNIER relevé de chaque journée : depuis que l'axe est
+// temporel, les multiples relevés d'un même jour se superposent sur la même abscisse et n'ajoutent
+// que du bruit. Sur 1 semaine, l'intra-journée a du sens : on garde tout.
+function _parJour(arr){
+  if(!Array.isArray(arr)||arr.length<2||htf==="1s")return arr;
+  const m=new Map();
+  arr.forEach(p=>{ m.set(new Date(p.t).toDateString(), p); });
+  return [...m.values()].sort((a,b)=>a.t-b.t);
+}
 function despike(arr, key){
   if(!Array.isArray(arr)||arr.length<3)return arr;
   let out=arr.map(x=>({...x}));
@@ -517,8 +530,6 @@ function despike(arr, key){
   }
   return out;
 }
-function detectPlateauAnomalies(arr){if(!Array.isArray(arr)||arr.length<6)return [];const n=arr.length;const v=arr.map(x=>x.v);const W=Math.max(8,Math.round(n*0.25));const med=[];for(let i=0;i<n;i++){const lo=Math.max(0,i-W),hi=Math.min(n-1,i+W);const w=v.slice(lo,hi+1).slice().sort((a,b)=>a-b);med[i]=w[Math.floor(w.length/2)];}const TH=0.06;const anom=v.map((x,i)=>med[i]>0&&Math.abs(x-med[i])/med[i]>TH);const segs=[];let i=0;while(i<n){if(anom[i]){let j=i;while(j<n&&anom[j])j++;segs.push({start:i,end:j-1});i=j;}else i++;}return segs;}
-function flattenAnoms(arr,segs){if(!segs||!segs.length)return arr;const out=arr.map(x=>({...x}));segs.forEach(s=>{const hasA=s.start-1>=0;const hasB=s.end+1<out.length;const a=hasA?out[s.start-1].v:(hasB?out[s.end+1].v:out[s.start].v);const b=hasB?out[s.end+1].v:a;const ai=hasA?s.start-1:s.start;const bi=hasB?s.end+1:s.end;const span=bi-ai;for(let k=s.start;k<=s.end;k++){const frac=span>0?(k-ai)/span:0;out[k].v=a+(b-a)*frac;}});return out;}
 function applyPosSort(arr){const m=(D.prefs&&D.prefs.posSort)||'val_desc';const a=[...arr];const pp=x=>(x.plPct!=null?x.plPct:(x.pru>0?((x.cours-x.pru)/x.pru*100):0));switch(m){case 'val_asc':return a.sort((x,y)=>(x.valeur||0)-(y.valeur||0));case 'az':return a.sort((x,y)=>String(x.ticker||'').localeCompare(String(y.ticker||'')));case 'pl_desc':return a.sort((x,y)=>pp(y)-pp(x));case 'pl_asc':return a.sort((x,y)=>pp(x)-pp(y));default:return a.sort((x,y)=>(y.valeur||0)-(x.valeur||0));}}
 function _lcHover(e,uid){const o=window._LC&&window._LC[uid];if(!o)return;if(e.touches&&e.cancelable)e.preventDefault();const cx=e.touches?e.touches[0].clientX:e.clientX;const r=e.currentTarget.getBoundingClientRect();let rel=(cx-r.left)/r.width;rel=Math.max(0,Math.min(1,rel));const i=Math.round(rel*(o.xs.length-1));const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(!ln||!cc)return;const ptCol=(o.baseline!=null&&o.vs[i]<o.baseline)?o.red:o.grn;ln.setAttribute("x1",o.xs[i]);ln.setAttribute("x2",o.xs[i]);ln.setAttribute("opacity","0.6");ln.setAttribute("stroke",ptCol);cc.setAttribute("cx",o.xs[i]);cc.setAttribute("cy",o.ys[i]);cc.setAttribute("opacity","1");cc.setAttribute("fill",ptCol);if(v)v.textContent=(Math.abs(o.vs[i])>=1000?fmt_(o.vs[i]):Number(o.vs[i]).toFixed(2));if(d){d.textContent=o.tsf[i];d.setAttribute("fill","var(--dim)");}}
 function _lcOut(uid){const o=window._LC&&window._LC[uid];if(!o)return;const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(ln)ln.setAttribute("opacity","0");if(cc)cc.setAttribute("opacity","0");if(v)v.textContent=o.d1;if(d){d.textContent=o.d2;d.setAttribute("fill",o.col);}}
@@ -532,14 +543,47 @@ window._patriInfo=()=>{const d=ga();const cash=D.cash||0;const bourse=_bPos().re
 function _perimetreHtml(){const names=Object.keys((D&&D.poches)||{});if(!names.length)return"";const rows=names.map(n=>{const inc=_perfInc(n);const val=(D.poches[n]&&D.poches[n].valeur)||0;return `<div onclick="togglePerfEnv('${escAttr(n)}')" style="display:flex;align-items:center;gap:12px;padding:11px 14px;background:var(--inp);border:1px solid ${inc?"#6c8cff55":"var(--bdr)"};border-radius:12px;margin-bottom:8px;cursor:pointer"><div style="width:40px;height:23px;border-radius:99px;background:${inc?"var(--acc)":"var(--bdr)"};position:relative;flex-shrink:0;transition:background .2s"><div style="position:absolute;top:2px;left:${inc?"19px":"2px"};width:19px;height:19px;border-radius:50%;background:#fff;transition:left .2s;box-shadow:0 1px 2px rgba(0,0,0,.35)"></div></div><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;${inc?"":"color:var(--mut)"}">${esc(n)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${fmt_(Math.round(val))} €</div></div><span style="font-size:10px;font-weight:700;color:${inc?"var(--acc)":"var(--mut)"};flex-shrink:0">${inc?"Comptée":"Ignorée"}</span></div>`;}).join("");
 return `<div class="card" style="margin-bottom:10px"><div class="section" style="display:flex;align-items:center;gap:5px">Périmètre de ma performance<span onclick="toast('Coche les enveloppes à compter dans ta performance (P&L latent, TWR, courbe). Décoche par ex. un livret ou un fonds sans vraie perf. Modifiable à tout moment.\n\nÀ savoir : si tu changes ce périmètre, la performance dans le temps (TWR, courbe) calculée AVANT ce changement peut être approximative sur la partie passée ; elle redevient exacte au fil des prochains relevés. Le P&L latent du jour, lui, est toujours exact.')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0">?</span></div><div style="font-size:11px;color:var(--mut);margin-bottom:12px">Les enveloppes activées comptent dans ta performance.</div>${rows}</div>`;}
 window.togglePerfEnv=(n)=>{D.prefs=D.prefs||{};D.prefs.perfExcl=D.prefs.perfExcl||{};if(D.prefs.perfExcl[n])delete D.prefs.perfExcl[n];else D.prefs.perfExcl[n]=true;save();};
-// Courbe P&L latent (onglet Performance › Dans le temps).
-// Transactions réalisées (onglet Performance › Réalisé).
+// Décompose la variation affichée par la courbe bourse. Sans ça, une vente fait plonger la courbe
+// sans explication : l'argent quitte les placements pour les liquidités, ce n'est pas une perte.
+// Les achats ne sont enregistrés nulle part, donc tant que les montants investis par enveloppe
+// (envInv, rempli depuis le 24/07/2026) ne couvrent pas les deux bouts de la période, on n'invente
+// aucune décomposition : on affiche les ventes réelles, qui sont datées et exactes. Dès que les deux
+// bornes sont disponibles, le calcul exact prend le relais tout seul.
+function _fluxHtml(disp, envCur){
+  if(!Array.isArray(disp)||disp.length<2)return"";
+  const t0=disp[0].t, t1=disp[disp.length-1].t;
+  const varia=disp[disp.length-1].v-disp[0].v;
+  const invAt=(t)=>{const p=H.find(x=>x.t===t);if(!p||!p.envInv)return null;
+    if(envCur!=="tout")return p.envInv[envCur]!=null?p.envInv[envCur]:null;
+    return _bourseInv(p);};
+  const i0=invAt(t0), i1=invAt(t1);
+  const ventes=(D.sales||[]).filter(s=>{const t=new Date(s.date).getTime();
+    if(!(t>=t0&&t<=t1))return false;
+    return envCur==="tout"?_perfInc(s.poche):s.poche===envCur;});
+  const cV=varia>=0?"var(--grn)":"var(--red)";
+  const entete=`<div style="font-size:12px"><span style="color:var(--dim)">Sur la période :</span> <span class="mono" style="font-weight:700;color:${cV}">${varia>=0?"+":""}${fmt_(Math.round(varia))} €</span></div><div style="font-size:10px;color:var(--mut);line-height:1.45;margin-top:4px">Cette courbe ne suit que tes placements : ce que tu vends en sort, ce que tu réinvestis y revient.</div>`;
+  let detail="";
+  if(i0!=null&&i1!=null&&i0>0&&i1>0){
+    const flux=i1-i0, marche=varia-flux;
+    const cM=marche>=0?"var(--grn)":"var(--red)";
+    const fTxt=Math.abs(flux)<1?"aucun mouvement d'argent":`${fmt_(Math.round(Math.abs(flux)))} € ${flux>0?"d'argent ajouté":"retirés"}`;
+    detail=`<div style="font-size:11px;color:var(--dim);margin-top:6px">dont ${fTxt} · <span class="mono" style="font-weight:700;color:${cM}">${marche>=0?"+":""}${fmt_(Math.round(marche))} €</span> d'évolution de tes placements</div>`;
+  } else if(ventes.length){
+    const net=ventes.reduce((s,x)=>s+(x.net||0),0);
+    const pl=ventes.reduce((s,x)=>s+(x.pl||0),0);
+    const cP=pl>=0?"var(--grn)":"var(--red)";
+    detail=`<div style="font-size:11px;color:var(--dim);margin-top:6px">${ventes.length} vente${ventes.length>1?"s":""} sur la période (${fmt_(Math.round(net))} € encaissés, résultat <span class="mono" style="font-weight:700;color:${cP}">${pl>=0?"+":""}${fmt_(Math.round(pl))} €</span>)</div>`;
+  } else return"";
+  return `<div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--bdr)">${entete}${detail}</div>`;
+}
 // Courbe du patrimoine COMPLET, réservée à l'onglet Patrimoine (source `v` de l'historique
 // = bourse + liquidités + immobilier). Règle : jamais sur le même écran que la courbe bourse.
 function _patriCurveHtml(){
   const cut=getCutoffs()[htf]||0;
-  const rh=H.filter(x=>x.t>=cut&&x.v!=null);
-  if(rh.length<2)return"";
+  // Même règle que la courbe bourse : on ignore les relevés sans détail par enveloppe. Ce sont les
+  // tout premiers, enregistrés pendant la saisie du patrimoine — les inclure ferait passer la fin de
+  // la saisie pour un gain (un bond de +41 % en un jour). Mieux vaut ne rien tracer qu'inventer.
+  const rh=_parJour(H.filter(x=>x.t>=cut&&x.v!=null&&x.env&&Object.keys(x.env).length>0));
   const opts=[["1s","1S"],["1m","1M"],["3m","3M"],["ytd","YTD"],["1a","1A"],["tout","TOUT"]];
   return `<div class="card" style="margin-bottom:10px;padding:16px 12px 12px"><div class="section" style="margin-bottom:2px">Évolution de ton patrimoine</div><div style="font-size:10px;color:var(--mut);margin-bottom:10px">tout compris : bourse, liquidités, immobilier</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px">${opts.map(o=>`<button onclick="setHtf('${o[0]}')" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${htf===o[0]?"var(--acc)":"var(--bdr)"};background:${htf===o[0]?"var(--acc)":"transparent"};color:${htf===o[0]?"#fff":"var(--dim)"}">${o[1]}</button>`).join("")}</div>${lc(despike(rh,"v"),"v",300,150)}</div>`;
 }
@@ -654,9 +698,6 @@ function perfReelle(){if(!H||H.length<3)return null;const s0=H.slice().sort((a,b
 
 // Détection symétrique : une chute brutale en début d'historique est aussi suspecte qu'un grand
 // saut. On retient la plus forte variation en valeur absolue et on garde son signe (dir).
-function seedJumpInfo(arr){if(!arr||arr.length<4)return {hasJump:false};const n=arr.length;const half=Math.max(3,Math.floor(n*0.5));let ci=0,best=0;for(let i=1;i<half;i++){const a=arr[i-1].v||0,b=arr[i].v||0;if(a>0){const rr=(b-a)/a;if(Math.abs(rr)>Math.abs(best)){best=rr;ci=i;}}}if(Math.abs(best)>0.25&&ci>0&&ci<n-1)return {hasJump:true,cutIdx:ci,ratio:best,dir:best<0?"down":"up"};return {hasJump:false};}
-window.setSeedMode=(m)=>{if(!D.prefs)D.prefs={};D.prefs.seedMode=m;R();save();};
-window.setSmoothMid=(m)=>{if(!D.prefs)D.prefs={};D.prefs.smoothMid=m;R();save();};
 window.setPosSort=(m)=>{if(!D.prefs)D.prefs={};D.prefs.posSort=m;R();save();};
 window.movePoche=(name,dir)=>{const keys=Object.keys(D.poches);const i=keys.indexOf(name);if(i<0)return;const j=i+dir;if(j<0||j>=keys.length)return;keys.splice(i,1);keys.splice(j,0,name);const np={};keys.forEach(k=>{np[k]=D.poches[k];});D.poches=np;save();gerer();};
 window.togglePocheBourse=(name)=>{const p=D.poches[name];if(!p)return;const now=_inBourse(name);D.prefs=D.prefs||{};D.prefs.pocheShowIn=D.prefs.pocheShowIn||{};D.prefs.pocheShowIn[name]=now?"hors":"bourse";p.showIn=D.prefs.pocheShowIn[name];save();R();};
@@ -1384,7 +1425,15 @@ function lc(data, k, w=300, h=180, pctBase=null) {
 
   const col = isPos ? "#34d399" : "#f87171";
 
-  const P = vs.map((v,i)=>({x: pdX+(i/(vs.length-1))*cw, y: pt+ch-((v-dMin)/rg*ch)}));
+  // Axe horizontal = le TEMPS, pas le numéro du point. Avant, un point valait une part égale de
+  // largeur quelle que soit sa date : des relevés hebdomadaires au début et plusieurs par jour à la
+  // fin écrasaient des mois entiers sur quelques pixels. Repli sur l'espacement régulier si toutes
+  // les dates sont identiques (ou absentes), sinon division par zéro.
+  const ts = data.map(d=>d.t);
+  const tMin = Math.min(...ts), tMax = Math.max(...ts);
+  const tRg = tMax - tMin;
+  const xAt = (i)=> (isFinite(tRg) && tRg > 0) ? (ts[i]-tMin)/tRg : (i/(vs.length-1));
+  const P = vs.map((v,i)=>({x: pdX+xAt(i)*cw, y: pt+ch-((v-dMin)/rg*ch)}));
   const K = 0.16;
   let curveCmds = "";
   const GRN="#34d399", RED="#f87171";
@@ -1730,15 +1779,12 @@ const _envCur = _envOK.indexOf(aEnvSel) >= 0 ? aEnvSel : "tout";
 // Série complète, AVANT filtre de période : la détection de saut/chute doit porter sur la série
 // réellement affichée (la bourse), pas sur le patrimoine — sinon on coupe l'historique au mauvais endroit.
 const _serie = H.map(x => ({ t: x.t, v: _envCur === "tout" ? _bourseVal(x) : (x.env && x.env[_envCur] !== undefined ? x.env[_envCur] : null) })).filter(x => x.v !== null);
-const _seed = seedJumpInfo(_serie);
-const _seedMode = (D.prefs && D.prefs.seedMode) || null;
-const _base = (_seed.hasJump && _seedMode === "smooth") ? _serie.slice(_seed.cutIdx) : _serie;
-let chartData = _base.filter(x => x.t >= cut);
+let chartData = _parJour(_serie.filter(x => x.t >= cut));
 if(chartData.length === 0) chartData = [{t: Date.now(), v: (_envCur === "tout" ? d.bV : (D.poches[_envCur] ? D.poches[_envCur].valeur : 0))}];
-const _smoothMid = (D.prefs && D.prefs.smoothMid) || null;
-const _anoms = detectPlateauAnomalies(chartData);
-const _disp0 = despike(chartData,"v");
-const _dispFinal = (_smoothMid==='smooth' && _anoms.length) ? despike(flattenAnoms(chartData,_anoms),"v") : _disp0;
+// Seul despike() reste : il ne corrige qu'un pic isolé (une valeur qui saute puis revient tout de
+// suite, ex. un taux de change raté). Les anciens lissages "début d'historique" et "paliers" ont été
+// supprimés : ils maquillaient de vraies tendances et affichaient des chiffres faux.
+const _dispFinal = despike(chartData,"v");
 
 const timeOpts = [{v:"1s", l:"1S"},{v:"1m", l:"1M"},{v:"3m", l:"3M"},{v:"ytd", l:"YTD"},{v:"1a", l:"1A"},{v:"tout", l:"TOUT"}];
 // Plus de CASH ni d'IMMO : ils n'ont pas de sens sur une courbe bourse. Seules les enveloppes comptées.
@@ -1779,8 +1825,7 @@ ${anaSub==="portef"&&anaView==="perf"?_backBtn("Portefeuille")+`<div style="marg
 <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--bdr)">${timeOpts.map(o=>`<button onclick="setHtf('${o.v}')" style="padding:6px 13px;border-radius:999px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid ${htf===o.v?"var(--acc)":"var(--bdr)"};background:${htf===o.v?"var(--acc)":"transparent"};color:${htf===o.v?"#fff":"var(--dim)"}">${o.l}</button>`).join("")}</div>
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><span style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;flex-shrink:0">Enveloppe</span><select onchange="setAEnv(this.value)" style="flex:1;padding:8px 10px;border-radius:8px;background:var(--inp);color:var(--txt);border:1px solid var(--bdr);font-size:12px;font-weight:600;font-family:inherit">${envOpts.map(o=>`<option value="${o.v}" ${_envCur===o.v?"selected":""}>${o.l}</option>`).join("")}</select></div>
 ${lc(_dispFinal, "v", 300, 160)}
-${(_anoms.length && !_smoothMid)?`<div style="margin-top:10px;padding:10px;background:#6c8cff12;border:1px solid #6c8cff33;border-radius:10px;font-size:11px;color:var(--dim);line-height:1.5">📉 ${_anoms.length} variation${_anoms.length>1?'s':''} anormale${_anoms.length>1?'s':''} détectée${_anoms.length>1?'s':''} (un palier qui monte puis revient — souvent un souci de données). On lisse ?<div style="display:flex;gap:8px;margin-top:8px"><button onclick="setSmoothMid('keep')" style="flex:1;padding:7px 0;border-radius:7px;border:1px solid var(--bdr);background:transparent;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer">Garder</button><button onclick="setSmoothMid('smooth')" style="flex:1;padding:7px 0;border-radius:7px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-size:11px;font-weight:600;cursor:pointer">Lisser</button></div></div>`:""}
-${(_seed.hasJump && !_seedMode)?`<div style="margin-top:10px;padding:10px;background:#6c8cff12;border:1px solid #6c8cff33;border-radius:10px;font-size:11px;color:var(--dim);line-height:1.5">${_seed.dir==="down"?"📉":"📈"} ${_seed.dir==="down"?`Une chute brutale (~−${Math.round(Math.abs(_seed.ratio)*100)} %) a été détectée en début d'historique. Vrai retrait d'argent, ou correction de saisie ?`:`Un grand saut (~+${Math.round(_seed.ratio*100)} %) a été détecté en début d'historique. Vraie hausse, ou correction de saisie initiale ?`}<div style="display:flex;gap:8px;margin-top:8px"><button onclick="setSeedMode('keep')" style="flex:1;padding:7px 0;border-radius:7px;border:1px solid var(--bdr);background:transparent;color:var(--dim);font-size:11px;font-weight:600;cursor:pointer">Garder (${_seed.dir==="down"?"vrai retrait":"vraie hausse"})</button><button onclick="setSeedMode('smooth')" style="flex:1;padding:7px 0;border-radius:7px;border:1px solid var(--acc);background:var(--acc);color:#fff;font-size:11px;font-weight:600;cursor:pointer">Masquer le début</button></div><div style="font-size:10px;color:var(--mut);margin-top:6px">« Masquer le début » cache le début de la courbe à l'écran. Tes données ne sont pas supprimées.</div></div>`:""}
+${_fluxHtml(_dispFinal, _envCur)}
 </div>
 ${(()=>{const pr=perfReelle();if(!pr)return "";const fmtD=dt=>dt.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"});const inTxt=(dt)=>{const dd=Math.ceil((dt-Date.now())/86400000);if(dd<=0)return"bientôt";if(dd<30)return"dans ~"+dd+" j";return"dans ~"+Math.round(dd/30)+" mois";};const lockBox=(txt)=>`<div style="font-size:15px;margin-top:3px">⏳</div><div style="font-size:10px;color:var(--mut);line-height:1.3">${txt}</div>`;return `<div class="card" style="margin-bottom:10px"><div class="section" style="display:flex;align-items:center;gap:5px">Performance nette<span onclick="toast('La TWR (performance pondérée dans le temps) mesure la vraie performance de tes placements en neutralisant tes apports et retraits — comme si les versements ne comptaient pas. « Depuis le suivi » = depuis le début de ton historique. « Annualisé » = ramené à une année.')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer;text-transform:none;letter-spacing:0">?</span></div><div style="display:flex;gap:6px"><div style="flex:1;text-align:center"><div style="font-size:10px;color:var(--dim);text-transform:uppercase">Depuis le suivi</div>${pr.cumLocked?lockBox("dispo "+inTxt(pr.unlockCum)):`<div class="mono" style="font-size:16px;font-weight:700;margin-top:2px;color:${pr.cum>=0?"var(--grn)":"var(--red)"}">${pr.cum>=0?"+":""}${pr.cum.toFixed(1)}%</div><div style="font-size:10px;color:var(--mut)">hors versements</div>`}</div><div style="flex:1;text-align:center"><div style="font-size:10px;color:var(--dim);text-transform:uppercase">Annualisé</div>${pr.ann!=null?`<div class="mono" style="font-size:16px;font-weight:700;margin-top:2px;color:${pr.ann>=0?"var(--grn)":"var(--red)"}">${pr.ann>=0?"+":""}${pr.ann.toFixed(1)}%</div><div style="font-size:10px;color:var(--mut)">par an</div>`:lockBox("dispo "+inTxt(pr.unlockAnn))}</div></div>${pr.cumLocked?`<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.45;text-align:center">⏳ Pas encore assez d'historique fiable. Attends un peu, ou ajoute un point d'historique ci-dessous.</div>`:`<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4;text-align:center">Performance pondérée dans le temps (TWR), hors apports.</div>`}<div onclick="addHistPoint()" style="text-align:center;margin-top:8px;font-size:11px;color:var(--acc);cursor:pointer">+ Ajouter un point d'historique (débloque plus tôt)</div></div>`;})()}
 `):""}
