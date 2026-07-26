@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "188";
+const APP_VERSION = "191";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -533,7 +533,13 @@ function despike(arr, key){
   return out;
 }
 function applyPosSort(arr){const m=(D.prefs&&D.prefs.posSort)||'val_desc';const a=[...arr];const pp=x=>(x.plPct!=null?x.plPct:(x.pru>0?((x.cours-x.pru)/x.pru*100):0));switch(m){case 'val_asc':return a.sort((x,y)=>(x.valeur||0)-(y.valeur||0));case 'az':return a.sort((x,y)=>String(x.ticker||'').localeCompare(String(y.ticker||'')));case 'pl_desc':return a.sort((x,y)=>pp(y)-pp(x));case 'pl_asc':return a.sort((x,y)=>pp(x)-pp(y));default:return a.sort((x,y)=>(y.valeur||0)-(x.valeur||0));}}
-function _lcHover(e,uid){const o=window._LC&&window._LC[uid];if(!o)return;if(e.touches&&e.cancelable)e.preventDefault();const cx=e.touches?e.touches[0].clientX:e.clientX;const r=e.currentTarget.getBoundingClientRect();let rel=(cx-r.left)/r.width;rel=Math.max(0,Math.min(1,rel));const i=Math.round(rel*(o.xs.length-1));const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(!ln||!cc)return;const ptCol=(o.baseline!=null&&o.vs[i]<o.baseline)?o.red:o.grn;ln.setAttribute("x1",o.xs[i]);ln.setAttribute("x2",o.xs[i]);ln.setAttribute("opacity","0.6");ln.setAttribute("stroke",ptCol);cc.setAttribute("cx",o.xs[i]);cc.setAttribute("cy",o.ys[i]);cc.setAttribute("opacity","1");cc.setAttribute("fill",ptCol);if(v)v.textContent=(Math.abs(o.vs[i])>=1000?fmt_(o.vs[i]):Number(o.vs[i]).toFixed(2));if(d){d.textContent=o.tsf[i];d.setAttribute("fill","var(--dim)");}}
+function _lcHover(e,uid){const o=window._LC&&window._LC[uid];if(!o)return;if(e.touches&&e.cancelable)e.preventDefault();const cx=e.touches?e.touches[0].clientX:e.clientX;const r=e.currentTarget.getBoundingClientRect();let rel=(cx-r.left)/r.width;rel=Math.max(0,Math.min(1,rel));
+// Le point le plus proche se cherche par sa POSITION, pas par son numéro : depuis que l'axe suit le
+// temps, les points ne sont plus régulièrement espacés (une nuit de 16 h, puis dix relevés en dix
+// minutes) et diviser par le nombre de points désignerait le mauvais relevé. On n'interpole jamais :
+// la valeur affichée est toujours un relevé réellement enregistré.
+const xCible=rel*(o.cw||1);let i=0,meilleur=Infinity;
+for(let j=0;j<o.xs.length;j++){const dd=Math.abs(o.xs[j]-xCible);if(dd<meilleur){meilleur=dd;i=j;}}const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(!ln||!cc)return;const ptCol=o.col;ln.setAttribute("x1",o.xs[i]);ln.setAttribute("x2",o.xs[i]);ln.setAttribute("opacity","0.6");ln.setAttribute("stroke",ptCol);cc.setAttribute("cx",o.xs[i]);cc.setAttribute("cy",o.ys[i]);cc.setAttribute("opacity","1");cc.setAttribute("fill",ptCol);if(v)v.textContent=(Math.abs(o.vs[i])>=1000?fmt_(o.vs[i]):Number(o.vs[i]).toFixed(2));if(d){d.textContent=o.tsf[i];d.setAttribute("fill","var(--dim)");}}
 function _lcOut(uid){const o=window._LC&&window._LC[uid];if(!o)return;const ln=document.getElementById("cl-"+uid),cc=document.getElementById("cc-"+uid),v=document.getElementById("lcv-"+uid),d=document.getElementById("lcd-"+uid);if(ln)ln.setAttribute("opacity","0");if(cc)cc.setAttribute("opacity","0");if(v)v.textContent=o.d1;if(d){d.textContent=o.d2;d.setAttribute("fill",o.col);}}
 
 // Bloc "Aujourd'hui" de l'onglet Performance : P&L latent (périmètre perf) + P&L réalisé.
@@ -1418,14 +1424,20 @@ function lc(data, k, w=300, h=180, pctBase=null) {
   const pad = (mx - mn) * 0.1;
   const dMin = mn - pad, dMax = mx + pad, rg = dMax - dMin;
 
+  // Gouttière à droite : les valeurs des repères vivent hors du tracé et ne le chevauchent jamais.
+  const gR = 34;
   const pdX = 0, pt = 42, pb = 20;
-  const cw = w - pdX * 2, ch = h - pt - pb;
+  const cw = w - pdX - gR, ch = h - pt - pb;
 
   const startVal = vs[0];
   const diff = endVal - startVal;
   const isPos = diff >= 0;
-
-  const col = isPos ? "#34d399" : "#f87171";
+  // Couleur unique et neutre : le graphique ne juge pas. Le vert/rouge est sur le chiffre, au-dessus,
+  // où il est mieux placé — une baisse de 2 % ne doit pas s'afficher aussi rouge qu'une chute de 30 %.
+  const col = "var(--acc)";
+  const dCol = isPos ? "var(--grn)" : "var(--red)";
+  // Valeurs des repères abrégées : 72k, 64k. La valeur exacte reste disponible au doigt.
+  const fmtK = (v)=>{const a=Math.abs(v); if(a>=10000) return Math.round(v/1000)+"k"; if(a>=1000) return (v/1000).toFixed(1)+"k"; return String(Math.round(v));};
 
   // Axe horizontal = le TEMPS, pas le numéro du point. Avant, un point valait une part égale de
   // largeur quelle que soit sa date : des relevés hebdomadaires au début et plusieurs par jour à la
@@ -1436,42 +1448,26 @@ function lc(data, k, w=300, h=180, pctBase=null) {
   const tRg = tMax - tMin;
   const xAt = (i)=> (isFinite(tRg) && tRg > 0) ? (ts[i]-tMin)/tRg : (i/(vs.length-1));
   const P = vs.map((v,i)=>({x: pdX+xAt(i)*cw, y: pt+ch-((v-dMin)/rg*ch)}));
+
   const K = 0.16;
   let curveCmds = "";
-  const GRN="#34d399", RED="#f87171";
-  const baseline = startVal;
-  const segPaths = [];
-  const lerp=(a,b,t)=>a+(b-a)*t;
   for(let i=0;i<P.length-1;i++){
     const p0=P[i-1]||P[i], p1=P[i], p2=P[i+1], p3=P[i+2]||P[i+1];
     // Les points de contrôle sont tirés de l'écartement des VOISINS. Avec des points régulièrement
-    // espacés c'est sans danger, mais depuis que l'axe est temporel l'espacement est très irrégulier
-    // (une nuit de 16 h, puis dix relevés en dix minutes) : le contrôle atterrissait alors loin
-    // au-delà du point d'arrivée et la courbe faisait des boucles et des pics. On borne donc l'offset
-    // à la moitié du segment courant. Sur des points bien espacés, le min retient toujours K : le
-    // tracé est identique à avant. Le lissage ne s'atténue que là où il déraillait.
+    // espacés c'est sans danger, mais l'axe temporel rend l'espacement très irrégulier (une nuit de
+    // 16 h, puis dix relevés en dix minutes) : le contrôle atterrissait alors loin au-delà du point
+    // d'arrivée et la courbe faisait des boucles. On borne l'offset à la moitié du segment courant.
+    // Sur des points bien espacés, le min retient toujours K : le tracé est identique.
     const spanA=p2.x-p0.x, spanB=p3.x-p1.x, segx=p2.x-p1.x;
     const kA = spanA>0 ? Math.min(K, segx/spanA*0.5) : 0;
     const kB = spanB>0 ? Math.min(K, segx/spanB*0.5) : 0;
     const c1x=p1.x+spanA*kA, c1y=p1.y+(p2.y-p0.y)*kA;
     const c2x=p2.x-spanB*kB, c2y=p2.y-(p3.y-p1.y)*kB;
     curveCmds += ` C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
-    const v1=vs[i], v2=vs[i+1], s1=v1>=baseline, s2=v2>=baseline;
-    if(s1===s2){
-      segPaths.push({d:`M${p1.x.toFixed(1)},${p1.y.toFixed(1)} C${c1x.toFixed(1)},${c1y.toFixed(1)} ${c2x.toFixed(1)},${c2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`,c:s1?GRN:RED});
-    }else{
-      const t=(v2!==v1)?((baseline-v1)/(v2-v1)):0.5;
-      const q0x=lerp(p1.x,c1x,t), q0y=lerp(p1.y,c1y,t);
-      const q1x=lerp(c1x,c2x,t), q1y=lerp(c1y,c2y,t);
-      const q2x=lerp(c2x,p2.x,t), q2y=lerp(c2y,p2.y,t);
-      const r0x=lerp(q0x,q1x,t), r0y=lerp(q0y,q1y,t);
-      const r1x=lerp(q1x,q2x,t), r1y=lerp(q1y,q2y,t);
-      const sx=lerp(r0x,r1x,t), sy=lerp(r0y,r1y,t);
-      segPaths.push({d:`M${p1.x.toFixed(1)},${p1.y.toFixed(1)} C${q0x.toFixed(1)},${q0y.toFixed(1)} ${r0x.toFixed(1)},${r0y.toFixed(1)} ${sx.toFixed(1)},${sy.toFixed(1)}`,c:s1?GRN:RED});
-      segPaths.push({d:`M${sx.toFixed(1)},${sy.toFixed(1)} C${r1x.toFixed(1)},${r1y.toFixed(1)} ${q2x.toFixed(1)},${q2y.toFixed(1)} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`,c:s2?GRN:RED});
-    }
   }
-  const ptArea = `M${P[0].x.toFixed(1)},${(pt+ch).toFixed(1)} L${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}` + curveCmds + ` L${(pdX+cw).toFixed(1)},${(pt+ch).toFixed(1)} Z`;
+  const last = P[P.length-1];
+  const ptLine = `M${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}` + curveCmds;
+  const ptArea = `M${P[0].x.toFixed(1)},${(pt+ch).toFixed(1)} L${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}` + curveCmds + ` L${last.x.toFixed(1)},${(pt+ch).toFixed(1)} Z`;
 
   const diffPct = (pctBase!=null&&pctBase>0) ? (diff / pctBase * 100) : (startVal !== 0 ? (diff / Math.abs(startVal) * 100) : 0);
   const diffSign = isPos ? "+" : "";
@@ -1487,42 +1483,30 @@ function lc(data, k, w=300, h=180, pctBase=null) {
     return dateStr;
   };
 
-  const yZero = (dMin < 0 && dMax > 0) ? pt + ch - ((0 - dMin) / rg * ch) : -1;
+  // Trois repères horizontaux seulement, et aucune ligne verticale : la lecture au doigt donne la
+  // date bien mieux qu'en comptant des traits, et chaque trait en moins profite à la courbe.
+  const grid = [0, 0.5, 1].map(f=>({y: pt + f*ch, v: dMax - (dMax-dMin)*f}));
+
   const uid = Math.random().toString(36).substring(2,9);
   window._LC=window._LC||{};
-  window._LC[uid]={xs:vs.map((v,i)=>pdX+(i/(vs.length-1))*cw),ys:vs.map(v=>pt+ch-((v-dMin)/rg*ch)),vs:vs.slice(),tsf:data.map(d=>formatT(d.t)),d1:fmtC(endVal),d2:diffSign+fmtC(diff)+" ("+diffSign+diffPct.toFixed(1)+"%)",col:col,baseline:baseline,grn:GRN,red:RED};
+  // cw est nécessaire à la lecture au doigt : elle convertit la position du doigt en coordonnée du
+  // tracé pour chercher le point le plus proche par sa POSITION, et non par son numéro.
+  window._LC[uid]={xs:P.map(p=>p.x),ys:P.map(p=>p.y),vs:vs.slice(),tsf:data.map(d=>formatT(d.t)),d1:fmtC(endVal),d2:diffSign+fmtC(diff)+" ("+diffSign+diffPct.toFixed(1)+"%)",col:col,dCol:dCol,cw:cw};
 
   return `<svg width="100%" viewBox="0 0 ${w} ${h}" style="overflow:visible; display:block">
-    <defs>
-      <linearGradient id="g-${uid}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="${col}" stop-opacity="0.32"/>
-        <stop offset="55%" stop-color="${col}" stop-opacity="0.10"/>
-        <stop offset="100%" stop-color="${col}" stop-opacity="0"/>
-      </linearGradient>
-      <filter id="glow-${uid}" x="-20%" y="-30%" width="140%" height="160%">
-        <feDropShadow dx="0" dy="1.5" stdDeviation="2.5" flood-color="${col}" flood-opacity="0.45"/>
-      </filter>
-    </defs>
-
     <text id="lcv-${uid}" x="0" y="14" font-size="16" font-weight="bold" fill="var(--txt)" font-family="monospace">${fmtC(endVal)}</text>
-    <text id="lcd-${uid}" x="0" y="32" font-size="12" font-weight="600" fill="${col}" font-family="monospace">${diffSign}${fmtC(diff)} (${diffSign}${diffPct.toFixed(1)}%)</text>
+    <text id="lcd-${uid}" x="0" y="32" font-size="12" font-weight="600" fill="${dCol}" font-family="monospace">${diffSign}${fmtC(diff)} (${diffSign}${diffPct.toFixed(1)}%)</text>
 
-    <line x1="0" y1="${pt}" x2="${w}" y2="${pt}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
-    <line x1="0" y1="${pt+ch}" x2="${w}" y2="${pt+ch}" stroke="var(--bdr)" stroke-dasharray="2 4"/>
-    ${yZero > 0 ? `<line x1="0" y1="${yZero}" x2="${w}" y2="${yZero}" stroke="var(--dim)" stroke-opacity="0.5" stroke-dasharray="4 4"/>` : ''}
+    ${grid.map(g=>`<line x1="0" y1="${g.y.toFixed(1)}" x2="${cw}" y2="${g.y.toFixed(1)}" stroke="var(--dim)" stroke-opacity="0.25" stroke-width="1"/><text x="${w}" y="${(g.y+3).toFixed(1)}" font-size="9" fill="var(--mut)" text-anchor="end" font-family="monospace">${fmtK(g.v)}</text>`).join("")}
 
-    <path d="${ptArea}" fill="url(#g-${uid})"/>
-    <g filter="url(#glow-${uid})">${segPaths.map(s=>`<path d="${s.d}" fill="none" stroke="${s.c}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`).join("")}</g>
-    <circle cx="${P[P.length-1].x.toFixed(1)}" cy="${P[P.length-1].y.toFixed(1)}" r="6" fill="${col}" opacity="0.25"><animate attributeName="r" values="4;8;4" dur="2.4s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.35;0;0.35" dur="2.4s" repeatCount="indefinite"/></circle>
-    <circle cx="${P[P.length-1].x.toFixed(1)}" cy="${P[P.length-1].y.toFixed(1)}" r="3" fill="${col}"/>
-
-    <text x="${w}" y="${pt-4}" font-size="9" fill="var(--dim)" text-anchor="end">${fmtC(mx)}</text>
-    <text x="${w}" y="${pt+ch-3}" font-size="9" fill="var(--dim)" text-anchor="end">${fmtC(mn)}</text>
+    <path d="${ptArea}" fill="var(--acc)" fill-opacity="0.10"/>
+    <path d="${ptLine}" fill="none" stroke="var(--acc)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="3.5" fill="var(--acc)" stroke="var(--card)" stroke-width="2"/>
 
     <text x="0" y="${h-2}" font-size="9" fill="var(--mut)">${formatT(data[0].t)}</text>
-    <text x="${w}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text>
-    <g style="pointer-events:none"><line id="cl-${uid}" x1="-9" y1="${pt-2}" x2="-9" y2="${pt+ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3" opacity="0"/><circle id="cc-${uid}" cx="-9" cy="0" r="3.5" fill="${col}" stroke="#0b0c10" stroke-width="1.5" opacity="0"/></g>
-    <rect x="0" y="0" width="${w}" height="${h}" fill="transparent" style="cursor:crosshair" onmousemove="_lcHover(event,'${uid}')" onmouseleave="_lcOut('${uid}')" ontouchstart="_lcHover(event,'${uid}')" ontouchmove="_lcHover(event,'${uid}')" ontouchend="_lcOut('${uid}')"/>
+    <text x="${cw}" y="${h-2}" font-size="9" fill="var(--mut)" text-anchor="end">${formatT(data[data.length-1].t)}</text>
+    <g style="pointer-events:none"><line id="cl-${uid}" x1="-9" y1="${pt-2}" x2="-9" y2="${pt+ch}" stroke="var(--dim)" stroke-width="1" stroke-dasharray="3 3" opacity="0"/><circle id="cc-${uid}" cx="-9" cy="0" r="3.5" fill="var(--acc)" stroke="var(--card)" stroke-width="2" opacity="0"/></g>
+    <rect x="0" y="0" width="${cw}" height="${h}" fill="transparent" style="cursor:crosshair" onmousemove="_lcHover(event,'${uid}')" onmouseleave="_lcOut('${uid}')" ontouchstart="_lcHover(event,'${uid}')" ontouchmove="_lcHover(event,'${uid}')" ontouchend="_lcOut('${uid}')"/>
   </svg>`;
 }
 
@@ -1713,7 +1697,14 @@ if(_newU){
 h+=`<div class="fade" style="text-align:center;padding:24px 8px 10px"><div style="font-size:42px;margin-bottom:12px">📊</div><div style="font-size:22px;font-weight:800;margin-bottom:6px;color:var(--txt)">Bienvenue sur Convicto</div><div style="font-size:13px;color:var(--dim);line-height:1.5;margin-bottom:28px;max-width:320px;margin-left:auto;margin-right:auto">Suis ton patrimoine par la conviction :<br>cours, fondamentaux expliqués, thèses et alertes.</div><div style="display:flex;flex-direction:column;gap:10px;max-width:300px;margin:0 auto"><div class="card card-tap" onclick="choosePoche()" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><div style="width:40px;height:40px;border-radius:10px;background:#6c8cff18;display:flex;align-items:center;justify-content:center;font-size:18px">📈</div><div style="text-align:left"><div style="font-size:14px;font-weight:700">Ajouter une position</div><div style="font-size:11px;color:var(--dim)">Action, ETF, fonds...</div></div></div><div class="card card-tap" onclick="eCash()" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><div style="width:40px;height:40px;border-radius:10px;background:#34d39918;display:flex;align-items:center;justify-content:center;font-size:18px">💰</div><div style="text-align:left"><div style="font-size:14px;font-weight:700">Renseigner mes liquidités</div><div style="font-size:11px;color:var(--dim)">Épargne disponible</div></div></div><div class="card card-tap" onclick="eImmo()" style="display:flex;align-items:center;gap:12px;padding:14px 16px"><div style="width:40px;height:40px;border-radius:10px;background:#fbbf2418;display:flex;align-items:center;justify-content:center;font-size:18px">🏠</div><div style="text-align:left"><div style="font-size:14px;font-weight:700">Ajouter mon immobilier</div><div style="font-size:11px;color:var(--dim)">Bien, crédit, equity</div></div></div></div><div style="margin-top:24px;font-size:11px;color:var(--mut);line-height:1.4">Fondamentaux expliqués · ISIN · Alertes & résultats<br>Dividendes · Répartition · Devises · Scoring</div><div onclick="showGuide(0)" style="margin-top:18px;font-size:12px;color:var(--acc);cursor:pointer">📖 Revoir le guide d'accueil</div></div>`;
 }
 if(!_newU){
-if(oWidget==='immo'){
+if(oWidget==='evolution'){
+// Page dédiée à la courbe du patrimoine : l'onglet Patrimoine répond à « combien je vaux et de quoi
+// c'est fait » ; l'évolution est une question secondaire, trouvable mais pas imposée.
+h+=`<div class="fade"><button onclick="goHome()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px"><h2 style="font-size:20px;font-weight:700">Évolution du patrimoine</h2></div>`;
+// _patriCurveHtml affiche déjà son propre message quand il n'y a pas assez de points complets.
+h+=_patriCurveHtml();
+h+=`</div>`;
+}else if(oWidget==='immo'){
 const im=D.immobilier||{};const _biens=(im&&im.biens)||[];const eqT=_biens.reduce((s,b)=>s+((b.valeurEstimee||0)-(b.capitalRestant||0)),0);
 h+=`<div class="fade"><button onclick="goHome()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 14px"><div style="width:4px;height:24px;border-radius:2px;background:${PFAMC.immo}"></div><h2 style="font-size:20px;font-weight:700">🏠 Immobilier</h2><span style="font-size:11px;color:var(--mut)">${_biens.length} bien${_biens.length>1?'s':''}</span></div>`;
 h+=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;color:var(--dim);text-transform:uppercase">Patrimoine immo net</span><span class="mono" style="font-size:20px;font-weight:800">${fmt_(eqT)} €</span></div></div>`;
@@ -1730,9 +1721,8 @@ if(!_allP.length)h+=`<div style="text-align:center;color:var(--mut);font-size:12
 _allP.forEach(([n,p])=>{const ip=p.pl>=0;const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]);h+=`<div class="card card-tap" style="position:relative;overflow:hidden" onclick="oP('${escAttr(n)}')"><div style="position:absolute;top:0;left:0;right:0;height:2px;background:${_pcm[n]||'var(--mut)'};opacity:.6"></div><div style="display:flex;justify-content:space-between;align-items:flex-start"><div style="flex:1"><div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:14px;font-weight:700">${esc(n)}</span>${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[n])?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#72768c22;color:#9296a8;font-weight:600">hors total</span>':''}</div><div class="mono" style="font-size:20px;font-weight:700">${fmt_(p.valeur)} <span style="font-size:12px;color:var(--dim)">€</span></div><div class="mono" style="font-size:12px;color:${ip?"var(--grn)":"var(--red)"};margin-top:3px;font-weight:500">${fL(p.pl)} <span style="opacity:.7">(${fP(p.investi?p.pl/p.investi*100:0)})</span></div>${(D.prefs&&D.prefs.showPocheGoals)?(()=>{const g=(D.prefs.pocheGoals||{})[n];if(g&&g>0){const pct=Math.min(100,p.valeur/g*100);return `<div onclick="event.stopPropagation();editPocheGoal('${escAttr(n)}')" style="margin-top:8px;cursor:pointer"><div style="height:5px;background:var(--bdr);border-radius:3px;overflow:hidden"><div style="height:100%;width:${pct}%;background:${_pocheColor(n)};border-radius:3px"></div></div><div style="display:flex;justify-content:space-between;font-size:10px;color:var(--mut);margin-top:2px"><span>🎯 ${pct.toFixed(0)}%</span><span>${fmt_(g)} €</span></div></div>`;}return `<div onclick="event.stopPropagation();editPocheGoal('${escAttr(n)}')" style="margin-top:6px;font-size:10px;color:var(--mut);cursor:pointer">🎯 définir un objectif</div>`;})():""}</div></div></div>`;});
 h+=`<div class="add-btn" onclick="aEnv()" style="margin-top:10px">+ Ajouter une enveloppe</div></div>`;
 }else{
-h+=`<div class="fade"><div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:center"><div class="section" style="margin:0">Patrimoine total <span onclick="_patriInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:var(--acc);color:#fff;font-size:8px;font-weight:700;cursor:pointer;vertical-align:middle;text-transform:none;letter-spacing:0">?</span></div><button onclick="gerer()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);font-size:11px;padding:4px 10px;cursor:pointer">⚙ Gérer</button></div><div class="mono" style="font-size:32px;font-weight:700;letter-spacing:-1px;margin-top:4px">${fmt_(d.tN)} <span style="font-size:16px;color:var(--dim)">€</span></div><div style="font-size:9px;color:var(--mut);margin-top:2px">tout compris (bourse, objets, immobilier, liquidités)</div><div class="mono" style="font-size:13px;color:${d.tP>=0?"var(--grn)":"var(--red)"};font-weight:500;margin-top:2px">${fL(d.tP)}</div>${(d.ncPL!==0)?`<div style="font-size:10px;color:var(--mut);margin-top:3px">Coté <span style="color:${d.cotePL>=0?'var(--grn)':'var(--red)'}">${fL(d.cotePL)}</span> · Non coté <span style="color:${d.ncPL>=0?'var(--grn)':'var(--red)'}">${fL(d.ncPL)}</span></div>`:""}${(()=>{const sales=D.sales||[];if(!sales.length)return"";const tot=sales.reduce((s,v)=>s+v.pl,0);return`<div class="mono" style="font-size:11px;color:${tot>=0?"var(--grn)":"var(--red)"};opacity:.8;font-weight:500;margin-top:1px">Réalisé ${fL(tot)}</div>`})()}<div style="font-size:10px;color:var(--mut);margin-top:4px">MAJ ${D.updatedAt} · EUR/USD ${fmt2_(D.eurUsd)}</div></div>`;
+h+=`<div class="fade"><div style="margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:center"><div class="section" style="margin:0">Patrimoine total <span onclick="_patriInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:var(--acc);color:#fff;font-size:8px;font-weight:700;cursor:pointer;vertical-align:middle;text-transform:none;letter-spacing:0">?</span></div><button onclick="gerer()" style="background:none;border:1px solid var(--bdr);border-radius:8px;color:var(--dim);font-size:11px;padding:4px 10px;cursor:pointer">⚙ Gérer</button></div><div class="mono" style="font-size:32px;font-weight:700;letter-spacing:-1px;margin-top:4px">${fmt_(d.tN)} <span style="font-size:16px;color:var(--dim)">€</span></div><div style="font-size:9px;color:var(--mut);margin-top:2px">tout compris (bourse, objets, immobilier, liquidités)</div><div class="mono" style="font-size:13px;color:${d.tP>=0?"var(--grn)":"var(--red)"};font-weight:500;margin-top:2px">${fL(d.tP)}</div>${(d.ncPL!==0)?`<div style="font-size:10px;color:var(--mut);margin-top:3px">Coté <span style="color:${d.cotePL>=0?'var(--grn)':'var(--red)'}">${fL(d.cotePL)}</span> · Non coté <span style="color:${d.ncPL>=0?'var(--grn)':'var(--red)'}">${fL(d.ncPL)}</span></div>`:""}${(()=>{const sales=D.sales||[];if(!sales.length)return"";const tot=sales.reduce((s,v)=>s+v.pl,0);return`<div class="mono" style="font-size:11px;color:${tot>=0?"var(--grn)":"var(--red)"};opacity:.8;font-weight:500;margin-top:1px">Réalisé ${fL(tot)}</div>`})()}<div style="font-size:10px;color:var(--mut);margin-top:4px">MAJ ${D.updatedAt} · EUR/USD ${fmt2_(D.eurUsd)}</div><div onclick="openWidget('evolution')" style="display:inline-block;font-size:11px;color:var(--acc);cursor:pointer;margin-top:8px">Voir l'évolution ›</div></div>`;
 if(d.nA)h+=`<div class="card card-tap blink" style="background:#f8717118;border-color:#f8717144;display:flex;align-items:center;justify-content:space-between;gap:8px"><span onclick="gt('alerts')" style="font-size:12px;color:var(--red);font-weight:600;flex:1;cursor:pointer">⚡ ${d.nA} alerte(s) cible → ${esc(d.alerts.filter(a=>a.at&&!a.dismissed).map(a=>a.ticker).join(", "))}</span><span onclick="event.stopPropagation();dismissAllAlerts()" title="J'ai vu, ne plus notifier" style="color:var(--red);cursor:pointer;font-size:11px;font-weight:700;padding:4px 8px;border:1px solid #f8717144;border-radius:6px;flex-shrink:0">OK</span></div>`;
-h+=_patriCurveHtml();
 const _fams=_families();const _allP=Object.entries(D.poches);const _fo={};_allP.forEach(([n])=>{_fo[n]=_famOf(n);});
 const _widgets=[];
 _fams.forEach(fam=>{const ps=_allP.filter(([n])=>_fo[n]===fam.id);if(!ps.length)return;const _exT=(D.prefs&&D.prefs.pocheExclTotal)||{};const tot=ps.reduce((s,a)=>s+(_exT[a[0]]?0:(a[1].valeur||0)),0);const pl=ps.reduce((s,a)=>s+(a[1].pl||0),0);const fullyExcl=ps.every(([n])=>_exT[n]);_widgets.push({name:fam.name,color:_famColor(fam.id),count:ps.length+' compte'+(ps.length>1?'s':''),value:tot,pl:pl,fullyExcl,oc:"openWidget('"+fam.id+"')"});});
