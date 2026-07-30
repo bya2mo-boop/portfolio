@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "192";
+const APP_VERSION = "193";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2535,25 +2535,36 @@ const rows=shown.map((it,i)=>`<div style="display:flex;align-items:center;gap:8p
   if(!blocs.length)return"";
   return `<div style="margin-top:3px;padding-top:8px;border-top:1px solid var(--sep)">`+blocs.map(([code,v,note])=>
     `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:var(--mut);flex-shrink:0"></span><span style="flex:1;font-size:11.5px;color:var(--dim)">${esc(_countryName(code))}${note?` <span style="color:var(--mut);font-size:10px">· ${esc(note)}</span>`:""}</span><span class="mono" style="font-size:11px;font-weight:700">${(v/total*100).toFixed(1)}%</span></div>`).join("")+`</div>`;})();
-return `<div class="card"><div class="section">Exposition géographique</div><svg id="cvwmMap" viewBox="${WORLD_MAP_VB}" width="100%" height="auto" fill="${landCol}" style="display:block;margin-bottom:8px">${WORLD_MAP_BODY}</svg>${rows}${_paysEchecLigne()}<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4">Pays déduit du siège social de l'entreprise. Quand il est inconnu, la position est listée à part plutôt que rattachée à un pays deviné. Les fonds sont répartis sur les lignes que publie notre source (les 10 principales) ; le reste apparaît en « Fonds (non détaillé) ». Tu peux corriger un pays depuis la fiche de la position (✎).</div></div>`;}
-// Ligne visible sous la carte, affichée seulement s'il y a des positions non résolues.
-function _paysEchecLigne(){
-  const e=(D.prefs&&D.prefs.paysEchec)||{};
-  const n=Object.keys(e).length;
+return `<div class="card"><div class="section">Exposition géographique</div><svg id="cvwmMap" viewBox="${WORLD_MAP_VB}" width="100%" height="auto" fill="${landCol}" style="display:block;margin-bottom:8px">${WORLD_MAP_BODY}</svg>${rows}${_paysEchecLigne(d)}<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4">Pays déduit du siège social de l'entreprise. Quand il est inconnu, la position est listée à part plutôt que rattachée à un pays deviné. Les fonds sont répartis sur les lignes que publie notre source (les 10 principales) ; le reste apparaît en « Fonds (non détaillé) ». Tu peux corriger un pays depuis la fiche de la position (✎).</div></div>`;}
+// Liste des positions que la carte n'a pas su placer. Elle est dérivée du MÊME périmètre que la carte
+// (d.ap exclut déjà les enveloppes sorties du patrimoine, ex. « Gestion famille ») : sinon on annonce
+// sous la carte des positions qui n'y figurent pas. Les lignes saisies à la main y figurent aussi —
+// la résolution automatique les ignore, elles n'auraient jamais de pays sans correction manuelle.
+// La crypto est écartée : elle n'a pas de pays par nature, ce n'est pas un problème à corriger.
+const _PAYS_RAISONS={libelle_inconnu:"pays non reconnu",sans_pays:"aucun pays renvoyé",introuvable:"symbole introuvable",erreur:"échec de la requête",manuelle:"ligne saisie à la main",fonds:"fonds, composition non détaillée",attente:"en cours de résolution"};
+function _paysASituer(d){
+  d=d||ga();
+  const ech=(D.prefs&&D.prefs.paysEchec)||{};
+  return d.ap.filter(x=>!x.noPerf).map(x=>{
+    const code=_positionCountry(x,x.poche);
+    if(!_isNoCountry(code)||code===CRYPTO_CODE)return null;
+    const e=ech[x.ticker];
+    const raison=e?e.raison:(x.manual?"manuelle":(code===DIVERSIFIED_CODE?"fonds":"attente"));
+    return {tk:x.ticker,titre:x.titre||"",poche:x.poche,raison,libelle:(e&&e.libelle)||""};
+  }).filter(Boolean);
+}
+// Ligne visible sous la carte, affichée seulement s'il y a des positions à situer.
+function _paysEchecLigne(d){
+  const n=_paysASituer(d).length;
   if(!n)return"";
   return `<div onclick="_paysEchecPage()" class="card-tap" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid var(--bdr);border-radius:10px;cursor:pointer"><span style="flex:1;font-size:11.5px;color:var(--dim)">${n} position${n>1?"s":""} sans pays identifié</span><span style="color:var(--mut);font-size:13px">›</span></div>`;
 }
 // Page de correction : on montre le libellé BRUT renvoyé par la source, pour qu'un écart soit
 // diagnosticable (ex. un pays que notre table ne connaît pas encore) et corrigeable à la main.
 window._paysEchecPage=()=>{
-  const e=(D.prefs&&D.prefs.paysEchec)||{};
-  const RAISONS={libelle_inconnu:"pays non reconnu",sans_pays:"aucun pays renvoyé",introuvable:"symbole introuvable",erreur:"échec de la requête"};
-  const lignes=Object.entries(e).map(([tk,inf])=>{
-    let pos=null,poche=null;
-    Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>{if(x.ticker===tk){pos=x;poche=n;}}));
-    const nom=pos?(pos.titre||""):"";
-    const det=(RAISONS[inf.raison]||inf.raison)+(inf.libelle?" : « "+esc(inf.libelle)+" »":"");
-    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(tk)}${nom?` <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(nom)}</span>`:""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${det}</div></div>${pos?`<span onclick="cm();ePos('${escAttr(poche)}','${escAttr(tk)}')" style="color:var(--acc);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0">✎ Corriger</span>`:""}</div>`;}).join("");
+  const lignes=_paysASituer().map(it=>{
+    const det=(_PAYS_RAISONS[it.raison]||it.raison)+(it.libelle?" : « "+esc(it.libelle)+" »":"");
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(it.tk)}${it.titre?` <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(it.titre)}</span>`:""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(it.poche)} · ${det}</div></div><span onclick="cm();ePos('${escAttr(it.poche)}','${escAttr(it.tk)}')" style="color:var(--acc);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0">✎ Corriger</span></div>`;}).join("");
   sm(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:17px;font-weight:700">Positions sans pays</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:14px">Ces positions ne sont rattachées à aucun pays. On préfère te le dire plutôt que d'en deviner un. Tu peux les corriger à la main.</div>${lignes||`<div style="color:var(--mut);font-size:12px">Aucune.</div>`}`);
 };
 function _cvwmTierOp(pct){return pct>=25?1:pct>=10?0.82:pct>=5?0.64:pct>=2?0.46:pct>=0.5?0.3:0.18;}
