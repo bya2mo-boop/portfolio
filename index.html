@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "197";
+const APP_VERSION = "199";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -397,7 +397,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#a78bfa","#38bdf8","#fb923c"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -751,6 +751,93 @@ window._horizonPage=()=>{
 };
 // Un tap = réglé, la ligne disparaît de la liste : on enchaîne sans valider ni scroller.
 window._horizonSet=(tk,k)=>{_setHorizon(tk,k);save();_horizonPage();};
+// ── LA DÉRIVE ───────────────────────────────────────────────────────────────────────────────
+// Ce que le marché a imposé sans décision de ta part. Période fixe de 3 mois : c'est une question
+// d'actualité, pas d'horizon. Par ENVELOPPE tout de suite (l'historique les garde) ; par POSITION
+// dès qu'on aura ~3 mois de relevés hebdomadaires (_snapPoids), car H ne gardait pas ce détail.
+function _derive(){
+  const out=[];const seuil=3;
+  const ventes=(D.sales||[]).filter(s=>Date.now()-new Date(s.date).getTime()<90*86400000).map(s=>s.ticker);
+  const hist=(D.prefs&&D.prefs.poidsHist)||[];
+  const vieux=hist.filter(x=>Date.now()-x.t>=80*86400000).pop();
+  if(vieux){
+    const d=ga();const viv=d.ap.filter(x=>!x.noPerf);
+    const tot=viv.reduce((s,x)=>s+(x.valeur||0),0)||1;
+    viv.forEach(x=>{const av=vieux.w[x.ticker];if(av==null)return;
+      const ap=(x.valeur||0)/tot*100;
+      if(Math.abs(ap-av)<seuil)return;
+      out.push(`<b>${esc(x.ticker)}</b> — poids ${ap>av?"passé":"tombé"} de ${av.toFixed(0)} % à ${ap.toFixed(0)} % en 3 mois${ventes.includes(x.ticker)?"":", tu n'as rien vendu"}`);});
+  }
+  const S=H.slice().sort((a,b)=>a.t-b.t).filter(p=>p.env&&Object.keys(p.env).length);
+  const ref=S.filter(p=>Date.now()-p.t>=80*86400000).pop();
+  const der=S[S.length-1];
+  if(ref&&der&&ref!==der){
+    const part=(p,n)=>{const t=_perfPoches().reduce((s,k)=>s+(p.env[k]||0),0);return t>0?(p.env[n]||0)/t*100:null;};
+    _perfPoches().forEach(n=>{const a=part(ref,n),b=part(der,n);
+      if(a==null||b==null||Math.abs(b-a)<seuil)return;
+      out.push(`Ton <b>${esc(n)}</b> est ${b>a?"passé":"tombé"} de ${a.toFixed(0)} % à ${b.toFixed(0)} % de ta bourse en 3 mois`);});
+  }
+  return out;
+}
+// ── LES PAGES DE L'ONGLET CONVICTION ────────────────────────────────────────────────────────
+function _convRetour(){return `<div onclick="setConvView(null)" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Conviction</div>`;}
+function _convEntete(titre,phrase,aide){
+  return `<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:6px"><h2 style="font-size:19px;font-weight:700">${titre}</h2>${aide?`<span onclick="_convAide('${aide}')" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--acc);color:#fff;font-size:10px;font-weight:700;cursor:pointer">?</span>`:""}</div><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${phrase}</div></div>`;
+}
+function _convVuePage(vue,ctx){
+  const d=ctx.d,cv=ctx.cv,noThesis=ctx.noThesis,noPlan=ctx.noPlan,noHz=ctx.noHz,derive=ctx.derive;
+  const lignePos=(x)=>`<div onclick="posFiche('${escAttr(x.poche)}','${escAttr(x.ticker)}')" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(x.ticker)} <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(x.titre||"")}</span></div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(x.poche)}</div></div><span style="color:var(--mut);font-size:13px">›</span></div>`;
+  if(vue==="completer"){
+    const bloc=(titre,phrase,lst)=>!lst.length?"":`<div class="card" style="margin-bottom:10px"><div class="section" style="margin-bottom:2px">${lst.length} ${titre}</div><div style="font-size:10px;color:var(--mut);margin-bottom:8px">${phrase}</div>${lst.map(lignePos).join("")}</div>`;
+    return _convRetour()+_convEntete("À compléter","Ce qui manque encore sur tes positions. Rien n'est obligatoire — mais plus c'est rempli, plus le reste devient utile.")
+      +(noHz.length?`<div onclick="_horizonPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${noHz.length} sans horizon</div><div style="font-size:10px;color:var(--mut);margin-top:2px">À régler d'un coup, un tap par ligne</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`:"")
+      +bloc("sans thèse","Pourquoi tu détiens cette ligne. Ouvre la fiche pour l'écrire.",noThesis)
+      +bloc("sans plan de sortie","À quel prix tu comptes vendre. Ouvre la fiche pour le définir.",noPlan)
+      +((!noHz.length&&!noThesis.length&&!noPlan.length)?`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Tout est rempli 👍</div>`:"");
+  }
+  if(vue==="regler"){
+    const envs=[...new Set(d.ap.filter(x=>!x.noPerf&&!x.manual).map(x=>x.poche))];
+    if(envs.length&&envs.indexOf(convEnv)<0)convEnv=envs[0];
+    const tot=d.ap.filter(x=>!x.noPerf).reduce((s,x)=>s+(x.valeur||0),0)||1;
+    const lst=d.ap.filter(x=>!x.noPerf&&!x.manual&&x.poche===convEnv).sort((a,b)=>(b.valeur||0)-(a.valeur||0));
+    const rows=lst.map(x=>{const c=cv[x.ticker]||0;const dorm=_convDormante(x.ticker);const id="cvv_"+x.ticker.replace(/[^A-Za-z0-9]/g,"_");
+      return `<div style="padding:12px 0;border-bottom:1px solid var(--sep)"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><div><span style="font-size:13px;font-weight:700">${esc(x.ticker)}</span>${dorm?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${((x.valeur||0)/tot*100).toFixed(1)} % du portefeuille</div></div><span class="mono" id="${id}" style="font-size:15px;font-weight:800;color:${_convColor(c)}">${c}</span></div><input type="range" min="0" max="100" step="1" value="${c}" oninput="var e=document.getElementById('${id}');e.textContent=this.value;e.style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" onchange="_convSet('${escAttr(x.ticker)}',this.value)" style="width:100%;accent-color:var(--acc)"></div>`;}).join("");
+    return _convRetour()+_convEntete("Régler mes convictions","Note de 0 à 100 ce que tu penses de chaque ligne. Le poids sous le ticker te rappelle ce qu'elle représente déjà.","dorm")
+      +(envs.length>1?`<div style="margin-bottom:12px">${segHtml(envs.map(n=>[n,n]),convEnv,"setConvEnv")}</div>`:"")
+      +`<div class="card">${rows||`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune position ici.</div>`}</div>`;
+  }
+  if(vue==="derive"){
+    return _convRetour()+_convEntete("Ce qui a bougé sans toi","Les évolutions des 3 derniers mois que tu n'as pas décidées. Le marché déplace tes poids même quand tu ne touches à rien.","derive")
+      +`<div class="card">${derive.length?derive.map(x=>`<div style="font-size:12.5px;color:var(--dim);line-height:1.7;padding:5px 0">${x}</div>`).join(""):`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Rien de notable sur 3 mois.</div>`}</div>`;
+  }
+  if(vue==="journal"){
+    const j=(D.prefs&&D.prefs.journal)||{};const all=[];
+    Object.keys(j).forEach(tk=>(j[tk]||[]).forEach(e=>all.push({tk:tk,d:e.d,t:e.t})));
+    all.sort((a,b)=>b.d-a.d);
+    return _convRetour()+_convEntete("Journal de décisions","Ce que tu t'es dit, et quand. Relire ses décisions passées est le meilleur moyen de voir comment on raisonne.")
+      +`<div class="card">${all.length?all.map((e,i)=>`<div style="padding:9px 0;${i<all.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;font-weight:700">${esc(e.tk)}</span><span style="font-size:10px;color:var(--mut)">${_relTime(e.d)}</span></div><div style="font-size:12px;color:var(--dim);line-height:1.55;margin-top:3px">${esc(e.t)}</div></div>`).join(""):`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune décision notée pour l'instant.</div>`}</div>`;
+  }
+  if(vue==="marche"){
+    const notees=d.ap.filter(x=>!x.noPerf&&cv[x.ticker]&&_horizonOf(x.ticker));
+    const echues=notees.filter(x=>_horizonEcoule(x.ticker));
+    const enCours=notees.filter(x=>!_horizonEcoule(x.ticker));
+    let corps="";
+    if(!echues.length){
+      const proch=enCours.map(x=>({tk:x.ticker,e:_echeance(x.ticker)})).filter(x=>x.e).sort((a,b)=>a.e-b.e)[0];
+      corps=`<div class="card" style="text-align:center;padding:26px 16px"><div style="font-size:13px;color:var(--dim);line-height:1.7">${enCours.length} position${enCours.length>1?"s":""} encore dans leur horizon.</div><div style="font-size:12px;color:var(--mut);margin-top:6px">${proch?"La première arrive à échéance en "+new Date(proch.e).toLocaleDateString("fr-FR",{month:"long",year:"numeric"})+".":"Déclare des horizons pour que cette page se remplisse."}</div></div>`;
+    }else{
+      const grp=[["forte",echues.filter(x=>cv[x.ticker]>=70)],["moyenne",echues.filter(x=>cv[x.ticker]>=40&&cv[x.ticker]<70)],["faible",echues.filter(x=>cv[x.ticker]<40)]];
+      const perf=l=>l.length?l.reduce((s,x)=>s+(x.plPct||0),0)/l.length:null;
+      corps=`<div class="card">${grp.map(g=>{const pf=perf(g[1]);
+        return `<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--sep)"><span style="flex:1;font-size:12.5px;color:var(--dim)">Conviction ${g[0]}</span><span style="font-size:10px;color:var(--mut)">${g[1].length} ligne${g[1].length>1?"s":""}</span><span class="mono" style="font-size:13px;font-weight:700;width:66px;text-align:right;color:${pf==null?"var(--mut)":(pf>=0?"var(--grn)":"var(--red)")}">${pf==null?"—":(pf>=0?"+":"")+pf.toFixed(1)+" %"}</span></div>`;}).join("")}</div>`;
+      const f=perf(grp[0][1]),fa=perf(grp[2][1]);
+      if(f!=null&&fa!=null)corps+=`<div class="card" style="font-size:12.5px;color:var(--dim);line-height:1.7">${f>fa?"Tes fortes convictions performent mieux que tes faibles. Ton jugement tient jusqu'ici.":"Tes fortes convictions ne performent pas mieux que tes faibles. Ce que tu notes haut ne monte pas davantage — regarde ce qui distingue vraiment tes gagnantes."}</div>`;
+      corps+=`<div class="card" style="border-left:3px solid var(--amb);font-size:11.5px;color:var(--dim);line-height:1.6">${echues.length} position${echues.length>1?"s":""} arrivée${echues.length>1?"s":""} à échéance, c'est peu. Un seul gros gain peut porter tout un groupe.</div>`;
+    }
+    return _convRetour()+_convEntete("Mes convictions face au marché","On compare la performance de tes fortes convictions à celle de tes faibles — uniquement sur les positions dont l'horizon est écoulé.","marche")+corps;
+  }
+  return _convRetour()+`<div class="card">Page inconnue.</div>`;
+}
 function convTabHtml(){const d=ga();const cv=(D.prefs&&D.prefs.conv)||{};
 // Qui a droit au nuage ? Par défaut les actions détenues en direct seulement. Un fonds regroupe des
 // dizaines de lignes : lui donner un point à côté d'une action revient à comparer un panier et un
@@ -785,29 +872,38 @@ const _aideChip=(k,txt)=>`<span onclick="_convAide('${k}')" style="display:inlin
 const commentLire=!allItems.length?"":`<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;padding-top:9px;border-top:1px solid var(--sep)">${_aideChip("diag","Ligne de cohérence")}${_aideChip("dorm","Contour pointillé")}${_aideChip("poids","Calcul des poids")}</div>`;
 const masquesLigne=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${masques.length} ligne${masques.length>1?"s":""} non affichée${masques.length>1?"s":""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">Fonds et cryptos — à ajouter au nuage si tu veux les comparer</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 const chartHtml=(allItems.length?_convChartSvg(items):`<div style="text-align:center;padding:26px 10px"><div style="font-size:12px;color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:11px;color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+commentLire;
-const flagsHtml=flaggedItems.length?`<div class="card" style="font-size:11.5px;line-height:1.8">`+flaggedItems.map(f=>{const msg=f.conv<=40?`grosse position (${f.poids}%) mais conviction faible (${f.conv})`:`conviction forte (${f.conv}) mais toute petite position (${f.poids}%)`;return `<div><span style="font-size:9px;background:#fbbf2422;color:var(--amb);border-radius:99px;padding:2px 7px;font-weight:700;margin-right:5px">⚠</span><b>${esc(f.tk)}</b> — ${msg}</div>`;}).join("")+`</div>`:"";
+// ── LES TROIS SECTIONS SOUS LE NUAGE ────────────────────────────────────────────────────────
+// Avant, onze éléments s'empilaient en mélangeant ce qui demande une réaction, ce qui reste à
+// remplir et ce qu'on consulte. Trois sections, la première seule mise en avant, les vides masquées.
 const notes=(D.prefs&&D.prefs.notes)||{};
-const noThesis=d.ap.filter(x=>!x.manual&&!(notes[x.ticker]&&notes[x.ticker].trim()));
-const hideThesis=!!(D.prefs&&D.prefs.convHideThesis);
-const thesisCard=(hideThesis||!noThesis.length)?"":`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section" style="margin:0">${noThesis.length} ligne${noThesis.length>1?"s":""} sans thèse</div><span onclick="toggleConvHideThesis(true)" style="color:var(--mut);font-size:10px;cursor:pointer">masquer</span></div>${noThesis.map((x,i)=>`<div onclick="posFiche('${escAttr(x.poche)}','${escAttr(x.ticker)}')" style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;cursor:pointer;${i<noThesis.length-1?"border-bottom:1px solid var(--sep)":""}"><span style="font-size:12.5px;font-weight:600">${esc(x.ticker)} <span style="color:var(--dim);font-weight:400">${esc(x.titre||"")}</span></span><span style="color:var(--acc);font-size:13px">›</span></div>`).join("")}</div>`;
-const reactivateLink="";
-const plans=(D.prefs&&D.prefs.plan)||{};
-const relevant=d.ap.filter(x=>!x.manual);
+const relevant=d.ap.filter(x=>!x.manual&&!x.noPerf);
+const noThesis=relevant.filter(x=>!(notes[x.ticker]&&notes[x.ticker].trim()));
 const noPlan=relevant.filter(x=>!x.cible&&!x.cibleHaut);
-const hidePlan=!!(D.prefs&&D.prefs.convHidePlan);
-const planCard=(hidePlan||!relevant.length)?"":(noPlan.length?`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><div class="section" style="margin:0">${noPlan.length} sans objectif de vente</div><span onclick="toggleConvHidePlan(true)" style="color:var(--mut);font-size:10px;cursor:pointer">masquer</span></div>${noPlan.map((x,i)=>`<div onclick="posFiche('${escAttr(x.poche)}','${escAttr(x.ticker)}')" style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;cursor:pointer;${i<noPlan.length-1?"border-bottom:1px solid var(--sep)":""}"><span style="font-size:12.5px;font-weight:600">${esc(x.ticker)} <span style="color:var(--dim);font-weight:400">${esc(x.titre||"")}</span></span><span style="color:var(--acc);font-size:13px">›</span></div>`).join("")}</div>`:`<div class="card" style="text-align:center;padding:16px;color:var(--grn);font-size:12px">✓ Toutes tes lignes ont un objectif de vente</div>`);
-const reactivatePlanLink=((hideThesis&&noThesis.length)||(hidePlan&&relevant.length))?`<div onclick="convReactivateAll()" style="text-align:center;font-size:11px;color:var(--mut);cursor:pointer;margin:6px 0 10px">Réafficher les rappels masqués</div>`:"";
-const jr=(D.prefs&&D.prefs.journal)||{};let entries=[];Object.keys(jr).forEach(tk=>{(jr[tk]||[]).forEach(e=>entries.push({tk,d:e.d,t:e.t}));});entries.sort((a,b)=>b.d-a.d);entries=entries.slice(0,8);
-const journalCard=entries.length?`<div class="card"><div class="section">Dernières décisions</div>${entries.map((e,i)=>`<div style="padding:8px 0;${i<entries.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700">${esc(e.tk)}</span><span style="font-size:10px;color:var(--mut)">${_relTime(e.d)}</span></div><div style="font-size:11.5px;color:var(--dim);line-height:1.4;margin-top:2px">${esc(e.t)}</div></div>`).join("")}</div>`:`<div class="card" style="text-align:center;padding:16px;color:var(--mut);font-size:11.5px">Ton journal de décisions apparaîtra ici (note-le depuis une fiche position).</div>`;
-return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce graphique ne montre que tes actions détenues en direct.</div>${envSelectHtml}${chartHtml}</div>
+const noHz=_sansHorizon(d);
+const derive=_derive();
+const moyConv=allItems.length?Math.round(allItems.reduce((s,i)=>s+i.conv,0)/allItems.length):null;
+const moyenneHtml=moyConv==null?"":`<span class="mono" style="font-size:12px;font-weight:700;color:${_convColor(moyConv)}">${moyConv}<span style="font-size:9px;color:var(--mut);font-weight:400">/100</span></span>`;
+const alertes=[].concat(flaggedItems.map(f=>f.conv<=40?`<b>${esc(f.tk)}</b> — grosse position (${f.poids.toFixed(1)} %) mais conviction faible (${f.conv})`:`<b>${esc(f.tk)}</b> — conviction forte (${f.conv}) mais toute petite position (${f.poids.toFixed(1)} %)`)).concat(derive);
+const surveillerHtml=!alertes.length?"":`<div class="card" style="border-left:3px solid var(--amb);margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:14px">⚡</span><span style="font-size:14px;font-weight:800">À surveiller</span><span onclick="_convAide('surveiller')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer">?</span></div>${alertes.map(a=>`<div style="font-size:12px;color:var(--dim);line-height:1.65;padding:3px 0">${a}</div>`).join("")}</div>`;
+// « À compléter » est orienté PROGRESSION, jamais reproche : on compte ce qui est fait sur ce qui
+// est possible (3 informations par position), au lieu d'aligner trois manques. L'utilisateur qui
+// ouvre l'onglet ne doit jamais être accueilli par une liste de ce qu'il n'a pas fait.
+const _totalInfos=relevant.length*3;
+const _faites=_totalInfos-(noHz.length+noThesis.length+noPlan.length);
+const _pct=_totalInfos>0?Math.round(_faites/_totalInfos*100):0;
+// Bande d'accueil : seulement pour qui n'a RIEN commencé. Une invitation, pas un constat de retard.
+// Elle disparaît d'elle-même au premier horizon ou à la première thèse.
+const _rienCommence=relevant.length>0&&noHz.length===relevant.length&&noThesis.length===relevant.length;
+const accueilHtml=!_rienCommence?"":`<div onclick="_horizonPage()" class="card card-tap" style="border-left:3px solid var(--acc);padding:14px;margin-bottom:10px;cursor:pointer"><div style="font-size:13px;font-weight:700;margin-bottom:3px">Donne un horizon à tes positions</div><div style="font-size:11px;color:var(--mut);line-height:1.5">Pour combien de temps tu comptes les garder. C'est ce qui débloque le suivi de tes convictions — deux minutes, un tap par ligne.</div><div style="font-size:12px;color:var(--acc);font-weight:600;margin-top:8px">Commencer ›</div></div>`;
+const completerHtml=(_rienCommence||_faites>=_totalInfos||!_totalInfos)?"":`<div onclick="setConvView('completer')" class="card card-tap" style="padding:12px 14px;margin-bottom:8px;cursor:pointer"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:12.5px;color:var(--dim)">Compléter mes convictions</div><div style="font-size:10px;color:var(--mut);margin-top:3px">${_faites} sur ${_totalInfos} renseignées</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${_pct}%;background:var(--acc);border-radius:2px"></div></div></div>`;
+const carnetsHtml=`<div class="card" style="padding:12px 14px;margin-bottom:8px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Mes carnets</div>${[["regler","Régler mes convictions"],["derive","Ce qui a bougé sans toi"],["journal","Journal de décisions"],["marche","Mes convictions face au marché"]].map(o=>`<div onclick="setConvView('${o[0]}')" style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer"><span style="flex:1;font-size:12.5px;color:var(--dim)">${o[1]}</span><span style="color:var(--mut);font-size:13px">›</span></div>`).join("")}</div>`;
+if(convView)return _convVuePage(convView,{d,cv,noThesis,noPlan,noHz,derive,allItems});
+return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span>${moyenneHtml}</div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce graphique ne montre que tes actions détenues en direct.</div>${envSelectHtml}${chartHtml}</div>
 ${masquesLigne}
-${_horizonLigne(d)}
-${flagsHtml}
-${planCard}
-${reactivatePlanLink}
-${thesisCard}
-${reactivateLink}
-${journalCard}`;}
+${accueilHtml}
+${surveillerHtml}
+${completerHtml}
+${carnetsHtml}`;}
 
 function perfReelle(){if(!H||H.length<3)return null;const s0=H.slice().sort((a,b)=>a.t-b.t);
   // Bug C corrigé : on calcule la perf sur la VALEUR BOURSE (hors cash/immo),
@@ -1300,6 +1396,7 @@ async function refreshPrices(){
     // Plus de verrou global de 7 jours : refreshCountries() décide ticker par ticker et ne fait rien
     // quand tout est déjà résolu. Une position ajoutée aujourd'hui a son pays au prochain cycle.
     try{refreshCountries();}catch(e){}
+    try{_snapPoids();}catch(e){}
     try{if(!D.prefs||!D.prefs.staleQuoteTs||Date.now()-D.prefs.staleQuoteTs>24*3600000){D.prefs=D.prefs||{};D.prefs.staleQuoteTs=Date.now();checkStaleQuotes();}}catch(e){}
     try{refreshEtfHoldings();}catch(e){}
   }catch(e){console.error(e)}
@@ -1868,11 +1965,17 @@ window.toggleConvHideThesis=(v)=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=v;s
 window.toggleConvHidePlan=(v)=>{D.prefs=D.prefs||{};D.prefs.convHidePlan=v;save();R();};
 window.convReactivateAll=()=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=false;D.prefs.convHidePlan=false;save();R();};
 window.setConvHz=v=>{convHz=v;R();};
+window.setConvView=v=>{convView=v;R();scrollTo(0,0);};
+window._convSet=(tk,v)=>{const n=Math.round(Number(v)||0);D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};
+  if(n>0){D.prefs.conv[tk]=n;_setConvTs(tk);}else delete D.prefs.conv[tk];save();};
 // Les textes vivent dans convTabHtml (au plus près de ce qu'ils décrivent) ; on les relit ici au clic.
 window._convAide=(k)=>{const t={
  diag:"La diagonale : conviction et poids alignés. Un point AU-DESSUS = tu y crois plus que tu n'y as mis (à renforcer). EN DESSOUS = tu y as mis plus que tu n'y crois (à alléger). C'est une convention de lecture, pas un conseil.",
  dorm:"Contour en pointillés : conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans. Repasse dessus pour la remettre à jour.",
  poids:"Les poids sont calculés sur les seules lignes affichées, qui totalisent 100 % du nuage. Si tu ajoutes ou retires une ligne, tous les poids se recalculent et les points se déplacent : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.",
+ surveiller:"Ce qui demande une réaction : une position dont le poids ne colle pas à ta conviction, et ce qui a bougé tout seul ces 3 derniers mois. Cette section disparaît quand il n'y a rien à signaler.",
+ derive:"La dérive, c'est ce que le marché t'a imposé sans que tu décides rien : une ligne qui monte fort prend mécaniquement plus de place. Période fixe de 3 mois. Le détail par position n'apparaîtra qu'après quelques mois de relevés — l'historique ne gardait jusqu'ici que les totaux par enveloppe.",
+ marche:"On regroupe tes positions par niveau de conviction et on compare leur performance. Une position n'entre dans le calcul que si l'horizon que tu lui as donné est écoulé : juger sur 3 mois une ligne achetée pour 10 ans n'aurait aucun sens.",
  horizon:"Filtre par horizon : n'affiche qu'une durée de détention à la fois. Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans — les comparer côte à côte induit en erreur."}[k];
  if(t)toast(t);};
 // Choix des lignes affichées sur le nuage. On dit à quoi ça sert ET ce que ça change, parce que
@@ -2045,7 +2148,7 @@ window.setDivNet=v=>{divNet=v;R()};
 window.addDivReceived=(poche)=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Dividende perçu</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:var(--inp);border-radius:10px;padding:10px;margin-bottom:14px;font-size:11px;color:var(--dim);line-height:1.5">Enregistre un dividende <b style="color:var(--txt)">réellement encaissé</b>. C'est un historique de revenu : ça <b style="color:var(--txt)">n'ajoute rien</b> à ton patrimoine.</div><div class="field"><label>Montant net perçu (€)</label><input id="dr_amt" inputmode="decimal" placeholder="ex: 45,20"></div><div class="field"><label>Enveloppe</label><select id="dr_poche" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt)">${poches.map(p=>`<option value="${esc(p)}" ${p===poche?"selected":""}>${esc(p)}</option>`).join("")}</select></div><div class="field"><label>Ticker / source (optionnel)</label><input id="dr_tk" placeholder="ex: AI" oninput="this.value=this.value.toUpperCase()"></div><div class="field"><label>Date</label><input id="dr_date" type="date" value="${new Date().toISOString().slice(0,10)}"></div><button class="btn btn-p" onclick="saveDivReceived()">Enregistrer</button>`)};
 window.saveDivReceived=()=>{const amt=pn(document.getElementById("dr_amt").value);if(!amt||amt<=0){const inp=document.getElementById("dr_amt");if(inp){inp.style.borderColor="var(--red)";inp.placeholder="⚠ Saisir un montant";inp.focus();}return;}const poche=document.getElementById("dr_poche").value;const tk=(document.getElementById("dr_tk").value||"").trim().toUpperCase();const date=document.getElementById("dr_date").value||new Date().toISOString().slice(0,10);if(!D.divReceived)D.divReceived=[];D.divReceived.push({date:date,poche:poche,ticker:tk||"",montant:Math.round(amt*100)/100});cm();save();};
 window.delDivReceived=(idx)=>{if(!D.divReceived||!D.divReceived[idx])return;const x=D.divReceived[idx];if(!confirm(`Supprimer ce dividende perçu (${x.montant} €) ?`))return;D.divReceived.splice(idx,1);cm();save();};
-window.setAnaSub=v=>{anaSub=v;anaView=null;R();};
+window.setAnaSub=v=>{anaSub=v;anaView=null;convView=null;R();};
 window.setAnaView=v=>{anaView=v;R();};
 window.setPerfSub=v=>{perfSub=v;R();scrollTo(0,0);};
 // Carte cliquable de hub (style Alertes) + bouton retour.
@@ -2146,7 +2249,33 @@ const HORIZONS=[
 function _horizonOf(tk){return (D.prefs&&D.prefs.horizon&&D.prefs.horizon[tk])||null;}
 function _horizonDef(k){return HORIZONS.find(h=>h.k===k)||null;}
 function _horizonTxt(k){const h=_horizonDef(k);return h?h.l+" · "+h.d:"";}
-function _setHorizon(tk,k){D.prefs=D.prefs||{};D.prefs.horizon=D.prefs.horizon||{};if(k)D.prefs.horizon[tk]=k;else delete D.prefs.horizon[tk];}
+// On date la déclaration de l'horizon : le modèle n'a AUCUNE date d'achat (vérifié), donc l'horizon
+// court à partir du jour où tu le déclares. Sans cette date, aucune échéance n'est calculable.
+function _setHorizon(tk,k){D.prefs=D.prefs||{};D.prefs.horizon=D.prefs.horizon||{};D.prefs.horizonTs=D.prefs.horizonTs||{};
+  if(k){D.prefs.horizon[tk]=k;if(!D.prefs.horizonTs[tk])D.prefs.horizonTs[tk]=Date.now();}
+  else {delete D.prefs.horizon[tk];delete D.prefs.horizonTs[tk];}}
+function _echeance(tk){const h=_horizonDef(_horizonOf(tk));const ts=(D.prefs&&D.prefs.horizonTs&&D.prefs.horizonTs[tk]);
+  if(!h||!ts)return null;return ts+h.m*30.44*86400000;}
+function _horizonEcoule(tk){const e=_echeance(tk);return e!=null&&Date.now()>=e;}
+function _relTime(ts){const j=Math.floor((Date.now()-ts)/86400000);
+  if(j<1)return "aujourd'hui";if(j===1)return "hier";if(j<30)return "il y a "+j+" j";
+  const m=Math.round(j/30);return m<12?"il y a "+m+" mois":"il y a "+Math.round(m/12)+" an"+(m>=24?"s":"");}
+// L'historique (H) ne garde que les totaux par ENVELOPPE : la dérive d'une LIGNE n'est donc pas
+// calculable rétroactivement. On enregistre le poids de chaque position une fois par semaine, pour
+// que la dérive par ligne devienne disponible au fil du temps.
+function _snapPoids(){
+  try{
+    D.prefs=D.prefs||{};const hist=D.prefs.poidsHist=D.prefs.poidsHist||[];
+    const last=hist[hist.length-1];
+    if(last&&Date.now()-last.t<7*86400000)return;
+    const d=ga();const viv=d.ap.filter(x=>!x.noPerf);
+    const tot=viv.reduce((s,x)=>s+(x.valeur||0),0);
+    if(tot<=0)return;
+    const w={};viv.forEach(x=>{w[x.ticker]=Math.round((x.valeur||0)/tot*1000)/10;});
+    hist.push({t:Date.now(),w});
+    while(hist.length>60)hist.shift();
+  }catch(e){}
+}
 // ── CONVICTION DORMANTE ─────────────────────────────────────────────────────────────────────
 // Une conviction notée il y a longtemps et jamais revue ne vaut pas une conviction récente :
 // entre-temps l'entreprise a publié, le cours a bougé, la thèse a peut-être cassé. Le seuil suit
@@ -3067,7 +3196,7 @@ window.saveGoal=()=>{const v=pn((document.getElementById("goalIn")||{}).value);i
 window.clearGoal=()=>{if(D.prefs)delete D.prefs.goalNetWorth;cm();save();};
 function _acctEmpty(){const noPos=!Object.values(D.poches||{}).some(p=>p&&p.positions&&p.positions.length);const noCash=!(D.cash>0);const noImmo=(!D.immobilier||((D.immobilier.valeurEstimee)||0)===0);return noPos&&noCash&&noImmo;}
 window.finishGuide=()=>{if(!D.prefs)D.prefs={};D.prefs.onboardingDone=true;saveLocal();if(currentUser)pushToSupabase();cm();};
-window.showGuide=(n)=>{n=n||0;const G=[{i:"👋",t:"Bienvenue sur Convicto",d:"Suis tout ton patrimoine au même endroit : bourse, crypto, immobilier et liquidités — piloté par la conviction."},{i:"🗂️",t:"Tes enveloppes",d:"Range tes placements en enveloppes (PEA, CTO, AV, crypto…) et regroupe-les en familles. Tu choisis lesquelles apparaissent dans Bourse."},{i:"🔍",t:"Explore une valeur",d:"Cherche par nom ou ISIN. Chaque fiche : graphique, fondamentaux expliqués (touche une case pour sa définition), avis d\'analystes et description."},{i:"🔥",t:"Investis par conviction",d:"Sur chaque ligne : note ta conviction, écris ta thèse, ton plan de sortie et ton journal de décisions. C\'est l\'esprit de Convicto."},{i:"📊",t:"Analyse & alertes",d:"Performance, répartition, alertes de prix, agenda des résultats, correction des splits et repérage des cours figés."},{i:"🚀",t:"C\'est parti !",d:"Crée une enveloppe et ajoute une position, tes liquidités ou un bien. Tu peux revoir ce guide dans ⚙ Réglages."}];const st=G[n];const last=n===G.length-1;const dots=G.map((_,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===n?"var(--acc)":"var(--bdr)"};display:inline-block;margin:0 3px;transition:background .2s"></span>`).join("");sm(`<div style="text-align:right;margin-bottom:2px"><span onclick="finishGuide()" style="font-size:12px;color:var(--mut);cursor:pointer">Passer</span></div><div style="text-align:center;padding:10px 6px 4px"><div style="font-size:46px;margin-bottom:14px;line-height:1">${st.i}</div><div style="font-size:19px;font-weight:800;margin-bottom:10px">${st.t}</div><div style="font-size:13px;color:var(--dim);line-height:1.55;max-width:300px;margin:0 auto">${st.d}</div></div><div style="text-align:center;margin:22px 0 16px">${dots}</div><div style="display:flex;gap:8px">${n>0?`<button onclick="showGuide(${n-1})" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid var(--bdr);background:transparent;color:var(--dim);font-size:14px;font-weight:600;cursor:pointer">Précédent</button>`:""}<button onclick="${last?"finishGuide()":`showGuide(${n+1})`}" style="flex:${n>0?"2":"1"};padding:11px 0;border-radius:10px;border:none;background:var(--acc);color:#fff;font-size:14px;font-weight:700;cursor:pointer">${last?"Commencer 🚀":"Suivant →"}</button></div>`);};
+window.showGuide=(n)=>{n=n||0;const G=[{i:"👋",t:"Bienvenue sur Convicto",d:"Suis tout ton patrimoine au même endroit : bourse, crypto, immobilier et liquidités — piloté par la conviction."},{i:"🗂️",t:"Tes enveloppes",d:"Range tes placements en enveloppes (PEA, CTO, AV, crypto…) et regroupe-les en familles. Tu choisis lesquelles apparaissent dans Bourse."},{i:"🔍",t:"Explore une valeur",d:"Cherche par nom ou ISIN. Chaque fiche : graphique, fondamentaux expliqués (touche une case pour sa définition), avis d\'analystes et description."},{i:"🔥",t:"Investis par conviction",d:"Pour chaque ligne, tu dis ce que tu en penses (0 à 100), pour combien de temps tu la gardes, et pourquoi tu l\'as achetée.<br><br>En échange, Convicto te montre où ta conviction et ton argent ne collent pas, te prévient quand une position a dérivé toute seule, et te dit — une fois tes horizons écoulés — si ce en quoi tu crois le plus a vraiment mieux marché.<br><br>Rien n\'est obligatoire, et tout se remplit d\'un coup en deux minutes."},{i:"📊",t:"Analyse & alertes",d:"Performance, répartition, alertes de prix, agenda des résultats, correction des splits et repérage des cours figés."},{i:"🚀",t:"C\'est parti !",d:"Crée une enveloppe et ajoute une position, tes liquidités ou un bien. Tu peux revoir ce guide dans ⚙ Réglages."}];const st=G[n];const last=n===G.length-1;const dots=G.map((_,i)=>`<span style="width:7px;height:7px;border-radius:50%;background:${i===n?"var(--acc)":"var(--bdr)"};display:inline-block;margin:0 3px;transition:background .2s"></span>`).join("");sm(`<div style="text-align:right;margin-bottom:2px"><span onclick="finishGuide()" style="font-size:12px;color:var(--mut);cursor:pointer">Passer</span></div><div style="text-align:center;padding:10px 6px 4px"><div style="font-size:46px;margin-bottom:14px;line-height:1">${st.i}</div><div style="font-size:19px;font-weight:800;margin-bottom:10px">${st.t}</div><div style="font-size:13px;color:var(--dim);line-height:1.55;max-width:300px;margin:0 auto">${st.d}</div></div><div style="text-align:center;margin:22px 0 16px">${dots}</div><div style="display:flex;gap:8px">${n>0?`<button onclick="showGuide(${n-1})" style="flex:1;padding:11px 0;border-radius:10px;border:1px solid var(--bdr);background:transparent;color:var(--dim);font-size:14px;font-weight:600;cursor:pointer">Précédent</button>`:""}<button onclick="${last?"finishGuide()":`showGuide(${n+1})`}" style="flex:${n>0?"2":"1"};padding:11px 0;border-radius:10px;border:none;background:var(--acc);color:#fff;font-size:14px;font-weight:700;cursor:pointer">${last?"Commencer 🚀":"Suivant →"}</button></div>`);};
 window.setSection=(key,val)=>{if(!D.prefs)D.prefs={};D.prefs[key]=val;save();gerer();};
 window.renameFamily=(id)=>{const f=_families().find(x=>x.id===id);if(!f)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Renommer</h3><button onclick="gerer()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="rfName" value="${esc(f.name)}" autocomplete="off"></div><button class="btn btn-p" onclick="doRenameFamily('${id}')">Enregistrer</button>`);setTimeout(()=>{const e=document.getElementById("rfName");if(e)e.focus();},40);};
 window.doRenameFamily=(id)=>{const el=document.getElementById("rfName");const nm=el?el.value.trim():"";if(!nm)return toast("Donne un nom");const f=_families().find(x=>x.id===id);if(f){f.name=nm;saveLocal();if(currentUser)pushToSupabase();}gerer();};
