@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "199";
+const APP_VERSION = "200";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -397,7 +397,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#a78bfa","#38bdf8","#fb923c"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -788,12 +788,37 @@ function _convVuePage(vue,ctx){
   const d=ctx.d,cv=ctx.cv,noThesis=ctx.noThesis,noPlan=ctx.noPlan,noHz=ctx.noHz,derive=ctx.derive;
   const lignePos=(x)=>`<div onclick="posFiche('${escAttr(x.poche)}','${escAttr(x.ticker)}')" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(x.ticker)} <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(x.titre||"")}</span></div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(x.poche)}</div></div><span style="color:var(--mut);font-size:13px">›</span></div>`;
   if(vue==="completer"){
-    const bloc=(titre,phrase,lst)=>!lst.length?"":`<div class="card" style="margin-bottom:10px"><div class="section" style="margin-bottom:2px">${lst.length} ${titre}</div><div style="font-size:10px;color:var(--mut);margin-bottom:8px">${phrase}</div>${lst.map(lignePos).join("")}</div>`;
-    return _convRetour()+_convEntete("À compléter","Ce qui manque encore sur tes positions. Rien n'est obligatoire — mais plus c'est rempli, plus le reste devient utile.")
-      +(noHz.length?`<div onclick="_horizonPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${noHz.length} sans horizon</div><div style="font-size:10px;color:var(--mut);margin-top:2px">À régler d'un coup, un tap par ligne</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`:"")
-      +bloc("sans thèse","Pourquoi tu détiens cette ligne. Ouvre la fiche pour l'écrire.",noThesis)
-      +bloc("sans plan de sortie","À quel prix tu comptes vendre. Ouvre la fiche pour le définir.",noPlan)
-      +((!noHz.length&&!noThesis.length&&!noPlan.length)?`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Tout est rempli 👍</div>`:"");
+    // Trois choix, jamais la liste des positions : un mur de 30 lignes vides décourage au lieu
+    // d'inviter. On entre ensuite dans un parcours qui ne montre QU'UNE position à la fois.
+    const choix=[["horizon","Ajouter les horizons manquants",noHz.length,"Pour combien de temps tu comptes garder chaque ligne"],
+                 ["these","Écrire les thèses manquantes",noThesis.length,"Pourquoi tu détiens cette ligne"],
+                 ["plan","Définir les plans de sortie",noPlan.length,"À quel prix tu comptes vendre"]].filter(c=>c[2]>0);
+    return _convRetour()+_convEntete("À compléter","Choisis ce que tu veux remplir. On avance ensuite ligne par ligne, sans te montrer toute la liste d'un coup.")
+      +(choix.length?`<div class="card" style="padding:6px 14px 10px">${choix.map(c=>`<div onclick="setConvFill('${c[0]}')" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${c[1]} <span style="color:var(--mut)">(${c[2]})</span></div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${c[3]}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`).join("")}</div>`
+        :`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Tout est rempli 👍</div>`);
+  }
+  if(vue==="fill"){
+    // Une position à la fois : on remplit, on passe à la suivante. La progression est visible,
+    // l'ampleur du travail ne l'est pas — c'est ce qui fait qu'on commence.
+    const listes={horizon:noHz,these:noThesis,plan:noPlan};
+    const titres={horizon:["Horizons","Pour combien de temps comptes-tu la garder ?"],
+                  these:["Thèses","Pourquoi détiens-tu cette ligne ?"],
+                  plan:["Plans de sortie","À quel prix comptes-tu vendre ?"]};
+    const lst=(listes[convFill]||[]).filter(x=>_convSkip.indexOf(x.ticker)<0);
+    const tot=(listes[convFill]||[]).length;
+    const t=titres[convFill]||["À compléter",""];
+    if(!lst.length)return `<div onclick="setConvView('completer')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ À compléter</div>`
+      +`<div class="card" style="text-align:center;padding:30px 16px"><div style="font-size:28px">👍</div><div style="font-size:13px;color:var(--dim);margin-top:8px">${tot?"Tu as passé toutes les lignes restantes.":"Plus rien à remplir ici."}</div></div>`;
+    const x=lst[0];
+    const fait=tot-lst.length;
+    let champ="";
+    if(convFill==="horizon")champ=_hzChips(null)+`<div style="font-size:10px;color:var(--mut);margin-top:8px">Une intention, modifiable à tout moment.</div>`;
+    else if(convFill==="these")champ=`<textarea id="fillTh" rows="3" placeholder="Ex : leader sur un marché qui double tous les 3 ans" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical"></textarea><button class="btn btn-p" style="margin-top:10px" onclick="_fillThese('${escAttr(x.ticker)}')">Enregistrer et continuer</button>`;
+    else champ=`<div style="display:flex;align-items:center;gap:8px"><input id="fillPx" inputmode="decimal" placeholder="Prix de vente visé" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-size:14px"><span style="font-size:12px;color:var(--mut)">${esc(curSym(curOf(x)))}</span></div><button class="btn btn-p" style="margin-top:10px" onclick="_fillPlan('${escAttr(x.poche)}','${escAttr(x.ticker)}')">Enregistrer et continuer</button>`;
+    return `<div onclick="setConvView('completer')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ À compléter</div>`
+      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><h2 style="font-size:19px;font-weight:700">${t[0]}</h2><span style="font-size:11px;color:var(--mut)">${fait+1} sur ${tot}</span></div>`
+      +`<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${Math.round(fait/tot*100)}%;background:var(--acc);border-radius:2px"></div></div>`
+      +`<div class="card"><div style="font-size:15px;font-weight:700">${esc(x.ticker)} <span style="font-weight:400;color:var(--dim);font-size:12px">${esc(x.titre||"")}</span></div><div style="font-size:10.5px;color:var(--mut);margin-top:2px;margin-bottom:14px">${esc(x.poche)} · ${fmt_(Math.round(x.valeur||0))} €</div><div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">${t[1]}</div>${champ}<div onclick="_fillSkip('${escAttr(x.ticker)}')" style="text-align:center;margin-top:12px;font-size:11.5px;color:var(--mut);cursor:pointer">Passer cette ligne</div></div>`;
   }
   if(vue==="regler"){
     const envs=[...new Set(d.ap.filter(x=>!x.noPerf&&!x.manual).map(x=>x.poche))];
@@ -866,12 +891,8 @@ const hzFiltre=`<div style="display:flex;align-items:center;gap:5px;margin-top:1
 const legende=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">${envNames.map(n=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim)"><span style="width:8px;height:8px;border-radius:50%;background:${_pocheColor(n)}"></span>${esc(n)}</span>`).join("")}</div>`;
 const envSelectHtml=hzFiltre+legende;
 const flaggedItems=items.filter(i=>i.flagged);
-// Les explications ne s'affichent plus en permanence : elles tenaient trop de place. Chaque élément a
-// son « ? » compact mais bien visible, qui ouvre le texte au tap.
-const _aideChip=(k,txt)=>`<span onclick="_convAide('${k}')" style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--dim);cursor:pointer">${txt}<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700">?</span></span>`;
-const commentLire=!allItems.length?"":`<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;padding-top:9px;border-top:1px solid var(--sep)">${_aideChip("diag","Ligne de cohérence")}${_aideChip("dorm","Contour pointillé")}${_aideChip("poids","Calcul des poids")}</div>`;
 const masquesLigne=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${masques.length} ligne${masques.length>1?"s":""} non affichée${masques.length>1?"s":""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">Fonds et cryptos — à ajouter au nuage si tu veux les comparer</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
-const chartHtml=(allItems.length?_convChartSvg(items):`<div style="text-align:center;padding:26px 10px"><div style="font-size:12px;color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:11px;color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+commentLire;
+const chartHtml=(allItems.length?_convChartSvg(items):`<div style="text-align:center;padding:26px 10px"><div style="font-size:12px;color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:11px;color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+``;
 // ── LES TROIS SECTIONS SOUS LE NUAGE ────────────────────────────────────────────────────────
 // Avant, onze éléments s'empilaient en mélangeant ce qui demande une réaction, ce qui reste à
 // remplir et ce qu'on consulte. Trois sections, la première seule mise en avant, les vides masquées.
@@ -881,8 +902,6 @@ const noThesis=relevant.filter(x=>!(notes[x.ticker]&&notes[x.ticker].trim()));
 const noPlan=relevant.filter(x=>!x.cible&&!x.cibleHaut);
 const noHz=_sansHorizon(d);
 const derive=_derive();
-const moyConv=allItems.length?Math.round(allItems.reduce((s,i)=>s+i.conv,0)/allItems.length):null;
-const moyenneHtml=moyConv==null?"":`<span class="mono" style="font-size:12px;font-weight:700;color:${_convColor(moyConv)}">${moyConv}<span style="font-size:9px;color:var(--mut);font-weight:400">/100</span></span>`;
 const alertes=[].concat(flaggedItems.map(f=>f.conv<=40?`<b>${esc(f.tk)}</b> — grosse position (${f.poids.toFixed(1)} %) mais conviction faible (${f.conv})`:`<b>${esc(f.tk)}</b> — conviction forte (${f.conv}) mais toute petite position (${f.poids.toFixed(1)} %)`)).concat(derive);
 const surveillerHtml=!alertes.length?"":`<div class="card" style="border-left:3px solid var(--amb);margin-bottom:10px"><div style="display:flex;align-items:center;gap:6px;margin-bottom:8px"><span style="font-size:14px">⚡</span><span style="font-size:14px;font-weight:800">À surveiller</span><span onclick="_convAide('surveiller')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer">?</span></div>${alertes.map(a=>`<div style="font-size:12px;color:var(--dim);line-height:1.65;padding:3px 0">${a}</div>`).join("")}</div>`;
 // « À compléter » est orienté PROGRESSION, jamais reproche : on compte ce qui est fait sur ce qui
@@ -896,13 +915,16 @@ const _pct=_totalInfos>0?Math.round(_faites/_totalInfos*100):0;
 const _rienCommence=relevant.length>0&&noHz.length===relevant.length&&noThesis.length===relevant.length;
 const accueilHtml=!_rienCommence?"":`<div onclick="_horizonPage()" class="card card-tap" style="border-left:3px solid var(--acc);padding:14px;margin-bottom:10px;cursor:pointer"><div style="font-size:13px;font-weight:700;margin-bottom:3px">Donne un horizon à tes positions</div><div style="font-size:11px;color:var(--mut);line-height:1.5">Pour combien de temps tu comptes les garder. C'est ce qui débloque le suivi de tes convictions — deux minutes, un tap par ligne.</div><div style="font-size:12px;color:var(--acc);font-weight:600;margin-top:8px">Commencer ›</div></div>`;
 const completerHtml=(_rienCommence||_faites>=_totalInfos||!_totalInfos)?"":`<div onclick="setConvView('completer')" class="card card-tap" style="padding:12px 14px;margin-bottom:8px;cursor:pointer"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:12.5px;color:var(--dim)">Compléter mes convictions</div><div style="font-size:10px;color:var(--mut);margin-top:3px">${_faites} sur ${_totalInfos} renseignées</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:8px"><div style="height:100%;width:${_pct}%;background:var(--acc);border-radius:2px"></div></div></div>`;
-const carnetsHtml=`<div class="card" style="padding:12px 14px;margin-bottom:8px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px">Mes carnets</div>${[["regler","Régler mes convictions"],["derive","Ce qui a bougé sans toi"],["journal","Journal de décisions"],["marche","Mes convictions face au marché"]].map(o=>`<div onclick="setConvView('${o[0]}')" style="display:flex;align-items:center;gap:8px;padding:5px 0;cursor:pointer"><span style="flex:1;font-size:12.5px;color:var(--dim)">${o[1]}</span><span style="color:var(--mut);font-size:13px">›</span></div>`).join("")}</div>`;
+const carnetsHtml=`<div class="card" style="padding:6px 14px 10px;margin-bottom:8px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:8px 0 4px">Mes carnets</div>${[["journal","Journal de décisions","Ce que tu t'es dit, et quand"],["marche","Mes convictions face au marché","Est-ce que ce en quoi tu crois monte vraiment"]].map(o=>`<div onclick="setConvView('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${o[1]}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${o[2]}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`).join("")}</div>`;
+// « Régler mes convictions » est une action, pas un carnet : elle vit juste sous le graphique.
+const reglerHtml=!allItems.length?"":`<div onclick="setConvView('regler')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:8px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">Régler mes convictions</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Ajuster tes notes, en voyant le poids de chaque ligne</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 if(convView)return _convVuePage(convView,{d,cv,noThesis,noPlan,noHz,derive,allItems});
-return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span>${moyenneHtml}</div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce graphique ne montre que tes actions détenues en direct.</div>${envSelectHtml}${chartHtml}</div>
+return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce graphique ne montre que tes actions détenues en direct.</div>${envSelectHtml}${chartHtml}</div>
 ${masquesLigne}
 ${accueilHtml}
 ${surveillerHtml}
 ${completerHtml}
+${reglerHtml}
 ${carnetsHtml}`;}
 
 function perfReelle(){if(!H||H.length<3)return null;const s0=H.slice().sort((a,b)=>a.t-b.t);
@@ -1960,16 +1982,33 @@ h+=`<div onclick="gerer()" style="text-align:center;border:1px dashed #2c2f45;bo
 
 function _convGapBadge(x){if(x.manual)return"";const _cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])||0;D.prefs=D.prefs||{};D.prefs.dismissedConvGap=D.prefs.dismissedConvGap||{};const _dcg=D.prefs.dismissedConvGap;if(!_cv){delete _dcg[x.ticker];return"";}const _pw=x.poids||0;let _msg=null;if(_cv<=40&&_pw>15)_msg="Conviction faible ("+_cv+"/100) mais grosse position ("+_pw+"% de l’enveloppe).";else if(_cv>=80&&_pw<3)_msg="Conviction forte ("+_cv+"/100) mais toute petite position ("+_pw+"%).";if(!_msg){delete _dcg[x.ticker];return"";}if(_dcg[x.ticker])return"";const _msgSafe=_msg.replace(/'/g,"’");return ` <span onclick="event.stopPropagation();toast('${escAttr(_msgSafe)}')" title="Écart conviction / poids" style="font-size:13px;cursor:pointer;display:inline-block;padding:9px 6px;margin:-9px -3px;vertical-align:middle">⚖️</span><span onclick="event.stopPropagation();dismissConvGap('${escAttr(x.ticker)}')" title="Ignorer" style="font-size:11px;color:var(--mut);cursor:pointer;display:inline-block;padding:9px 7px;margin:-9px -4px -9px -1px;vertical-align:middle">✕</span>`;}
 window.dismissConvGap=(tk)=>{D.prefs=D.prefs||{};D.prefs.dismissedConvGap=D.prefs.dismissedConvGap||{};D.prefs.dismissedConvGap[tk]=true;save();};
-window.convChartHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Conviction vs poids</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);line-height:1.6">Chaque point est un ticker noté de <b style="color:var(--txt)">0 à 100</b> (curseur sur sa fiche).<br><br><b style="color:var(--txt)">Plus haut</b> = conviction plus forte.<br><b style="color:var(--txt)">Plus à droite</b> = position plus grosse.<br><br>Chaque point affiche son ticker quand il y a la place. Quand plusieurs positions ont une conviction proche, ils s'écartent légèrement les uns des autres pour rester lisibles (leur position verticale, donc leur conviction, ne bouge jamais) ; si ça reste trop serré, le nom est masqué mais le point reste — <b style="color:var(--txt)">tape n'importe quel point</b> pour voir son détail (ticker, poids, conviction).<br><br><b style="color:var(--txt)">Exemple</b> : NVDA à 90 et une grosse part du portefeuille → en haut à droite, bien aligné. ETH à 10 mais une part importante → en bas mais loin à droite, ça sort du lot.<br><br>Les points <b style="color:var(--amb)">cerclés en orange</b> sont ces décalages : conviction forte (≥80) sur une toute petite position, ou conviction faible (≤40) sur une grosse. Rien d'obligatoire à corriger — juste de quoi repérer un oubli ou une thèse à revoir. Un ticker à 0 n'apparaît pas ici : va sur sa fiche pour lui donner une note. Les enveloppes marquées « hors total » (ex : le compte d'un proche que tu gères) n'apparaissent jamais ici.</div>`)};
+window.convChartHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><h3 style="font-size:17px;font-weight:700">Conviction vs poids</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:12.5px;color:var(--dim);line-height:1.7">
+Chaque point est une position. <b style="color:var(--txt)">Plus haut</b> = tu y crois davantage. <b style="color:var(--txt)">Plus à droite</b> = elle pèse plus lourd. La <b style="color:var(--txt)">taille</b> du rond, c'est le montant investi, et la <b style="color:var(--txt)">couleur</b>, l'enveloppe.
+<div style="height:1px;background:var(--sep);margin:12px 0"></div>
+<b style="color:var(--txt)">La ligne de cohérence</b><br>La diagonale relie conviction et poids. Au-dessus : tu y crois plus que tu n'y as mis, la ligne est <b style="color:var(--txt)">à renforcer</b>. En dessous : tu y as mis plus que tu n'y crois, elle est <b style="color:var(--txt)">à alléger</b>. C'est une convention de lecture, pas un conseil.
+<div style="height:1px;background:var(--sep);margin:12px 0"></div>
+<b style="color:var(--txt)">Les contours en pointillés</b><br>Une conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans.
+<div style="height:1px;background:var(--sep);margin:12px 0"></div>
+<b style="color:var(--txt)">Le calcul des poids</b><br>Les poids sont calculés sur les seules lignes affichées, qui totalisent 100 % du nuage. Si tu ajoutes ou retires une ligne, tous les poids se recalculent et les points se déplacent : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.
+</div>`);};
 window.toggleConvHideThesis=(v)=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=v;save();R();};
 window.toggleConvHidePlan=(v)=>{D.prefs=D.prefs||{};D.prefs.convHidePlan=v;save();R();};
 window.convReactivateAll=()=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=false;D.prefs.convHidePlan=false;save();R();};
 window.setConvHz=v=>{convHz=v;R();};
-window.setConvView=v=>{convView=v;R();scrollTo(0,0);};
+window.setConvView=v=>{convView=v;convFill=null;_convSkip=[];R();scrollTo(0,0);};
+window.setConvFill=t=>{convFill=t;convView="fill";_convSkip=[];R();scrollTo(0,0);};
+window._fillSkip=tk=>{_convSkip.push(tk);R();scrollTo(0,0);};
+window._fillThese=tk=>{const el=document.getElementById("fillTh");const v=el?el.value.trim():"";
+  if(!v)return toast("Écris quelques mots, ou passe cette ligne.");
+  D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[tk]=v;save();scrollTo(0,0);};
+window._fillPlan=(poche,tk)=>{const el=document.getElementById("fillPx");const v=el?pn(el.value):0;
+  if(!(v>0))return toast("Indique un prix, ou passe cette ligne.");
+  const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);
+  if(p)p.cibleHaut=v;save();scrollTo(0,0);};
 window._convSet=(tk,v)=>{const n=Math.round(Number(v)||0);D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};
   if(n>0){D.prefs.conv[tk]=n;_setConvTs(tk);}else delete D.prefs.conv[tk];save();};
 // Les textes vivent dans convTabHtml (au plus près de ce qu'ils décrivent) ; on les relit ici au clic.
-window._convAide=(k)=>{const t={
+window._convAide=(k)=>{const TITRES={diag:'La ligne de cohérence',dorm:'Les contours en pointillés',poids:'Le calcul des poids',horizon:'Le filtre par horizon',surveiller:'À surveiller',derive:'La dérive',marche:'Mes convictions face au marché'};const t={
  diag:"La diagonale : conviction et poids alignés. Un point AU-DESSUS = tu y crois plus que tu n'y as mis (à renforcer). EN DESSOUS = tu y as mis plus que tu n'y crois (à alléger). C'est une convention de lecture, pas un conseil.",
  dorm:"Contour en pointillés : conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans. Repasse dessus pour la remettre à jour.",
  poids:"Les poids sont calculés sur les seules lignes affichées, qui totalisent 100 % du nuage. Si tu ajoutes ou retires une ligne, tous les poids se recalculent et les points se déplacent : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.",
@@ -1977,7 +2016,8 @@ window._convAide=(k)=>{const t={
  derive:"La dérive, c'est ce que le marché t'a imposé sans que tu décides rien : une ligne qui monte fort prend mécaniquement plus de place. Période fixe de 3 mois. Le détail par position n'apparaîtra qu'après quelques mois de relevés — l'historique ne gardait jusqu'ici que les totaux par enveloppe.",
  marche:"On regroupe tes positions par niveau de conviction et on compare leur performance. Une position n'entre dans le calcul que si l'horizon que tu lui as donné est écoulé : juger sur 3 mois une ligne achetée pour 10 ans n'aurait aucun sens.",
  horizon:"Filtre par horizon : n'affiche qu'une durée de détention à la fois. Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans — les comparer côte à côte induit en erreur."}[k];
- if(t)toast(t);};
+ if(!t)return;
+ sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px"><h3 style="font-size:16px;font-weight:700">${TITRES[k]||"Explication"}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:12.5px;color:var(--dim);line-height:1.65">${t}</div>`);};
 // Choix des lignes affichées sur le nuage. On dit à quoi ça sert ET ce que ça change, parce que
 // cocher une ligne redistribue tous les poids : sans explication, on croirait que le portefeuille a bougé.
 window._convShowPage=()=>{
@@ -2060,7 +2100,7 @@ const tgtEnabled=!(D.prefs&&D.prefs.targetEnabled===false);
 const reb=ad.filter(a=>Math.abs(a.dv)>2).map(a=>({n:a.n,dv:a.dv,eur:Math.round(Math.abs(a.dv)/100*d.tF)}));
 const algOff=ad.reduce((s,a)=>s+Math.abs(a.dv),0)/2;const algPct=Math.max(0,Math.round(100-algOff));const algGrade=algPct>=92?"A":algPct>=85?"B":algPct>=72?"C":"D";const algGood=tgtEnabled&&algPct>=90;const algCl=algPct>=90?"var(--grn)":algPct>=80?"var(--amb)":"var(--red)";
 const prof=(D.prefs&&D.prefs.scoreProfile)||"equilibre";
-const synC=(()=>{const out=[];if(tgtEnabled&&!algGood){const mx=ad.slice().sort((a,b)=>Math.abs(b.dv)-Math.abs(a.dv))[0];if(mx&&Math.abs(mx.dv)>5){const eur=Math.round(Math.abs(mx.dv)/100*d.tF);out.push(["⚠️",`${mx.dv>0?"Surpondéré":"Sous-pondéré"} <b>${esc(mx.n)}</b> ${mx.dv>0?"+":""}${mx.dv.toFixed(1)} pts (~${fmt_(eur)}€) vs ta cible`,mx.dv>0?"var(--amb)":"var(--acc)"]);}}const _cg=typeof CG!=="undefined"?CG:{};const _eh=(D.prefs&&D.prefs.etfHoldings)||{};const _isAction=p=>!p.manual&&!_cg[p.ticker]&&!_isFundEnv(p.poche)&&!KNOWN_DIVERSIFIED_ETF.has(p.ticker)&&!(_eh[p.ticker]&&_eh[p.ticker].isFund);const byPl=d.ap.filter(_isAction).map(p=>({...p,eur:p.pl||0,pct:p.pru>0?(p.cours-p.pru)/p.pru*100:0})).filter(p=>isFinite(p.pct)&&p.qty>0).sort((a,b)=>b.pct-a.pct);if(byPl.length){const top=byPl[0];out.push(["📈",`Meilleure action : <b>${esc(top.ticker)}</b> ${top.pct>=0?"+":""}${top.pct.toFixed(1)}% <span style="opacity:.7">(${top.eur>=0?"+":""}${fmt_(Math.round(top.eur))} €)</span>`,"var(--grn)"]);const bot=byPl[byPl.length-1];if(bot&&bot.ticker!==top.ticker&&bot.pct<0)out.push(["📉",`Action la plus faible : <b>${esc(bot.ticker)}</b> ${bot.pct.toFixed(1)}% <span style="opacity:.7">(${fmt_(Math.round(bot.eur))} €)</span>`,"var(--red)"]);}if(td>0)out.push(["💸",`Dividendes projetés : <b>${fmt_(td)}€/an</b> (${(td/tFv*100).toFixed(1)}% du portefeuille)`,"var(--grn)"]);if(d.nA>0)out.push(["🔔",`<b>${d.nA}</b> alerte(s) cible atteinte(s)`,"var(--red)"]);return out.slice(0,4);})();
+const synC=(()=>{const out=[];if(tgtEnabled&&!algGood){const mx=ad.slice().sort((a,b)=>Math.abs(b.dv)-Math.abs(a.dv))[0];if(mx&&Math.abs(mx.dv)>5){const eur=Math.round(Math.abs(mx.dv)/100*d.tF);out.push(["⚠️",`<b>${esc(mx.n)}</b> ${mx.dv>0?"est à alléger":"est à renforcer"} : ${mx.dv>0?"+":""}${mx.dv.toFixed(1)} pts (~${fmt_(eur)}€) vs ta cible`,mx.dv>0?"var(--amb)":"var(--acc)"]);}}const _cg=typeof CG!=="undefined"?CG:{};const _eh=(D.prefs&&D.prefs.etfHoldings)||{};const _isAction=p=>!p.manual&&!_cg[p.ticker]&&!_isFundEnv(p.poche)&&!KNOWN_DIVERSIFIED_ETF.has(p.ticker)&&!(_eh[p.ticker]&&_eh[p.ticker].isFund);const byPl=d.ap.filter(_isAction).map(p=>({...p,eur:p.pl||0,pct:p.pru>0?(p.cours-p.pru)/p.pru*100:0})).filter(p=>isFinite(p.pct)&&p.qty>0).sort((a,b)=>b.pct-a.pct);if(byPl.length){const top=byPl[0];out.push(["📈",`Meilleure action : <b>${esc(top.ticker)}</b> ${top.pct>=0?"+":""}${top.pct.toFixed(1)}% <span style="opacity:.7">(${top.eur>=0?"+":""}${fmt_(Math.round(top.eur))} €)</span>`,"var(--grn)"]);const bot=byPl[byPl.length-1];if(bot&&bot.ticker!==top.ticker&&bot.pct<0)out.push(["📉",`Action la plus faible : <b>${esc(bot.ticker)}</b> ${bot.pct.toFixed(1)}% <span style="opacity:.7">(${fmt_(Math.round(bot.eur))} €)</span>`,"var(--red)"]);}if(td>0)out.push(["💸",`Dividendes projetés : <b>${fmt_(td)}€/an</b> (${(td/tFv*100).toFixed(1)}% du portefeuille)`,"var(--grn)"]);if(d.nA>0)out.push(["🔔",`<b>${d.nA}</b> alerte(s) cible atteinte(s)`,"var(--red)"]);return out.slice(0,4);})();
 if(anaSub==="hist"||anaSub==="rep"||anaSub==="pos"||anaSub==="perf")anaSub="portef";
 const subTabs=[["synthese","Synthèse"],["portef","Portefeuille"],["conv","Conviction"],["fisc","Fiscalité"]];
 const benchLabels={sp500:"S&P 500",cac40:"CAC 40",nasdaq:"Nasdaq"};
@@ -2298,6 +2338,11 @@ function _hzChips(sel){
     return `<button type="button" data-hzk="${h.k}" onclick="_hzPick('${h.k}')" style="padding:6px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${on?"var(--acc)":"var(--bdr)"};background:${on?"var(--acc)":"transparent"};color:${on?"#fff":"var(--dim)"}">${h.l}<span style="opacity:.75;font-weight:400"> · ${h.d}</span></button>`;}).join("")}</div>`;
 }
 window._hzPick=(k)=>{
+  // Dans le parcours « À compléter », un tap suffit : on enregistre et on passe à la ligne suivante.
+  if(typeof convFill!=="undefined"&&convFill==="horizon"&&convView==="fill"){
+    const ctx=ga();const lst=ctx.ap.filter(x=>!x.noPerf&&!_horizonOf(x.ticker)&&_convSkip.indexOf(x.ticker)<0);
+    if(lst.length){_setHorizon(lst[0].ticker,k);save();scrollTo(0,0);return;}
+  }
   const r=document.getElementById("modal-root");
   const cur=r?(r.dataset.hz||""):"";
   const nk=(cur===k)?"":k; // re-taper la puce active la désélectionne
