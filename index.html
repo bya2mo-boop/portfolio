@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "196";
+const APP_VERSION = "197";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -774,20 +774,15 @@ const envNames=[...new Set(allItems.map(i=>i.poche))];
 // poids, sinon changer de filtre déplacerait tout le nuage sans qu'on ait rien décidé.
 const items=allItems.filter(i=>convHz==="tout"||_horizonOf(i.tk)===convHz);
 const hzOpts=[["tout","Tous"]].concat(HORIZONS.map(h=>[h.k,h.l]));
-const hzFiltre=`<div style="font-size:10px;color:var(--mut);margin-top:12px;margin-bottom:5px">N'afficher qu'un horizon à la fois — une conviction à 3 mois ne se compare pas à une conviction à 10 ans</div><div style="display:flex;flex-wrap:wrap;gap:6px">${hzOpts.map(o=>{const on=convHz===o[0];
+const hzFiltre=`<div style="display:flex;align-items:center;gap:5px;margin-top:12px;margin-bottom:6px"><span style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">Horizon</span><span onclick="_convAide('horizon')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700;cursor:pointer">?</span></div><div style="display:flex;flex-wrap:wrap;gap:6px">${hzOpts.map(o=>{const on=convHz===o[0];
   return `<button type="button" onclick="setConvHz('${o[0]}')" style="padding:5px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${on?"var(--acc)":"var(--bdr)"};background:${on?"var(--acc)":"transparent"};color:${on?"#fff":"var(--dim)"}">${o[1]}</button>`;}).join("")}</div>`;
 const legende=`<div style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px">${envNames.map(n=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim)"><span style="width:8px;height:8px;border-radius:50%;background:${_pocheColor(n)}"></span>${esc(n)}</span>`).join("")}</div>`;
 const envSelectHtml=hzFiltre+legende;
 const flaggedItems=items.filter(i=>i.flagged);
-// Chaque élément du nuage a son mot d'explication, en clair sous le graphique : sans ça, la diagonale,
-// le contour creux et surtout la redistribution des poids restent incompréhensibles.
-const _pctAff=(_totAff/(d.ap.filter(x=>!x.noPerf).reduce((s,x)=>s+(x.valeur||0),0)||1)*100);
-const commentLire=!allItems.length?"":`<div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--sep);font-size:10.5px;color:var(--mut);line-height:1.65">
-<div><b style="color:var(--dim)">La diagonale</b> — conviction et poids alignés. Au-dessus : tu y crois plus que tu n'y as mis. En dessous : l'inverse.</div>
-<div><b style="color:var(--dim)">Contour en pointillés</b> — conviction que tu n'as pas revue depuis longtemps (le délai s'adapte à ton horizon).</div>
-<div><b style="color:var(--dim)">Les poids</b> — calculés sur les lignes affichées, qui totalisent 100 % du nuage. Activer ou retirer une ligne redistribue donc tous les poids : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.</div>
-<div><b style="color:var(--dim)">Taille des ronds</b> — le montant investi.</div>
-</div>`;
+// Les explications ne s'affichent plus en permanence : elles tenaient trop de place. Chaque élément a
+// son « ? » compact mais bien visible, qui ouvre le texte au tap.
+const _aideChip=(k,txt)=>`<span onclick="_convAide('${k}')" style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--dim);cursor:pointer">${txt}<span style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:50%;background:var(--acc);color:#fff;font-size:9px;font-weight:700">?</span></span>`;
+const commentLire=!allItems.length?"":`<div style="display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;padding-top:9px;border-top:1px solid var(--sep)">${_aideChip("diag","Ligne de cohérence")}${_aideChip("dorm","Contour pointillé")}${_aideChip("poids","Calcul des poids")}</div>`;
 const masquesLigne=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${masques.length} ligne${masques.length>1?"s":""} non affichée${masques.length>1?"s":""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">Fonds et cryptos — à ajouter au nuage si tu veux les comparer</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 const chartHtml=(allItems.length?_convChartSvg(items):`<div style="text-align:center;padding:26px 10px"><div style="font-size:12px;color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:11px;color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+commentLire;
 const flagsHtml=flaggedItems.length?`<div class="card" style="font-size:11.5px;line-height:1.8">`+flaggedItems.map(f=>{const msg=f.conv<=40?`grosse position (${f.poids}%) mais conviction faible (${f.conv})`:`conviction forte (${f.conv}) mais toute petite position (${f.poids}%)`;return `<div><span style="font-size:9px;background:#fbbf2422;color:var(--amb);border-radius:99px;padding:2px 7px;font-weight:700;margin-right:5px">⚠</span><b>${esc(f.tk)}</b> — ${msg}</div>`;}).join("")+`</div>`:"";
@@ -804,7 +799,7 @@ const planCard=(hidePlan||!relevant.length)?"":(noPlan.length?`<div class="card"
 const reactivatePlanLink=((hideThesis&&noThesis.length)||(hidePlan&&relevant.length))?`<div onclick="convReactivateAll()" style="text-align:center;font-size:11px;color:var(--mut);cursor:pointer;margin:6px 0 10px">Réafficher les rappels masqués</div>`:"";
 const jr=(D.prefs&&D.prefs.journal)||{};let entries=[];Object.keys(jr).forEach(tk=>{(jr[tk]||[]).forEach(e=>entries.push({tk,d:e.d,t:e.t}));});entries.sort((a,b)=>b.d-a.d);entries=entries.slice(0,8);
 const journalCard=entries.length?`<div class="card"><div class="section">Dernières décisions</div>${entries.map((e,i)=>`<div style="padding:8px 0;${i<entries.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="display:flex;justify-content:space-between"><span style="font-size:12px;font-weight:700">${esc(e.tk)}</span><span style="font-size:10px;color:var(--mut)">${_relTime(e.d)}</span></div><div style="font-size:11.5px;color:var(--dim);line-height:1.4;margin-top:2px">${esc(e.t)}</div></div>`).join("")}</div>`:`<div class="card" style="text-align:center;padding:16px;color:var(--mut);font-size:11.5px">Ton journal de décisions apparaîtra ici (note-le depuis une fiche position).</div>`;
-return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce que tu détiens le plus, est-ce ce en quoi tu crois le plus ? Par défaut, seules tes actions détenues en direct — les fonds et cryptos s'ajoutent un par un.</div>${envSelectHtml}${chartHtml}</div>
+return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div><div style="font-size:10.5px;color:var(--mut);line-height:1.5;margin-top:2px">Ce graphique ne montre que tes actions détenues en direct.</div>${envSelectHtml}${chartHtml}</div>
 ${masquesLigne}
 ${_horizonLigne(d)}
 ${flagsHtml}
@@ -1873,6 +1868,13 @@ window.toggleConvHideThesis=(v)=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=v;s
 window.toggleConvHidePlan=(v)=>{D.prefs=D.prefs||{};D.prefs.convHidePlan=v;save();R();};
 window.convReactivateAll=()=>{D.prefs=D.prefs||{};D.prefs.convHideThesis=false;D.prefs.convHidePlan=false;save();R();};
 window.setConvHz=v=>{convHz=v;R();};
+// Les textes vivent dans convTabHtml (au plus près de ce qu'ils décrivent) ; on les relit ici au clic.
+window._convAide=(k)=>{const t={
+ diag:"La diagonale : conviction et poids alignés. Un point AU-DESSUS = tu y crois plus que tu n'y as mis (à renforcer). EN DESSOUS = tu y as mis plus que tu n'y crois (à alléger). C'est une convention de lecture, pas un conseil.",
+ dorm:"Contour en pointillés : conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans. Repasse dessus pour la remettre à jour.",
+ poids:"Les poids sont calculés sur les seules lignes affichées, qui totalisent 100 % du nuage. Si tu ajoutes ou retires une ligne, tous les poids se recalculent et les points se déplacent : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.",
+ horizon:"Filtre par horizon : n'affiche qu'une durée de détention à la fois. Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans — les comparer côte à côte induit en erreur."}[k];
+ if(t)toast(t);};
 // Choix des lignes affichées sur le nuage. On dit à quoi ça sert ET ce que ça change, parce que
 // cocher une ligne redistribue tous les poids : sans explication, on croirait que le portefeuille a bougé.
 window._convShowPage=()=>{
