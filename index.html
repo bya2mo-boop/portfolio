@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "205";
+const APP_VERSION = "206";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -779,7 +779,7 @@ function _convChartSvg(items){
     <text x="${X0}" y="${VH-10}" font-size="10" fill="var(--mut)">0%</text>
     <text x="${(X0+X1)/2}" y="${VH-10}" font-size="10" fill="var(--mut)" text-anchor="middle">poids dans ton portefeuille</text>
     <text x="${X1}" y="${VH-10}" font-size="10" fill="var(--mut)" text-anchor="end">${vg(maxP,0)} %</text>
-    <text x="${X0-7}" y="${Y0-14}" font-size="10" fill="var(--mut)" text-anchor="end">conviction</text>
+    <text x="2" y="${Y0-13}" font-size="9" fill="var(--mut)" text-anchor="start">conviction</text>
   </svg>`;
 }
 // Rattrapage groupé : la saisie à l'achat est volontairement passable, donc sans ce rattrapage
