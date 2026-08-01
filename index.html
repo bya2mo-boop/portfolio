@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "204";
+const APP_VERSION = "205";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -689,7 +689,7 @@ function _convChartSvg(items){
   // Décalage horizontal des points qui se chevauchent (beeswarm) : la conviction (y) n'est JAMAIS
   // modifiée, seul le x bouge de quelques pixels. Deux balayages symétriques puis leur moyenne, ce qui
   // respecte les écarts minimums tout en recentrant le nuage sur sa position réelle.
-  const dots0=items.map(it=>({it,ncx:xf(it.poids),cy:yf(it.conv),r:R_PT,dr:Math.max(R_PT,it.tk.length*3.3+5)}));
+  const dots0=items.map(it=>({it,ncx:xf(it.poids),cy:yf(it.conv),r:R_PT,dr:R_PT+1.5}));
   const order=dots0.slice().sort((a,b)=>a.ncx-b.ncx||a.cy-b.cy);
   const n=order.length;
   const gapOf=(a,b)=>{const dy=Math.abs(a.cy-b.cy);const mg=a.dr+b.dr+3;return dy<mg?Math.sqrt(Math.max(0,mg*mg-dy*dy)):0;};
@@ -702,6 +702,9 @@ function _convChartSvg(items){
   if(leftOver>0)order.forEach(d=>{d.cx+=leftOver;});
   const rightOver=Math.max(0,Math.max(...order.map(d=>d.cx+d.dr))-X1);
   if(rightOver>0)order.forEach(d=>{d.cx-=rightOver;});
+  // Garde-fou : la translation rigide ne peut pas toujours tout rentrer (beaucoup de points au même
+  // poids). On borne alors chaque point au cadre, plutôt que de le laisser sortir du graphique.
+  order.forEach(d=>{d.cx=Math.max(X0+d.r,Math.min(X1-d.r,d.cx));});
 
   // Placement des étiquettes : AUCUN nom ne disparaît. On essaie six positions autour du point
   // (dessus, dessous, droite, gauche, puis les diagonales hautes) et, dès que le nom s'éloigne de sa
@@ -720,23 +723,37 @@ function _convChartSvg(items){
     const nb=d.groupe?d.groupe.length:1;
     const txt=nb>1?String(nb):d.it.tk;
     const demiL=txt.length*3.3+3;
+    // Les candidates sont RAMENÉES dans la zone de tracé : un point collé au bord voit son nom
+    // glisser vers l'intérieur au lieu d'être rejeté, donc plus rien ne déborde sur les graduations.
+    const bornes=x=>Math.max(X0+demiL+2,Math.min(X1-demiL-2,x));
     const essais=[
-      {x:d.cx,             y:d.cy-d.r-6,  d:false},
-      {x:d.cx,             y:d.cy+d.r+12, d:true},
-      {x:d.cx+d.r+demiL+4, y:d.cy+3.5,    d:true},
-      {x:d.cx-d.r-demiL-4, y:d.cy+3.5,    d:true},
-      {x:d.cx+d.r+demiL+4, y:d.cy-d.r-4,  d:true},
-      {x:d.cx-d.r-demiL-4, y:d.cy-d.r-4,  d:true}];
-    let pose=essais[0];
-    for(const e of essais){
-      if(e.x-demiL<2||e.x+demiL>VW-2||e.y<Y0-2||e.y>Y1+12)continue;
-      const surNom=prises.some(q=>Math.abs(q.y-e.y)<10&&Math.abs(q.x-e.x)<(q.demiL+demiL+4));
-      const surPoint=dots0.some(o=>o!==d&&Math.abs(o.cx-e.x)<(demiL+o.r)&&Math.abs(o.cy-e.y)<(o.r+4));
-      if(surNom||surPoint)continue;
-      pose=e;break;
-    }
+      {x:d.cx,             y:d.cy-d.r-6},
+      {x:d.cx,             y:d.cy+d.r+12},
+      {x:d.cx+d.r+demiL+4, y:d.cy+3.5},
+      {x:d.cx-d.r-demiL-4, y:d.cy+3.5},
+      {x:d.cx+d.r+demiL+4, y:d.cy-d.r-4},
+      {x:d.cx-d.r-demiL-4, y:d.cy-d.r-4},
+      {x:d.cx,             y:d.cy-d.r-19},
+      {x:d.cx,             y:d.cy+d.r+25},
+      {x:d.cx+d.r+demiL+4, y:d.cy-d.r-17},
+      {x:d.cx-d.r-demiL-4, y:d.cy+d.r+17}].map(e=>({x:bornes(e.x),y:e.y}));
+    // Pénalité plutôt que repli aveugle : si aucune place n'est parfaitement libre, on retient celle
+    // qui gêne le MOINS. Avant, tous les noms d'une grappe retombaient sur la même position par
+    // défaut et se superposaient exactement.
+    let best=null,bestPen=Infinity;
+    essais.forEach((e,idx)=>{
+      if(e.y<Y0+4||e.y>Y1+10)return;
+      let pen=idx*0.6; // on préfère les premières positions, plus naturelles
+      prises.forEach(q=>{const dx=(q.demiL+demiL+4)-Math.abs(q.x-e.x),dy=11-Math.abs(q.y-e.y);
+        if(dx>0&&dy>0)pen+=60+dx;});
+      dots0.forEach(o=>{if(o===d)return;const dx=(demiL+o.r)-Math.abs(o.cx-e.x),dy=(o.r+4)-Math.abs(o.cy-e.y);
+        if(dx>0&&dy>0)pen+=40+dx;});
+      if(pen<bestPen){bestPen=pen;best=e;}
+    });
+    const pose=best||{x:bornes(d.cx),y:Math.max(Y0+4,d.cy-d.r-6)};
+    const ecarte=Math.abs(pose.x-d.cx)>1.5||Math.abs(pose.y-(d.cy-d.r-6))>1.5;
     prises.push({x:pose.x,y:pose.y,demiL});
-    if(pose.d)amorces+=`<line x1="${d.cx.toFixed(1)}" y1="${d.cy.toFixed(1)}" x2="${pose.x.toFixed(1)}" y2="${(pose.y-3).toFixed(1)}" stroke="${d.it.color}" stroke-opacity="0.35" stroke-width="0.7"/>`;
+    if(ecarte)amorces+=`<line x1="${d.cx.toFixed(1)}" y1="${d.cy.toFixed(1)}" x2="${pose.x.toFixed(1)}" y2="${(pose.y-3).toFixed(1)}" stroke="${d.it.color}" stroke-opacity="0.35" stroke-width="0.7"/>`;
     labels+=`<text x="${pose.x.toFixed(1)}" y="${pose.y.toFixed(1)}" font-size="9.5" font-weight="600" fill="${nb>1?"var(--dim)":d.it.color}" text-anchor="middle" ${nb>1?`style="cursor:pointer" onclick="_convPaquet('${escAttr(d.groupe.map(q=>q.it.tk).join(","))}')"`:""}>${esc(txt)}</text>`;
   });
   // Libellés de zone placés dans les COINS extrêmes, jamais au centre : au milieu du nuage ils se
