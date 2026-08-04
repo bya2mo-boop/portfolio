@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "208";
+const APP_VERSION = "209";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -397,7 +397,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,_convRetourVers=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#a78bfa","#38bdf8","#fb923c"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -429,7 +429,7 @@ const isPriv=()=>!!(D&&D.prefs&&D.prefs.privacyMode);
 const fmt_=n=>isPriv()?"•••":new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
 const fmtE_=n=>isPriv()?"•••":new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0);
 const fmt2_=n=>new Intl.NumberFormat("fr-FR",{maximumFractionDigits:2}).format(n||0);
-const fP=n=>(n>0?"+":"")+(n||vg(0),1)+" %";
+const fP=n=>(n>0?"+":"")+vg(n||0,1)+" %";
 const fL=n=>isPriv()?"•••":((n>=0?"+":"")+new Intl.NumberFormat("fr-FR",{maximumFractionDigits:0}).format(n||0)+" €");
 function pn(s){
   const str=String(s||0).replace(/\s/g,"");
@@ -833,7 +833,22 @@ function _derive(){
 function _videHtml(txt,action,libelle){
   return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:220px;padding:20px"><div style="width:34px;height:34px;border-radius:50%;border:1px solid var(--bdr);opacity:.7"></div><div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-top:14px;max-width:280px">${txt}</div>${action?`<div onclick="${action}" style="margin-top:14px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">${libelle} ›</div>`:""}</div>`;
 }
-function _convRetour(){return `<div onclick="setConvView(null)" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Conviction</div>`;}
+function _memoRetour(){
+  const dansConv=(tab==="analyse"&&anaSub==="conv");
+  if(!dansConv)_convRetourVers={tab:tab,sel:sel,bSub:bSub,anaSub:anaSub,pfPoche:pfPoche,pfTk:pfTk,watchListOpen:watchListOpen};
+}
+function _convRetourLbl(){const m=_convRetourVers;
+  if(!m)return "Conviction";
+  if(m.tab==="posfiche"&&m.pfTk)return m.pfTk;
+  if(m.tab==="bourse")return "Bourse";
+  if(m.tab==="home")return "Patrimoine";
+  return "Retour";}
+window._convBack=()=>{const m=_convRetourVers;
+  if(m){_convRetourVers=null;convView=null;convFill=null;boussoleTk=null;
+    tab=m.tab;sel=m.sel;bSub=m.bSub;anaSub=m.anaSub;pfPoche=m.pfPoche;pfTk=m.pfTk;watchListOpen=m.watchListOpen;
+    R();scrollTo(0,0);return;}
+  setConvView(null);};
+function _convRetour(){return `<div onclick="_convBack()" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ ${esc(_convRetourLbl())}</div>`;}
 function _convEntete(titre,phrase,aide){
   return `<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:6px"><h2 style="font-size:19px;font-weight:700">${titre}</h2>${aide?`<span onclick="_convAide('${aide}')" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--acc);color:#fff;font-size:10px;font-weight:700;cursor:pointer">?</span>`:""}</div><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${phrase}</div></div>`;
 }
@@ -860,7 +875,7 @@ function _convVuePage(vue,ctx){
     const lst=(listes[convFill]||[]).filter(x=>_convSkip.indexOf(x.ticker)<0);
     const tot=(listes[convFill]||[]).length;
     const t=titres[convFill]||["À compléter",""];
-    if(!lst.length)return `<div onclick="setConvView('completer')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ À compléter</div>`
+    if(!lst.length)return `<div onclick="setConvView('convictions')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Mes convictions</div>`
       +`<div class="card" style="text-align:center;padding:30px 16px"><div style="font-size:28px">👍</div><div style="font-size:13px;color:var(--dim);margin-top:8px">${tot?"Tu as passé toutes les lignes restantes.":"Plus rien à remplir ici."}</div></div>`;
     const x=lst[0];
     const fait=tot-lst.length;
@@ -868,10 +883,14 @@ function _convVuePage(vue,ctx){
     if(convFill==="horizon")champ=_hzChips(null)+`<div style="font-size:10px;color:var(--mut);margin-top:8px">Une intention, modifiable à tout moment.</div>`;
     else if(convFill==="these")champ=`<textarea id="fillTh" rows="3" placeholder="Ex : leader sur un marché qui double tous les 3 ans" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical"></textarea><button class="btn btn-p" style="margin-top:10px" onclick="_fillThese('${escAttr(x.ticker)}')">Enregistrer et continuer</button>`;
     else{convPlanTk=x.ticker;champ=_planEditorHtml(x,true);}
-    return `<div onclick="setConvView('completer')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ À compléter</div>`
-      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><h2 style="font-size:19px;font-weight:700">${t[0]}</h2><span style="font-size:11px;color:var(--mut)">${fait} sur ${tot}</span></div>`
+    // Une seule carte au milieu d'un écran noir donnait une page inachevée : on montre
+    // l'avancement en clair, et la file de ce qui suit.
+    const suite=lst.slice(1);
+    const apercu=suite.length?`<div style="margin-top:14px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 6px">Ensuite</div><div class="card" style="padding:2px 14px 4px;opacity:.62">${suite.slice(0,12).map(y=>`<div style="display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--sep)"><span style="font-size:12.5px;color:var(--dim)">${esc(_nomAffiche(y,26))}</span><span style="font-size:10px;color:var(--mut)">${esc(y.poche)}</span></div>`).join("")}${suite.length>12?`<div style="font-size:10.5px;color:var(--mut);padding:9px 0">et ${suite.length-12} autre${suite.length-12>1?"s":""}…</div>`:""}</div></div>`:"";
+    return `<div onclick="setConvView('convictions')" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Mes convictions</div>`
+      +`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px"><h2 style="font-size:19px;font-weight:700">${t[0]}</h2><span class="mono" style="font-size:11px;color:var(--dim);font-weight:700">${fait} / ${tot} faites</span></div>`
       +`<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-bottom:14px"><div style="height:100%;width:${Math.round(fait/tot*100)}%;background:var(--acc);border-radius:2px"></div></div>`
-      +`<div class="card"><div style="font-size:15px;font-weight:700">${esc(_nomAffiche(x,32))}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px;margin-bottom:14px">${esc(x.poche)}${convFill==="plan"?"":" · "+fmt_(Math.round(x.valeur||0))+" €"}</div><div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">${t[1]}</div>${champ}<div onclick="_fillSkip('${escAttr(x.ticker)}')" style="text-align:center;margin-top:12px;font-size:11.5px;color:var(--mut);cursor:pointer">Passer cette ligne</div></div>`;
+      +`<div class="card"><div style="font-size:15px;font-weight:700">${esc(_nomAffiche(x,32))}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px;margin-bottom:14px">${esc(x.poche)}${convFill==="plan"?"":" · "+fmt_(Math.round(x.valeur||0))+" €"}</div><div style="font-size:11.5px;color:var(--dim);margin-bottom:8px">${t[1]}</div>${champ}<div onclick="_fillSkip('${escAttr(x.ticker)}')" style="text-align:center;margin-top:12px;font-size:11.5px;color:var(--mut);cursor:pointer">Passer cette ligne</div></div>`+apercu;
   }
   if(vue==="plan"){
     const x=d.ap.find(y=>y.ticker===convPlanTk);
@@ -897,17 +916,19 @@ function _convVuePage(vue,ctx){
     const act=items.filter(e=>e.actuelle);
     const dat=items.filter(e=>!e.actuelle).sort((a,b)=>boussoleOrdre==="recent"?((b.d||0)-(a.d||0)):((a.d||0)-(b.d||0)));
     const flux=boussoleOrdre==="recent"?act.concat(dat):dat.concat(act);
+    // Teintes provisoires : violet pour la thèse, gris pour le journal. La charte tranchera.
+    const TH_C="#a78bfa";
     const chip=(e)=>{const th=e.type==="these";
-      return `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 7px;border-radius:999px;border:1px solid ${th?"var(--dim)":"var(--bdr)"};color:${th?"var(--dim)":"var(--mut)"}">${th?("Thèse"+(e.v?" v"+e.v:"")):"Journal"}</span>`;};
-    const ent=(e)=>`<div style="border-left:2px solid ${e.type==="these"?"var(--dim)":"var(--bdr)"};padding:1px 0 1px 11px;margin-bottom:14px"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${chip(e)}${e.actuelle?`<span style="font-size:9.5px;color:var(--mut)">actuelle</span>`:""}${un?"":`<span style="font-size:11px;font-weight:700">${esc(_tkNom(e.tk))}</span>`}${e.d?`<span style="font-size:10px;color:var(--mut)">${e.actuelle?"":(e.type==="these"?"rangée ":"")}${_relTime(e.d)}</span>`:""}<span style="flex:1"></span>${e.actuelle?`<span onclick="_bsThese('${escAttr(e.tk)}')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer">Modifier</span><span onclick="_bsDelThese('${escAttr(e.tk)}')" style="color:var(--mut);font-size:13px;cursor:pointer;padding:0 2px">✕</span>`:`<span onclick="_bsDelNote('${escAttr(e.tk)}',${e.i})" style="color:var(--mut);font-size:13px;cursor:pointer;padding:0 2px">✕</span>`}</div><div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-top:5px;white-space:pre-wrap">${esc(e.t)}</div></div>`;
+      return `<span style="display:inline-block;font-size:9px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:2px 8px;border-radius:999px;${th?`background:${TH_C}26;border:1px solid ${TH_C}66;color:${TH_C}`:"background:transparent;border:1px solid var(--bdr);color:var(--mut)"}">${th?("Thèse"+(e.v?" v"+e.v:"")):"Journal"}</span>`;};
+    const ent=(e)=>`<div style="border-left:${e.type==="these"?"3px solid "+TH_C:"2px solid var(--bdr)"};padding:1px 0 1px 11px;margin-bottom:14px"><div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">${chip(e)}${e.actuelle?`<span style="font-size:9.5px;color:var(--mut)">actuelle</span>`:""}${un?"":`<span onclick="openBoussole('${escAttr(e.tk)}')" style="font-size:11px;font-weight:700;color:var(--acc);cursor:pointer">${esc(_tkNom(e.tk))}</span>`}${e.d?`<span style="font-size:10px;color:var(--mut)">${e.actuelle?"":(e.type==="these"?"rangée ":"")}${_relTime(e.d)}</span>`:""}<span style="flex:1"></span>${e.actuelle?`<span onclick="_bsThese('${escAttr(e.tk)}','corriger')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer">Corriger</span><span onclick="_bsDelThese('${escAttr(e.tk)}')" style="color:var(--mut);font-size:13px;cursor:pointer;padding:0 2px">✕</span>`:`<span onclick="_bsDelNote('${escAttr(e.tk)}',${e.i})" style="color:var(--mut);font-size:13px;cursor:pointer;padding:0 2px">✕</span>`}</div><div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-top:5px;white-space:pre-wrap">${esc(e.t)}</div></div>`;
     const filtres=`<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-bottom:14px">`
       +[["tout","Tout"],["these","Thèses"],["note","Journal"]].map(f=>`<span onclick="_bsFiltre('${f[0]}')" style="padding:5px 11px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${boussoleFiltre===f[0]?"var(--acc)":"var(--bdr)"};background:${boussoleFiltre===f[0]?"var(--acc)":"transparent"};color:${boussoleFiltre===f[0]?"#fff":"var(--dim)"}">${f[1]}</span>`).join("")
       +`<span style="flex:1"></span><span onclick="_bsOrdre()" style="font-size:11px;color:var(--dim);cursor:pointer;padding:5px 2px">${boussoleOrdre==="recent"?"Plus récent d'abord":"Plus ancien d'abord"} ⇅</span></div>`;
     const th=un?_theseTxt(un):"";
     const boutons=un
-      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span onclick="_bsNote('${escAttr(un)}')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Note de journal</span><span onclick="_bsThese('${escAttr(un)}')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">${th?"Modifier la thèse":"+ Écrire la thèse"}</span></div>`
+      ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span onclick="_bsNote('${escAttr(un)}')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Note de journal</span>${th?`<span onclick="_bsThese('${escAttr(un)}','corriger')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">Corriger la thèse</span><span onclick="_bsThese('${escAttr(un)}','nouvelle')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">Nouvelle thèse</span>`:`<span onclick="_bsThese('${escAttr(un)}')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Écrire la thèse</span>`}</div>`
       : `<div onclick="_bsChoisirTitre()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Écrire</div>`;
-    const retour=un
+    const retour=(un&&!_convRetourVers)
       ? `<div onclick="openBoussole(null)" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Ma boussole</div>`
       : _convRetour();
     const entete=un
@@ -918,6 +939,31 @@ function _convVuePage(vue,ctx){
     else if(total)corps=`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Rien de ce type ici.</div>`;
     else corps=_videHtml(un?"Rien d'écrit sur cette ligne.<br>Ta thèse, c'est ta raison de la détenir ; ton journal, ce que tu décides au fil du temps.":"Rien d'écrit pour l'instant.<br>Ce carnet ne se remplit pas tout seul : c'est toi qui y notes ce en quoi tu crois, et ce que tu décides.",un?`_bsThese('${escAttr(un)}')`:"_bsChoisirTitre()",un?"Écrire ta thèse":"Écrire");
     return retour+entete+boutons+(total?filtres:"")+corps;
+  }
+  if(vue==="convictions"){
+    const envs=[...new Set(d.ap.filter(x=>!x.noPerf&&!x.manual).map(x=>x.poche))];
+    if(envs.length&&envs.indexOf(convEnv)<0)convEnv=envs[0];
+    const tot=d.ap.filter(x=>!x.noPerf).reduce((s2,x)=>s2+(x.valeur||0),0)||1;
+    const lst=d.ap.filter(x=>!x.noPerf&&!x.manual&&x.poche===convEnv).sort((a,b)=>(b.valeur||0)-(a.valeur||0));
+    const notes=(D.prefs&&D.prefs.notes)||{};
+    const manque=(x)=>{const m=[];
+      if(!_horizonOf(x.ticker))m.push(["horizon","Horizon",`_convHzModal('${escAttr(x.ticker)}')`]);
+      if(!(notes[x.ticker]&&notes[x.ticker].trim()))m.push(["these","Thèse",`_bsThese('${escAttr(x.ticker)}')`]);
+      if(!_paliersRows(x.ticker).length&&!x.cibleHaut)m.push(["plan","Plan de sortie",`openPlan('${escAttr(x.ticker)}')`]);
+      return m;};
+    const rows=lst.map(x=>{const c=cv[x.ticker]||0;const dorm=_convDormante(x.ticker);
+      const id="cvv_"+x.ticker.replace(/[^A-Za-z0-9]/g,"_");const mq=manque(x);
+      const puces=mq.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">`+mq.map(m=>`<span onclick="${m[2]}" style="padding:4px 10px;border:1px dashed var(--bdr);border-radius:999px;font-size:10.5px;color:var(--acc);font-weight:600;cursor:pointer">+ ${m[1]}</span>`).join("")+`</div>`
+        : `<div style="font-size:10px;color:var(--mut);margin-top:9px">Horizon, thèse et plan renseignés</div>`;
+      return `<div style="padding:13px 0;border-bottom:1px solid var(--sep)"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="min-width:0"><span style="font-size:13px;font-weight:700">${esc(_nomAffiche(x,24))}</span>${dorm?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${vg((x.valeur||0)/tot*100,1)} % du portefeuille</div></div><span class="mono" id="${id}" style="font-size:15px;font-weight:800;color:${_convColor(c)}">${c}</span></div><input type="range" min="0" max="100" step="1" value="${c}" oninput="var e=document.getElementById('${id}');e.textContent=this.value;e.style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" onchange="_convSet('${escAttr(x.ticker)}',this.value)" style="width:100%;accent-color:var(--acc)">${puces}</div>`;}).join("");
+    // Le parcours « une ligne à la suite de l'autre » reste accessible pour qui préfère enchaîner.
+    const enFile=[["horizon","Horizons",noHz.length],["these","Thèses",noThesis.length],["plan","Plans de sortie",noPlan.length]].filter(c2=>c2[2]>0);
+    const file=enFile.length?`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px"><span style="font-size:10.5px;color:var(--mut)">Remplir à la suite :</span>${enFile.map(c2=>`<span onclick="setConvFill('${c2[0]}')" style="padding:5px 11px;border:1px solid var(--bdr);border-radius:999px;font-size:11px;color:var(--dim);font-weight:600;cursor:pointer">${c2[1]} (${c2[2]})</span>`).join("")}</div>`:"";
+    return _convRetour()+_convEntete("Mes convictions","Ajuste tes notes et complète ce qui manque. Le poids sous chaque ligne te rappelle ce qu'elle représente déjà.","dorm")
+      +file
+      +(envs.length>1?`<div style="margin-bottom:12px">${segHtml(envs.map(n=>[n,n]),convEnv,"setConvEnv")}</div>`:"")
+      +`<div class="card">${rows||`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune position ici.</div>`}</div>`;
   }
   if(vue==="regler"){
     const envs=[...new Set(d.ap.filter(x=>!x.noPerf&&!x.manual).map(x=>x.poche))];
@@ -1011,11 +1057,11 @@ const _pct=_totalInfos>0?Math.round(_faites/_totalInfos*100):0;
 const _rienCommence=relevant.length>0&&noHz.length===relevant.length&&noThesis.length===relevant.length;
 const accueilHtml=!_rienCommence?"":`<div onclick="_horizonPage()" class="card card-tap" style="border-left:3px solid var(--acc);padding:14px;margin-bottom:10px;cursor:pointer"><div style="font-size:13px;font-weight:700;margin-bottom:3px">Donne un horizon à tes positions</div><div style="font-size:11px;color:var(--mut);line-height:1.5">Pour combien de temps tu comptes les garder. C'est ce qui débloque le suivi de tes convictions — deux minutes, un tap par ligne.</div><div style="font-size:12px;color:var(--acc);font-weight:600;margin-top:8px">Commencer ›</div></div>`;
 const _cpt=[["Horizons",relevant.length-noHz.length],["Thèses",relevant.length-noThesis.length],["Plans de sortie",relevant.length-noPlan.length]];
-const completerHtml=(_rienCommence||_faites>=_totalInfos||!_totalInfos)?"":`<div onclick="setConvView('completer')" style="display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">Compléter mes convictions</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${_cpt.map(c=>c[0]+" "+c[1]+"/"+relevant.length).join(" · ")}</div><div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:7px;max-width:220px"><div style="height:100%;width:${_pct}%;border-radius:2px;background:var(--dim);background:color-mix(in srgb, var(--acc) ${_pct}%, var(--mut))"></div></div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const completerHtml=(!allItems.length&&!relevant.length)?"":`<div onclick="setConvView('convictions')" style="display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">Mes convictions</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${_totalInfos?_cpt.map(c=>c[0]+" "+c[1]+"/"+relevant.length).join(" · "):"Ajuste tes notes et complète ce qui manque"}</div>${_totalInfos?`<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:7px;max-width:220px"><div style="height:100%;width:${_pct}%;border-radius:2px;background:var(--dim);background:color-mix(in srgb, var(--acc) ${_pct}%, var(--mut))"></div></div>`:""}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 // Une seule liste façon réglages : titre + explication grise + chevron, séparés par un filet.
 // « À surveiller » garde sa carte à part, c'est la seule chose qui doit ressortir.
 const _ligne=(vue,titre,sous)=>`<div onclick="setConvView('${vue}')" style="display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
-const reglerHtml=!allItems.length?"":_ligne("regler","Régler mes convictions","Ajuster tes notes, en voyant le poids de chaque ligne");
+const reglerHtml="";
 const carnetsHtml=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:16px 2px 0">Mes carnets</div>`
   +_ligne("boussole","Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes")
   +_ligne("marche","Mes convictions face au marché","Est-ce que ce en quoi tu crois monte vraiment");
@@ -2116,7 +2162,7 @@ window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.pre
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
-window.openPlan=(tk)=>{convPlanTk=tk;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openPlan=(tk)=>{_memoRetour();convPlanTk=tk;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._planSet=(i,champ,val)=>{const o=_planObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_planFlash=0;_planSave(o);};
 window._planAdd=()=>{const o=_planLireDOM(_planObj());o.rows.push({q:"",px:""});_setPaliers(convPlanTk,o);_planFlash=0;R();};
@@ -2172,13 +2218,14 @@ const ip=p.pl>=0;
 const sortedPositions=applyPosSort(p.positions); const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
 h+=`<div class="fade"><button onclick="history.back()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${_pocheColor(sel)}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2>${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#72768c22;color:#9296a8;font-weight:600">hors total</span>':''}</div><div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:7px;height:7px;border-radius:50%;background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${vg((d[1]/dt)*100,1)}%</span></div>`).join("")}</div></div>`;
 h+=(()=>{const _fxc=[...new Set(p.positions.map(curOf).filter(c=>c!=="EUR"))];const _ofx=_fxc.length===1?_fxc[0]:null;const _fsym=_ofx?curSym(_ofx):"";const investiFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*x.pru,0):0;const valeurFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*x.cours,0):0;const plFx=valeurFx-investiFx;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,_ofx?fmt_(investiFx)+" "+_fsym:""],["Valeur",fmt_(p.valeur)+" €",null,_ofx?fmt_(valeurFx)+" "+_fsym:""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",_ofx?(plFx>=0?"+":"")+fmt_(plFx)+" "+_fsym:""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:10px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})();
-h+=`<label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:8px"><input type="checkbox" ${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'checked':''} onchange="togglePocheExclTotal('${escAttr(sel)}')"> Exclure cette enveloppe du patrimoine total</label>`;
-h+=`<label style="display:flex;align-items:center;gap:8px;font-size:11px;color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:8px"><input type="checkbox" ${_inBourse(sel)?'checked':''} onchange="togglePocheBourse('${escAttr(sel)}')"> Afficher cette enveloppe dans Bourse</label>`;
+h+=`<div onclick="_envReglages('${escAttr(sel)}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:12px"><span style="flex:1;font-size:12.5px;color:var(--dim)">⚙ Réglages de cette enveloppe</span><span style="color:var(--acc);font-size:15px">›</span></div>`;
+h+=`<label style="display:none;align-items:center;gap:8px;font-size:11px;color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:8px"><input type="checkbox" ${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'checked':''} onchange="togglePocheExclTotal('${escAttr(sel)}')"> Exclure cette enveloppe du patrimoine total</label>`;
+h+=`<label style="display:none;align-items:center;gap:8px;font-size:11px;color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:8px"><input type="checkbox" ${_inBourse(sel)?'checked':''} onchange="togglePocheBourse('${escAttr(sel)}')"> Afficher cette enveloppe dans Bourse</label>`;
 if(p.positions.length>1){h+=`<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:8px"><span style="font-size:10px;color:var(--mut)">⇅ Trier</span><select onchange="setPosSort(this.value)" style="background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:5px 8px;color:var(--txt);font-size:11px;font-family:inherit">${[['val_desc','Valeur ↓'],['val_asc','Valeur ↑'],['az','A → Z'],['pl_desc','P&L % ↓'],['pl_asc','P&L % ↑']].map(o=>`<option value="${o[0]}" ${((D.prefs&&D.prefs.posSort)||'val_desc')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;}
 const _splitByTk={};_splitAlerts().forEach(s=>{if(!_splitByTk[s.ticker])_splitByTk[s.ticker]=s;});
 h+=`<div class="card" style="padding:4px 12px 6px">`;
 sortedPositions.forEach((x,i)=>{const xp=x.pl>=0;const xcur=curOf(x);const isUsd=xcur!=="EUR";const xsym=curSym(xcur);const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru); const isStale = !x.lastUpd || (Date.now() - x.lastUpd > 86400000); let sw=''; if(x.manual){ if(x.manualUpdated && (Date.now()-x.manualUpdated > 30*86400000)){ sw = `<span onclick="event.stopPropagation();manualRecheck('${escAttr(sel)}','${escAttr(x.ticker)}')" title="Valeur non actualisée depuis 30 j — vérifier" style="font-size:10px;margin-left:4px;cursor:pointer">⏰</span>`; } } else if(isStale){ sw = `<span onclick="event.stopPropagation();_staleWarnInfo()" title="Prix non mis à jour depuis plus de 24h — appuie pour comprendre" style="font-size:10px;margin-left:4px;cursor:pointer">⚠️</span>`; }
-h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid var(--sep)":""}" onclick="posFiche('${escAttr(sel)}','${escAttr(x.ticker)}')"><div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span onclick="event.stopPropagation();ePos('${escAttr(sel)}','${escAttr(x.ticker)}')" style="color:var(--acc);font-size:10px;cursor:pointer;padding:0 2px">✎</span>${x.noPerf?' <span title="Exclu de l analyse de perf" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#6c8cff18;color:#8a98c8;font-weight:600">hors perf</span>':''}${(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])?` <span class="mono" style="font-size:10px;font-weight:700;color:${_convColor(D.prefs.conv[x.ticker])}">${D.prefs.conv[x.ticker]}</span>`:""}${_convGapBadge(x)}${_rangeBadge(x)}${_splitByTk[x.ticker]?`<span onclick="event.stopPropagation();applySplitPrompt('${escAttr(_splitByTk[x.ticker].poche)}','${escAttr(x.ticker)}',${_splitByTk[x.ticker].t})" title="Split détecté — corriger" style="margin-left:4px;font-size:10px;cursor:pointer">${_splitByTk[x.ticker].strong?"🔴":"⚠️"}</span>`:""}${_staleBadge(x,sel)}${(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])?`<span onclick="event.stopPropagation();showNote('${escAttr(x.ticker)}')" style="margin-left:4px;font-size:10px;cursor:pointer">📝</span>`:""} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:10px;color:var(--mut)">${isPriv()?"•••":x.qty} × ${fmt2_(x.cours)}${xsym}${x.cible?" · ↓"+fmt2_(x.cible)+xsym:""}${x.cibleHaut?" · ↑"+fmt2_(x.cibleHaut)+xsym:""}${_freshLabel(x)}</div></div><div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:10px;color:var(--mut)">${fmt_(valUsd)} ${xsym}</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div><div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:10px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:10px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} ${xsym}</div>`:""}</div></div>`;});
+h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid var(--sep)":""}" onclick="posFiche('${escAttr(sel)}','${escAttr(x.ticker)}')"><div><div style="font-size:12px;font-weight:600">${esc(x.ticker)}${sw} <span onclick="event.stopPropagation();ePos('${escAttr(sel)}','${escAttr(x.ticker)}')" style="color:var(--acc);font-size:10px;cursor:pointer;padding:0 2px">✎</span>${x.noPerf?' <span title="Exclu de l analyse de perf" style="font-size:10px;padding:1px 5px;border-radius:3px;background:#6c8cff18;color:#8a98c8;font-weight:600">hors perf</span>':''}${(_envConvVisible(sel)&&D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])?` <span class="mono" style="font-size:10px;font-weight:700;color:${_convColor(D.prefs.conv[x.ticker])}">${D.prefs.conv[x.ticker]}</span>`:""}${_convGapBadge(x)}${_rangeBadge(x)}${_splitByTk[x.ticker]?`<span onclick="event.stopPropagation();applySplitPrompt('${escAttr(_splitByTk[x.ticker].poche)}','${escAttr(x.ticker)}',${_splitByTk[x.ticker].t})" title="Split détecté — corriger" style="margin-left:4px;font-size:10px;cursor:pointer">${_splitByTk[x.ticker].strong?"🔴":"⚠️"}</span>`:""}${_staleBadge(x,sel)}${(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])?`<span onclick="event.stopPropagation();showNote('${escAttr(x.ticker)}')" style="margin-left:4px;font-size:10px;cursor:pointer">📝</span>`:""} </div><div style="font-size:10px;color:var(--dim)">${esc(x.titre)}</div><div style="font-size:10px;color:var(--mut)">${isPriv()?"•••":x.qty} × ${fmt2_(x.cours)}${xsym}${x.cible?" · ↓"+fmt2_(x.cible)+xsym:""}${x.cibleHaut?" · ↑"+fmt2_(x.cibleHaut)+xsym:""}${_freshLabel(x)}</div></div><div style="text-align:right"><div class="mono" style="font-size:12px;font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:10px;color:var(--mut)">${fmt_(valUsd)} ${xsym}</div>`:""}<div style="font-size:10px;color:var(--dim)">${x.poids}%</div></div><div style="text-align:right;min-width:55px"><div class="mono" style="font-size:11px;font-weight:600;color:${xp?"var(--grn)":"var(--red)"}">${fP(x.plPct)}</div><div style="font-size:10px;color:${xp?"#34d39999":"#f8717199"}">${fL(x.pl)}</div>${isUsd?`<div style="font-size:10px;color:var(--mut)">${plUsd>=0?"+":""}${fmt_(plUsd)} ${xsym}</div>`:""}</div></div>`;});
 h+=`</div><div style="display:flex;gap:8px"><div class="add-btn" onclick="aPos('${escAttr(sel)}')" style="flex:1;margin-top:10px">+ Ajouter</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="flex:1;margin-top:10px">📥 Importer CSV</div></div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="text-align:center;margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer">+ Enregistrer un P&L réalisé passé</div></div>`;}}
 
 // ─── RESTAURATION fb23f43 : onglet ANALYSE ─────────────────────────────────
@@ -2302,7 +2349,7 @@ document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab=
 }
 
 window.addEventListener('popstate', (event) => { cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; } R(); });
-window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;if(tab==="bourse")bSub="resume";} if(id==="home")sel=null; if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;} if(tab!==id){_resetTools();} pfTk=null; pfPoche=null; _pfFrom=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;bSub="resume";watchListOpen=null;} if(id==="home")sel=null; if(id==="analyse"){anaSub="synthese";anaView=null;convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;_convSkip=[];} if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;alertsSub=null;} if(tab!==id){_resetTools();} _convRetourVers=null; pfTk=null; pfPoche=null; _pfFrom=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
 window.goHome=()=>{ oWidget=null; cmpOpen=false; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
 window.oP=n=>{ window._dFrom=(tab==="bourse"?"bourse":"home"); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
@@ -2395,6 +2442,32 @@ window.sellPos=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.f
 window._slPrev=(pru,cur,sym)=>{const g=id=>document.getElementById(id);const sq=pn((g("slQty")||{}).value);const px=pn((g("slPx")||{}).value);const corr=(g("slCorr")||{}).checked;const credit=(g("slCash")||{}).checked;const el=g("slPrev");const block=g("slCashBlock");const wrap=g("slCashWrap");const amt=g("slCashAmt");const grossEur=(sq>0&&px>0)?px*sq*toEur(cur):0;if(block)block.style.display=corr?"none":"block";if(wrap)wrap.style.opacity=credit?"1":".4";if(amt&&grossEur>0)amt.placeholder="par défaut : "+fmt_(grossEur)+" €";if(!el)return;if(corr){el.innerHTML="Correction : la quantité sera réduite, sans P&L.";return;}if(sq>0&&px>0){const plEur=(px-pru)*sq*toEur(cur);el.innerHTML=`P&L réalisé : <b style="color:${plEur>=0?"var(--grn)":"var(--red)"}">${plEur>=0?"+":""}${fmt_(plEur)} €</b> · Brut ${fmt_(grossEur)} €`;}else{el.innerHTML="Saisis une quantité et un prix.";}};
 window.doSell=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const sq=pn((document.getElementById("slQty")||{}).value);const px=pn((document.getElementById("slPx")||{}).value);const corr=(document.getElementById("slCorr")||{}).checked;const credit=(document.getElementById("slCash")||{}).checked;if(sq<=0)return toast("Quantité vendue invalide.");if(sq>p.qty+1e-9)return toast("Tu ne peux pas vendre plus que ta position ("+fmt2_(p.qty)+").");let proceedsEur=0;if(!corr){if(px<0)return toast("Prix invalide.");const cur=curOf(p);const te=toEur(cur);const amtEur=px*sq*te;proceedsEur=amtEur;const plEur=(px-p.pru)*sq*te;if(!D.sales)D.sales=[];D.sales.push({date:new Date().toISOString().slice(0,10),poche:poche,ticker:tk,titre:p.titre,qty:sq,pru:p.pru,net:Math.round(amtEur*100)/100,brut:Math.round(amtEur*100)/100,pl:Math.round(plEur*100)/100});}if(credit&&!corr){const entered=pn((document.getElementById("slCashAmt")||{}).value);const net=entered>0?entered:proceedsEur;D.cash=Math.round(((D.cash||0)+net)*100)/100;}p.qty=p.qty-sq;if(p.qty<=1e-9){D.poches[poche].positions=D.poches[poche].positions.filter(x=>x.ticker!==tk);if(p.manual&&D.prefs){if(D.prefs.manualTickers)D.prefs.manualTickers=D.prefs.manualTickers.filter(t=>t!==tk);if(D.prefs.manualUpdatedAt)delete D.prefs.manualUpdatedAt[tk];if(D.prefs.noPerfTickers)D.prefs.noPerfTickers=D.prefs.noPerfTickers.filter(t=>t!==tk);}}cm();save();};
 function _periodChange(days,nd){if(!days||days.length<2)return null;const now=days[days.length-1].t;const cur=days[days.length-1].c;const cutoff=now-nd*86400000;let base=null;for(const d of days){if(d.t<=cutoff)base=d.c;}if(base==null)base=days[0].c;if(!base)return null;return (cur-base)/base*100;}
+function _envConvVisible(env){const m=(D.prefs&&D.prefs.envConv)||{};return m[env]!==0;}
+window._envReglages=(env)=>{
+  const bascule=(lib,sous,actif,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:12px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="width:38px;height:22px;border-radius:999px;flex-shrink:0;background:${actif?"var(--acc)":"var(--bdr)"};position:relative;display:inline-block"><span style="position:absolute;top:2px;${actif?"right:2px":"left:2px"};width:18px;height:18px;border-radius:50%;background:#fff"></span></span></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div><h3 style="font-size:16px;font-weight:700">Réglages</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">${esc(env)}</div></div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:14px 2px 0">Affichage</div>`
+   +bascule("Notes de conviction","Le chiffre à côté du ticker, dans la liste",_envConvVisible(env),`_envDemande('${escAttr(env)}','conv')`)
+   +bascule("Afficher dans l'onglet Bourse","Cette enveloppe apparaît parmi tes lignes cotées",_inBourse(env),`_envBourse('${escAttr(env)}')`)
+   +`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:16px 2px 0">Calcul</div>`
+   +bascule("Compter dans le patrimoine total","Sa valeur s'ajoute à ton total",!(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[env]),`_envTotal('${escAttr(env)}')`));};
+// Les deux bascules déjà en place gardent leur logique propre (l'une peut ouvrir sa propre
+// confirmation) : on ne fait que les regrouper ici.
+window._envBourse=(env)=>{cm();togglePocheBourse(env);};
+window._envTotal=(env)=>{togglePocheExclTotal(env);_envReglages(env);};
+window._envDemande=(env,cle)=>{_envPending={env:env,cle:cle};
+  const it=(lib,sous,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Appliquer où ?</h3><button onclick="_envReglages('${escAttr(env)}')" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55">Chaque enveloppe garde ses propres réglages.</div>`
+   +it("Cette enveloppe seulement",esc(env),"_envAppliquer('une')")
+   +it("Toutes les enveloppes","Le même réglage partout","_envAppliquer('toutes')"));};
+window._envAppliquer=(portee)=>{const p=_envPending;if(!p)return cm();
+  D.prefs=D.prefs||{};
+  if(p.cle==="conv"){D.prefs.envConv=D.prefs.envConv||{};
+    const nv=_envConvVisible(p.env)?0:1;
+    if(portee==="toutes")Object.keys(D.poches).forEach(n=>{D.prefs.envConv[n]=nv;});
+    else D.prefs.envConv[p.env]=nv;}
+  _envPending=null;save();R();_envReglages(p.env);};
 function _inBourse(n){const p=D.poches[n];if(!p)return false;const si=(D.prefs&&D.prefs.pocheShowIn&&D.prefs.pocheShowIn[n])||p.showIn;if(si==="bourse")return true;if(si==="hors")return false;return _famOf(n)==="cote";}
 function _bPos(){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
 function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
@@ -2495,7 +2568,10 @@ function _nomAffiche(x,max){
 function _paliers(tk){return (D.prefs&&D.prefs.paliers&&D.prefs.paliers[tk])||null;}
 function _paliersRows(tk){const o=_paliers(tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
 function _setPaliers(tk,o){D.prefs=D.prefs||{};D.prefs.paliers=D.prefs.paliers||{};
-  if(o&&o.rows&&o.rows.length)D.prefs.paliers[tk]=o;else delete D.prefs.paliers[tk];}
+  // On conserve le réglage même sans palier saisi, sinon le choix d'unité est perdu au rendu
+  // suivant. « Avoir un plan » se lit partout via _paliersRows(), qui exige un prix.
+  const garde=o&&((o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0)))||o.unit==="qty");
+  if(garde)D.prefs.paliers[tk]=o;else delete D.prefs.paliers[tk];}
 function _aUnPlan(x){return !!(x&&(_paliersRows(x.ticker).length||x.cibleHaut||x.cible));}
 // Le palier suivant à atteindre = le plus bas au-dessus du cours. C'est lui qu'on recopie dans
 // cibleHaut : la colonne SQL reste alimentée, donc le cron Supabase et les e-mails Resend
@@ -2506,13 +2582,20 @@ function _palierSuivant(x){const rows=_paliersRows(x.ticker);if(!rows.length)ret
 function _paliersAtteints(x){return _paliersRows(x.ticker).filter(r=>(x.cours||0)>=r.px).sort((a,b)=>b.px-a.px);}
 function _syncCibleHaut(){
   if(!D||!D.poches)return;
+  D.prefs=D.prefs||{};D.prefs.palierSync=D.prefs.palierSync||{};
   Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{
-    if(!_paliersRows(x.ticker).length)return;
+    const rows=_paliersRows(x.ticker);
+    const pose=D.prefs.palierSync[x.ticker];
+    if(!rows.length){
+      // Plan vidé : on retire la cible que la synchronisation avait posée, et elle seule.
+      if(pose!=null&&x.cibleHaut===pose)delete x.cibleHaut;
+      delete D.prefs.palierSync[x.ticker];
+      return;
+    }
     const n=_palierSuivant(x);
     // Plus de palier au-dessus du cours : on garde le plus haut, pour ne pas effacer une alerte.
-    const rows=_paliersRows(x.ticker);
     const px=n?n.px:Math.max(...rows.map(r=>r.px));
-    if(px>0)x.cibleHaut=px;
+    if(px>0){x.cibleHaut=px;D.prefs.palierSync[x.ticker]=px;}
   }));
 }
 // Migration : un objectif de vente déjà saisi devient un palier « 100 % à ce prix ». Rien n'est perdu,
@@ -2542,7 +2625,7 @@ function _paliersNouveaux(){
 }
 window._palierVoir=()=>{const n=_paliersNouveaux();D.prefs=D.prefs||{};D.prefs.palierVu=D.prefs.palierVu||{};
   n.forEach(o=>{D.prefs.palierVu[_palierCle(o.x,o.r)]=Date.now();});
-  alertsSub="cibles";save();gt("alerts");};
+  save();gt("alerts");alertsSub="cibles";R();};
 window._palierMasquer=()=>{const n=_paliersNouveaux();D.prefs=D.prefs||{};D.prefs.palierVu=D.prefs.palierVu||{};
   n.forEach(o=>{D.prefs.palierVu[_palierCle(o.x,o.r)]=Date.now();});save();R();};
 function _palierBandeau(){
@@ -2592,9 +2675,10 @@ function _boussoleCompte(tk){return _boussoleFlux(tk).length;}
 // Nom lisible d'un ticker, qu'il soit détenu, suivi, ou ni l'un ni l'autre.
 function _tkNom(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return _nomAffiche(q,28);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.name)return w.name.length>28?w.name.slice(0,27)+"…":w.name;
+  if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.name)return _achatCtx.name.length>28?_achatCtx.name.slice(0,27)+"…":_achatCtx.name;
   return tk;}
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
-window.openBoussole=(tk)=>{boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openBoussole=(tk)=>{_memoRetour();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._bsFiltre=(v)=>{boussoleFiltre=v;R();};
 window._bsOrdre=()=>{boussoleOrdre=(boussoleOrdre==="recent"?"ancien":"recent");R();};
 // Sélecteur de titre : le champ « titre non détenu » est EN HAUT, c'est le cas qu'on vient
@@ -2619,30 +2703,31 @@ window._bsNoteSave=(tk)=>{const v=((document.getElementById("bsTxt")||{}).value|
   if(!v)return toast("Écris quelques mots.");
   D.prefs=D.prefs||{};D.prefs.journal=D.prefs.journal||{};
   (D.prefs.journal[tk]=D.prefs.journal[tk]||[]).unshift({d:Date.now(),t:v});
-  cm();save();if(convView==="boussole")R();else toast("Note enregistrée");};
-window._bsThese=(tk)=>{const cur=_theseTxt(tk);
+  cm();save();R();toast("Note enregistrée");};
+window._bsThese=(tk,mode)=>{const cur=_theseTxt(tk);
+  const neuve=(mode==="nouvelle");const corr=(mode==="corriger");
   const intro=(!cur&&_bsPremiereFois())?`<div style="background:var(--inp);border-radius:10px;padding:10px 11px;margin-bottom:10px;font-size:11.5px;color:var(--dim);line-height:1.6">Une thèse, c'est ta raison de détenir ce titre — à relire quand tu doutes. Il n'y en a qu'une à la fois : quand tu la modifieras, tu pourras la remplacer ou la ranger dans ton journal.</div>`:"";
-  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><div><h3 style="font-size:16px;font-weight:700">${esc(_tkNom(tk))}</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">${cur?"Modifier ta thèse":"Écrire ta thèse"}</div></div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>${intro}<textarea id="bsTxt" rows="4" placeholder="Ex : leader sur un marché qui double tous les 3 ans, je garde tant que…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical">${esc(cur)}</textarea><button class="btn btn-p" style="margin-top:10px;width:100%" onclick="_bsTheseSave('${escAttr(tk)}')">Enregistrer</button>`);
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><div><h3 style="font-size:16px;font-weight:700">${esc(_tkNom(tk))}</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">${!cur?"Écrire ta thèse":(corr?"Corriger ta thèse — aucune version créée":"Nouvelle thèse — l'ancienne sera archivée ou supprimée")}</div></div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>${intro}<textarea id="bsTxt" rows="4" placeholder="Ex : leader sur un marché qui double tous les 3 ans, je garde tant que…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical">${esc(neuve?"":cur)}</textarea><button class="btn btn-p" style="margin-top:10px;width:100%" onclick="_bsTheseSave('${escAttr(tk)}','${escAttr(mode||"")}')">Enregistrer</button>`);
   if(!cur){D.prefs=D.prefs||{};D.prefs.boussoleVu=1;}
   setTimeout(()=>{const e=document.getElementById("bsTxt");if(e)e.focus();},60);};
-window._bsTheseSave=(tk)=>{const v=((document.getElementById("bsTxt")||{}).value||"").trim();
+window._bsTheseSave=(tk,mode)=>{const v=((document.getElementById("bsTxt")||{}).value||"").trim();
   if(!v)return toast("Écris quelques mots.");
   const cur=_theseTxt(tk);
-  if(cur&&cur!==v){_bsPending={tk:tk,txt:v};return _bsTheseQuestion(tk);}
+  if(mode!=="corriger"&&cur&&cur!==v){_bsPending={tk:tk,txt:v};return _bsTheseQuestion(tk);}
   D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[tk]=v;_setTheseTs(tk);
-  cm();save();if(convView==="boussole")R();else toast("Thèse enregistrée");};
+  cm();save();R();toast("Thèse enregistrée");};
 // Le seul moment où l'utilisateur peut perdre du texte : on le lui demande explicitement, et on
 // décrit ce que fait chaque choix. Aucune option n'est présentée comme la bonne.
 function _bsTheseQuestion(tk){const cur=_theseTxt(tk);
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Ton ancienne thèse</h3><button onclick="_bsAnnuler()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
-   +`<div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">Tu la remplaces, ou tu la ranges dans ton journal ?</div>`
+   +`<div style="font-size:12px;color:var(--dim);line-height:1.6;margin-bottom:10px">Tu la supprimes, ou tu la ranges dans ton journal ?</div>`
    +`<div style="background:var(--inp);border-radius:10px;padding:10px 11px;margin-bottom:14px;font-size:11.5px;color:var(--mut);line-height:1.55;max-height:120px;overflow-y:auto">${esc(cur)}</div>`
    +`<div onclick="_bsTheseRanger()" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">La ranger dans le journal</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Elle y sera datée et marquée « Thèse v${_theseVersionSuivante(tk)} ». Tu la gardes.</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`
-   +`<div onclick="_bsTheseRemplacer()" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">La remplacer</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">L'ancienne disparaît définitivement.</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`);}
+   +`<div onclick="_bsTheseRemplacer()" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">La supprimer</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">L'ancienne disparaît définitivement.</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`);}
 window._bsAnnuler=()=>{_bsPending=null;cm();};
 window._bsTheseRemplacer=()=>{const p=_bsPending;if(!p)return cm();
   D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[p.tk]=p.txt;_setTheseTs(p.tk);
-  _bsPending=null;cm();save();if(convView==="boussole")R();else toast("Thèse remplacée");};
+  _bsPending=null;cm();save();R();toast("Thèse remplacée");};
 window._bsTheseRanger=()=>{const p=_bsPending;if(!p)return cm();
   const anc=_theseTxt(p.tk);
   D.prefs=D.prefs||{};D.prefs.journal=D.prefs.journal||{};D.prefs.notes=D.prefs.notes||{};
@@ -2651,7 +2736,7 @@ window._bsTheseRanger=()=>{const p=_bsPending;if(!p)return cm();
   const w=_theseTs(p.tk);if(w)e.w=w;
   (D.prefs.journal[p.tk]=D.prefs.journal[p.tk]||[]).unshift(e);
   D.prefs.notes[p.tk]=p.txt;_setTheseTs(p.tk);
-  _bsPending=null;cm();save();if(convView==="boussole")R();else toast("Thèse rangée dans le journal");};
+  _bsPending=null;cm();save();R();toast("Thèse rangée dans le journal");};
 window._bsDelNote=(tk,i)=>{const j=D.prefs&&D.prefs.journal&&D.prefs.journal[tk];if(!j||!j[i])return;
   j.splice(i,1);if(!j.length)delete D.prefs.journal[tk];save();R();};
 window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.notes[tk];
@@ -2663,14 +2748,17 @@ window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.no
 function _achat(tk){return (D.prefs&&D.prefs.achat&&D.prefs.achat[tk])||null;}
 function _achatRows(tk){const o=_achat(tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
 function _setAchat(tk,o){D.prefs=D.prefs||{};D.prefs.achat=D.prefs.achat||{};
-  if(o&&o.rows&&o.rows.length)D.prefs.achat[tk]=o;else delete D.prefs.achat[tk];}
+  const garde=o&&((o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0)))||o.unit==="amount");
+  if(garde)D.prefs.achat[tk]=o;else delete D.prefs.achat[tk];}
 // Un titre peut être détenu, seulement suivi, ou ni l'un ni l'autre : on cherche son cours et sa
 // devise dans cet ordre, et on ne renvoie rien plutôt que d'inventer.
 function _tkCours(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q&&q.cours!=null)return q.cours;
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.lastCours!=null)return w.lastCours;
+  if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cours!=null)return _achatCtx.cours;
   return null;}
 function _tkCur(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return curOf(q);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.cur)return w.cur;
+  if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cur)return _achatCtx.cur;
   return "EUR";}
 // On achète en descendant : le premier seuil franchi est le plus HAUT sous le cours actuel.
 function _achatSuivant(tk){const rows=_achatRows(tk);if(!rows.length)return null;const c=_tkCours(tk);
@@ -2687,13 +2775,13 @@ function _syncCibleAchat(){
   const mk=(tk)=>{const rows=_achatRows(tk);if(!rows.length)return null;
     const n=_achatSuivant(tk);return n?n.px:Math.min.apply(null,rows.map(r=>r.px));};
   if(D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{
-    const px=mk(x.ticker);if(!(px>0))return;
-    const m=D.prefs.achatSync[x.ticker];
+    const px=mk(x.ticker);const m=D.prefs.achatSync[x.ticker];
+    if(!(px>0)){if(m!=null&&x.cible===m)delete x.cible;delete D.prefs.achatSync[x.ticker];return;}
     if(x.cible==null||x.cible===m){x.cible=px;D.prefs.achatSync[x.ticker]=px;}
   }));
   ((D.prefs&&D.prefs.watchlist)||[]).forEach(w=>{
-    const px=mk(w.ticker);if(!(px>0))return;
-    const k="wl:"+w.ticker,m=D.prefs.achatSync[k];
+    const px=mk(w.ticker);const k="wl:"+w.ticker,m=D.prefs.achatSync[k];
+    if(!(px>0)){if(m!=null&&w.target===m)delete w.target;delete D.prefs.achatSync[k];return;}
     if(w.target==null||w.target===m){w.target=px;D.prefs.achatSync[k]=px;}
   });
 }
@@ -2712,7 +2800,7 @@ function _achatNouveaux(){const vus=(D.prefs&&D.prefs.achatVu)||{};const out=[];
   return out;}
 window._achatVoir=()=>{const n=_achatNouveaux();D.prefs=D.prefs||{};D.prefs.achatVu=D.prefs.achatVu||{};
   n.forEach(o=>{D.prefs.achatVu[_achatCle(o.tk,o.r)]=Date.now();});
-  alertsSub="cibles";save();gt("alerts");};
+  save();gt("alerts");alertsSub="cibles";R();};
 window._achatMasquer=()=>{const n=_achatNouveaux();D.prefs=D.prefs||{};D.prefs.achatVu=D.prefs.achatVu||{};
   n.forEach(o=>{D.prefs.achatVu[_achatCle(o.tk,o.r)]=Date.now();});save();R();};
 function _achatBandeau(){const n=_achatNouveaux();if(!n.length)return "";
@@ -2724,7 +2812,32 @@ function _achatPart(tk,r){const o=_achat(tk);
   return (o&&o.unit==="amount")?`pour ${vg(r.q,0)} ${curSym(_tkCur(tk))}`:`${vg(r.q,0)} actions`;}
 function _achatPhrase(tk,r){
   return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))} — ton plan prévoyait d'acheter ${_achatPart(tk,r)}.`;}
-window.openAchat=(tk)=>{achatTk=tk;convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openAchat=(tk,ctx)=>{_memoRetour();achatTk=tk;
+  _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
+  convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+function _achatDansSuivi(tk){return ((D.prefs&&D.prefs.watchlist)||[]).some(w=>w.ticker===tk);}
+// Le titre n'existe encore nulle part : il faut lui donner une place. On demande APRÈS le
+// réglage du plan, pour ne pas couper l'utilisateur au milieu de sa saisie.
+window._achatChoisirListe=(tk)=>{const lists=(D.prefs&&D.prefs.watchLists)||[];
+  const it=(lib,sous,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div>${sous?`<div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div>`:""}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Plan enregistré</h3><button onclick="_achatRangerFin('')" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55;margin-bottom:6px">${esc(tk)} n'est dans aucune de tes listes. Où veux-tu le ranger ?</div>`
+   +lists.map(l=>it(esc(l.name),"",`_achatRangerFin('${escAttr(l.id)}')`)).join("")
+   +it("Non classées","Sans liste, tu le retrouveras dans la liste de suivi","_achatRangerFin('')")
+   +it("＋ Nouvelle liste","Créer une liste et y ranger ce titre",`_achatNouvelleListe('${escAttr(tk)}')`));};
+window._achatNouvelleListe=(tk)=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><h3 style="font-size:16px;font-weight:700">Nouvelle liste</h3><button onclick="_achatChoisirListe('${escAttr(tk)}')" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div class="field"><label>Nom</label><input id="acWlName" placeholder="ex: À surveiller" autocomplete="off"></div><button class="btn btn-p" style="width:100%" onclick="_achatNouvelleListeSave()">Créer et ranger</button>`);
+  setTimeout(()=>{const e=document.getElementById("acWlName");if(e)e.focus();},60);};
+window._achatNouvelleListeSave=()=>{const nm=((document.getElementById("acWlName")||{}).value||"").trim();
+  if(!nm)return toast("Donne un nom.");
+  D.prefs=D.prefs||{};D.prefs.watchLists=D.prefs.watchLists||[];
+  const id="wl"+Date.now().toString(36);D.prefs.watchLists.push({id:id,name:nm,color:_pickWlColor()});
+  _achatRangerFin(id);};
+window._achatRangerFin=(listId)=>{const tk=achatTk;const c=_achatCtx;
+  const sym=(c&&c.sym)?c.sym:tk;
+  addWatch(sym,(c&&c.name)||tk,(c&&c.cur)||"EUR",listId||null);
+  const w=((D.prefs&&D.prefs.watchlist)||[]).find(x=>x.sym===sym);
+  if(w&&c&&c.cours!=null&&w.lastCours==null){w.lastCours=c.cours;w.lastUpd=Date.now();}
+  _syncCibleAchat();cm();save();R();toast("Plan enregistré, titre ajouté à ton suivi");};
 // _planObj/_planSave vivaient dans une portée imbriquée : remontés ici, au même niveau que
 // le reste de la mécanique des paliers, pour être visibles depuis le bouton d'enregistrement.
 function _planObj(){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
@@ -2734,13 +2847,13 @@ function _planObj(){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
 function _planSave(o){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
   o.rows=(o.rows||[]).filter(r=>Number(r.px)>0||Number(r.q)>0);
   if(o.unit==="qty"&&x&&!o.base)o.base=x.qty||0;
-  _setPaliers(convPlanTk,o.rows.length?o:null);
+  _setPaliers(convPlanTk,o);
   _syncCibleHaut();save();}
 function _achatObj(){const o=_achat(achatTk)||{unit:"qty",rows:[]};
   if(!o.rows||!o.rows.length)o.rows=[{q:"",px:""}];
   return o;}
 function _achatSave(o){o.rows=(o.rows||[]).filter(r=>Number(r.px)>0||Number(r.q)>0);
-  _setAchat(achatTk,o.rows.length?o:null);_syncCibleAchat();save();}
+  _setAchat(achatTk,o);_syncCibleAchat();save();}
 window._achSet=(i,champ,val)=>{const o=_achatObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_achatFlash=0;_achatSave(o);};
 window._achAdd=()=>{const o=_achatLireDOM(_achatObj());o.rows.push({q:"",px:""});_setAchat(achatTk,o);_achatFlash=0;R();};
@@ -2753,8 +2866,10 @@ function _achatLireDOM(o){const rows=[];
     if(!q&&!px){rows.push(o.rows[i]);continue;}
     rows.push({q:(q&&q.value!=="")?pn(q.value):"",px:(px&&px.value!=="")?pn(px.value):""});}
   if(rows.length)o.rows=rows;return o;}
-window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());
-  _achatSave(o);_achatFlash=Date.now();R();toast("Plan d'achat enregistré");};
+window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());const tk=achatTk;
+  _achatSave(o);_achatFlash=Date.now();R();
+  if(_achatRows(tk).length&&!_tkDetenu(tk)&&!_achatDansSuivi(tk))return _achatChoisirListe(tk);
+  toast("Plan d'achat enregistré");};
 // Le composant de paliers est écrit UNE fois et servi partout : page dédiée, parcours
 // « À compléter », accès depuis la fiche action. Un seul code, donc jamais deux versions
 // qui divergent. L'appelant pose convPlanTk avant d'appeler.
@@ -2820,6 +2935,11 @@ function _hzChips(sel){
   return `<div style="display:flex;flex-wrap:wrap;gap:6px">${HORIZONS.map(h=>{const on=sel===h.k;
     return `<button type="button" data-hzk="${h.k}" onclick="_hzPick('${h.k}')" style="padding:6px 10px;border-radius:999px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid ${on?"var(--acc)":"var(--bdr)"};background:${on?"var(--acc)":"transparent"};color:${on?"#fff":"var(--dim)"}">${h.l}<span style="opacity:.75;font-weight:400"> · ${h.d}</span></button>`;}).join("")}</div>`;
 }
+window._convHzModal=(tk)=>{const cur=_horizonOf(tk)||"";
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><div><h3 style="font-size:16px;font-weight:700">${esc(_tkNom(tk))}</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">Pour combien de temps comptes-tu la garder ?</div></div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>${_hzChips(cur)}<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4">Une intention, pas un engagement — modifiable à tout moment.</div><button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_convHzSave('${escAttr(tk)}')">Enregistrer</button>`);
+  const r=document.getElementById("modal-root");if(r)r.dataset.hz=cur;};
+window._convHzSave=(tk)=>{const r=document.getElementById("modal-root");
+  _setHorizon(tk,r?(r.dataset.hz||""):"");cm();save();R();};
 window._hzPick=(k)=>{
   // Dans le parcours « À compléter », un tap suffit : on enregistre et on passe à la ligne suivante.
   if(typeof convFill!=="undefined"&&convFill==="horizon"&&convView==="fill"){
@@ -3271,6 +3391,7 @@ if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
 let h=`<div class="fade">`;
 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
+h+=`<div onclick="openAchat('${escAttr(aSym.includes(".")?aSym.split(".")[0]:aSym)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${cours!=null?cours:"null"}})" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:10px 13px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">Plan d'achat${(()=>{const _n=_achatRows(aSym.includes(".")?aSym.split(".")[0]:aSym).length;return _n?` <span style="color:var(--mut);font-weight:400">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix tu comptes entrer, et combien</div></div><span style="color:var(--acc);font-size:16px">›</span></div>`;
 if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % (${esc(aPeriod)})</span>`:""}</div>`;
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["portf","Mon portefeuille"]];
 h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-bottom:12px;overflow-x:auto">`+tabs.map(t=>`<span onclick="setATab('${t[0]}')" style="font-size:13px;padding-bottom:8px;white-space:nowrap;cursor:pointer;${aTab===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
