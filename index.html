@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "209";
+const APP_VERSION = "210";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -120,7 +120,29 @@ function applyTheme(){try{const t=(window.D&&D&&D.prefs&&D.prefs.theme)||localSt
 window.toggleTheme=()=>{try{const cur=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";const nx=cur==="light"?"dark":"light";try{localStorage.setItem("cvTheme",nx)}catch(e){}if(window.D&&D){D.prefs=D.prefs||{};D.prefs.theme=nx;}applyTheme();R();if(window.D&&D&&typeof saveLocal==="function")saveLocal();if(window.D&&D&&typeof pushToSupabase==="function"&&currentUser)setTimeout(pushToSupabase,50);}catch(e){}};
 applyTheme();
 function _bizDaysAgo(ts){if(!ts)return null;const now=new Date();const cur=new Date(ts);let days=0;while(cur<now){cur.setDate(cur.getDate()+1);const dow=cur.getDay();if(dow!==0&&dow!==6)days++;}return days;}
-function _rangeBadge(x){if(!x.w52h||!x.w52l||!x.cours)return"";const near=(x.cours-x.w52l)/(x.w52h-x.w52l);if(near<=0.05)return `<span title="Proche du plus bas sur 1 an (${fmt2_(x.w52l)})" style="margin-left:4px;font-size:9px;padding:1px 5px;border-radius:3px;background:#34d39918;color:var(--grn);font-weight:600">▼ 1 an</span>`;if(near>=0.95)return `<span title="Proche du plus haut sur 1 an (${fmt2_(x.w52h)})" style="margin-left:4px;font-size:9px;padding:1px 5px;border-radius:3px;background:#f8717118;color:var(--red);font-weight:600">▲ 1 an</span>`;return"";}
+// Le cours situé dans sa fourchette 52 semaines. Vert = proche du plus haut, rouge = proche
+// du plus bas : la lecture d'un détenteur. On décrit une position, on n'en tire pas de conseil.
+function _rangePos(h,l,c){if(!h||!l||!c||h<=l)return null;const near=(c-l)/(h-l);
+  if(near>=0.95)return {sens:"haut",near:near};
+  if(near<=0.05)return {sens:"bas",near:near};
+  return null;}
+window._rangeInfo=(sens)=>{const haut=sens==="haut";
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">${haut?"Proche du plus haut · 1 an":"Proche du plus bas · 1 an"}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:12.5px;color:var(--dim);line-height:1.65">Le cours se situe dans les 5 % ${haut?"hauts":"bas"} de sa fourchette des 52 dernières semaines. C'est un repère de situation, pas un signal.</div>`
+   +`<div style="font-size:12px;color:var(--mut);line-height:1.65;margin-top:12px">${haut?"Sur une ligne que tu détiens, c'est une force. Sur un titre que tu vises, c'est un point d'entrée cher.":"Sur une ligne que tu détiens, c'est une faiblesse. Sur un titre que tu vises, c'est un point d'entrée bas."}</div>`);};
+function _rangeBadge(x){const r=_rangePos(x.w52h,x.w52l,x.cours);if(!r)return"";
+  const haut=r.sens==="haut";
+  return ` <span onclick="event.stopPropagation();_rangeInfo('${r.sens}')" title="${haut?"Proche du plus haut sur 1 an ("+fmt2_(x.w52h)+")":"Proche du plus bas sur 1 an ("+fmt2_(x.w52l)+")"}" style="margin-left:4px;font-size:9px;padding:1px 5px;border-radius:3px;cursor:pointer;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"};font-weight:600">${haut?"▲":"▼"} 1 an</span>`;}
+// Sur la fiche d'un titre quelconque, la fourchette vient de la position détenue si on l'a,
+// sinon des barres affichées — et seulement si elles couvrent vraiment une année.
+function _w52Fiche(){const hold=_findHolding(aSym,aData.tkGuess);
+  const p=(hold&&hold.length)?hold[0].x:null;
+  if(p&&p.w52h&&p.w52l)return {h:p.w52h,l:p.w52l};
+  const bars=(aData.ohlc||[]).filter(b=>b&&b.c!=null);
+  if(bars.length>1){const t0=Date.now()/1000-365*86400;const an=bars.filter(b=>b.t>=t0);
+    if(an.length>=150&&(an[an.length-1].t-an[0].t)>=300*86400)
+      return {h:Math.max.apply(null,an.map(b=>b.c)),l:Math.min.apply(null,an.map(b=>b.c))};}
+  return null;}
 function _freshLabel(x){const bd=_bizDaysAgo(x.quoteTs);if(bd==null||bd<1)return"";const d=new Date(x.quoteTs).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"});const stale=bd>5;return ` <span style="color:var(--mut);${stale?"opacity:.6":""}">· VL du ${d}</span>`;}
 // ─── Détection cotations fantômes (P1) : jours ouvrés depuis la dernière VRAIE barre de cours ───
 function _staleSym(pos){if(pos.manual)return null;if((typeof CG!=="undefined"&&CG[pos.ticker])||pos.ticker==="50PESO")return null;if(pos.avSymbol)return pos.avSymbol;if(typeof KNOWN_EU!=="undefined"&&KNOWN_EU[pos.ticker])return KNOWN_EU[pos.ticker];if(pos.ticker&&pos.ticker.includes("."))return pos.ticker;if(/^[A-Z]{2}[A-Z0-9]{9}[0-9]$/.test(pos.ticker||""))return null;return pos.ticker||null;}
@@ -397,7 +419,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,_convRetourVers=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",_convPrec=null,bTool=null,bPage=null,_simu=null,_simuT=null,_convRetourVers=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#a78bfa","#38bdf8","#fb923c"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -835,16 +857,18 @@ function _videHtml(txt,action,libelle){
 }
 function _memoRetour(){
   const dansConv=(tab==="analyse"&&anaSub==="conv");
-  if(!dansConv)_convRetourVers={tab:tab,sel:sel,bSub:bSub,anaSub:anaSub,pfPoche:pfPoche,pfTk:pfTk,watchListOpen:watchListOpen};
+  if(!dansConv){_convRetourVers={tab:tab,sel:sel,bSub:bSub,anaSub:anaSub,pfPoche:pfPoche,pfTk:pfTk,watchListOpen:watchListOpen};_convPrec=null;}
+  else _convPrec=convView||null;
 }
 function _convRetourLbl(){const m=_convRetourVers;
-  if(!m)return "Conviction";
+  if(!m)return {convictions:"Mes convictions",boussole:"Ma boussole",completer:"À compléter"}[_convPrec]||"Conviction";
   if(m.tab==="posfiche"&&m.pfTk)return m.pfTk;
   if(m.tab==="bourse")return "Bourse";
   if(m.tab==="home")return "Patrimoine";
   return "Retour";}
 window._convBack=()=>{const m=_convRetourVers;
-  if(m){_convRetourVers=null;convView=null;convFill=null;boussoleTk=null;
+  if(!m&&_convPrec){const p=_convPrec;_convPrec=null;return setConvView(p);}
+  if(m){_convRetourVers=null;_convPrec=null;convView=null;convFill=null;boussoleTk=null;
     tab=m.tab;sel=m.sel;bSub=m.bSub;anaSub=m.anaSub;pfPoche=m.pfPoche;pfTk=m.pfTk;watchListOpen=m.watchListOpen;
     R();scrollTo(0,0);return;}
   setConvView(null);};
@@ -946,22 +970,32 @@ function _convVuePage(vue,ctx){
     const tot=d.ap.filter(x=>!x.noPerf).reduce((s2,x)=>s2+(x.valeur||0),0)||1;
     const lst=d.ap.filter(x=>!x.noPerf&&!x.manual&&x.poche===convEnv).sort((a,b)=>(b.valeur||0)-(a.valeur||0));
     const notes=(D.prefs&&D.prefs.notes)||{};
-    const manque=(x)=>{const m=[];
-      if(!_horizonOf(x.ticker))m.push(["horizon","Horizon",`_convHzModal('${escAttr(x.ticker)}')`]);
-      if(!(notes[x.ticker]&&notes[x.ticker].trim()))m.push(["these","Thèse",`_bsThese('${escAttr(x.ticker)}')`]);
-      if(!_paliersRows(x.ticker).length&&!x.cibleHaut)m.push(["plan","Plan de sortie",`openPlan('${escAttr(x.ticker)}')`]);
-      return m;};
-    const rows=lst.map(x=>{const c=cv[x.ticker]||0;const dorm=_convDormante(x.ticker);
-      const id="cvv_"+x.ticker.replace(/[^A-Za-z0-9]/g,"_");const mq=manque(x);
-      const puces=mq.length
-        ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:9px">`+mq.map(m=>`<span onclick="${m[2]}" style="padding:4px 10px;border:1px dashed var(--bdr);border-radius:999px;font-size:10.5px;color:var(--acc);font-weight:600;cursor:pointer">+ ${m[1]}</span>`).join("")+`</div>`
-        : `<div style="font-size:10px;color:var(--mut);margin-top:9px">Horizon, thèse et plan renseignés</div>`;
-      return `<div style="padding:13px 0;border-bottom:1px solid var(--sep)"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div style="min-width:0"><span style="font-size:13px;font-weight:700">${esc(_nomAffiche(x,24))}</span>${dorm?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${vg((x.valeur||0)/tot*100,1)} % du portefeuille</div></div><span class="mono" id="${id}" style="font-size:15px;font-weight:800;color:${_convColor(c)}">${c}</span></div><input type="range" min="0" max="100" step="1" value="${c}" oninput="var e=document.getElementById('${id}');e.textContent=this.value;e.style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" onchange="_convSet('${escAttr(x.ticker)}',this.value)" style="width:100%;accent-color:var(--acc)">${puces}</div>`;}).join("");
-    // Le parcours « une ligne à la suite de l'autre » reste accessible pour qui préfère enchaîner.
-    const enFile=[["horizon","Horizons",noHz.length],["these","Thèses",noThesis.length],["plan","Plans de sortie",noPlan.length]].filter(c2=>c2[2]>0);
-    const file=enFile.length?`<div style="display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-bottom:12px"><span style="font-size:10.5px;color:var(--mut)">Remplir à la suite :</span>${enFile.map(c2=>`<span onclick="setConvFill('${c2[0]}')" style="padding:5px 11px;border:1px solid var(--bdr);border-radius:999px;font-size:11px;color:var(--dim);font-weight:600;cursor:pointer">${c2[1]} (${c2[2]})</span>`).join("")}</div>`:"";
-    return _convRetour()+_convEntete("Mes convictions","Ajuste tes notes et complète ce qui manque. Le poids sous chaque ligne te rappelle ce qu'elle représente déjà.","dorm")
-      +file
+    const modes=[["conv","Convictions"],["these","Thèses"],["plan","Plans de sortie"]];
+    const coupe=(t,n)=>{const v=String(t||"").replace(/\s+/g," ").trim();return v.length>n?v.slice(0,n-1)+"…":v;};
+    // La liste ne change pas d'un mode à l'autre : même ordre, même filtre. Seule la colonne
+    // de droite change, pour qu'on garde ses repères en basculant.
+    const ligne=(x)=>{const c=cv[x.ticker]||0;const dorm=_convDormante(x.ticker);
+      const id="cvv_"+x.ticker.replace(/[^A-Za-z0-9]/g,"_");
+      const titre=`<div style="min-width:0"><span style="font-size:13px;font-weight:700">${esc(_nomAffiche(x,22))}</span>${dorm&&convMode==="conv"?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${vg((x.valeur||0)/tot*100,1)} % du portefeuille</div></div>`;
+      if(convMode==="conv"){
+        return `<div style="padding:13px 0;border-bottom:1px solid var(--sep)"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">${titre}<span class="mono" id="${id}" style="font-size:15px;font-weight:800;color:${_convColor(c)}">${c}</span></div><input type="range" min="0" max="100" step="1" value="${c}" oninput="var e=document.getElementById('${id}');e.textContent=this.value;e.style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" onchange="_convSet('${escAttr(x.ticker)}',this.value)" style="width:100%;accent-color:var(--acc)"></div>`;}
+      let etat,apercu,act;
+      if(convMode==="these"){const th=(notes[x.ticker]||"").trim();
+        etat=th?`Écrite ✓`:`+ Écrire`;apercu=th?coupe(th,64):"";
+        act=`_bsThese('${escAttr(x.ticker)}')`;}
+      else{const n=_paliersRows(x.ticker);
+        etat=n.length?`${n.length} palier${n.length>1?"s":""} ✓`:`+ Définir`;
+        apercu=n.length?n.slice().sort((a,b)=>a.px-b.px).map(r=>vg(r.px,2)).join(" · ")+" "+esc(curSym(curOf(x))):"";
+        act=`openPlan('${escAttr(x.ticker)}')`;}
+      const fait=!/^\+/.test(etat);
+      return `<div onclick="${act}" style="padding:13px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">${titre}<span style="font-size:11px;font-weight:700;flex-shrink:0;color:${fait?"var(--dim)":"var(--acc)"}">${etat}</span></div>${apercu?`<div style="font-size:10.5px;color:var(--mut);margin-top:5px;line-height:1.5">${esc(apercu)}</div>`:""}</div>`;};
+    const rows=lst.map(ligne).join("");
+    const selMode=`<div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden;margin-bottom:12px">${modes.map(m=>`<span onclick="setConvMode('${m[0]}')" style="padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;background:${convMode===m[0]?"var(--acc)":"transparent"};color:${convMode===m[0]?"#fff":"var(--dim)"}">${m[1]}</span>`).join("")}</div>`;
+    const sous={conv:"Ajuste tes notes. Le poids sous chaque ligne te rappelle ce qu'elle représente déjà.",
+                these:"Pourquoi tu détiens chaque ligne. Touche une ligne pour écrire ou relire.",
+                plan:"À quels prix tu comptes vendre. Touche une ligne pour définir ou modifier."}[convMode];
+    return _convRetour()+_convEntete("Mes convictions",sous,"dorm")
+      +selMode
       +(envs.length>1?`<div style="margin-bottom:12px">${segHtml(envs.map(n=>[n,n]),convEnv,"setConvEnv")}</div>`:"")
       +`<div class="card">${rows||`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune position ici.</div>`}</div>`;
   }
@@ -1057,16 +1091,17 @@ const _pct=_totalInfos>0?Math.round(_faites/_totalInfos*100):0;
 const _rienCommence=relevant.length>0&&noHz.length===relevant.length&&noThesis.length===relevant.length;
 const accueilHtml=!_rienCommence?"":`<div onclick="_horizonPage()" class="card card-tap" style="border-left:3px solid var(--acc);padding:14px;margin-bottom:10px;cursor:pointer"><div style="font-size:13px;font-weight:700;margin-bottom:3px">Donne un horizon à tes positions</div><div style="font-size:11px;color:var(--mut);line-height:1.5">Pour combien de temps tu comptes les garder. C'est ce qui débloque le suivi de tes convictions — deux minutes, un tap par ligne.</div><div style="font-size:12px;color:var(--acc);font-weight:600;margin-top:8px">Commencer ›</div></div>`;
 const _cpt=[["Horizons",relevant.length-noHz.length],["Thèses",relevant.length-noThesis.length],["Plans de sortie",relevant.length-noPlan.length]];
-const completerHtml=(!allItems.length&&!relevant.length)?"":`<div onclick="setConvView('convictions')" style="display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">Mes convictions</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${_totalInfos?_cpt.map(c=>c[0]+" "+c[1]+"/"+relevant.length).join(" · "):"Ajuste tes notes et complète ce qui manque"}</div>${_totalInfos?`<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:7px;max-width:220px"><div style="height:100%;width:${_pct}%;border-radius:2px;background:var(--dim);background:color-mix(in srgb, var(--acc) ${_pct}%, var(--mut))"></div></div>`:""}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const completerHtml=(!allItems.length&&!relevant.length)?"":`<div onclick="setConvView('convictions')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">Mes convictions</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${_totalInfos?_cpt.map(c=>c[0]+" "+c[1]+"/"+relevant.length).join(" · "):"Ajuste tes notes et complète ce qui manque"}</div>${_totalInfos?`<div style="height:3px;background:var(--bdr);border-radius:2px;overflow:hidden;margin-top:7px;max-width:220px"><div style="height:100%;width:${_pct}%;border-radius:2px;background:var(--dim);background:color-mix(in srgb, var(--acc) ${_pct}%, var(--mut))"></div></div>`:""}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 // Une seule liste façon réglages : titre + explication grise + chevron, séparés par un filet.
 // « À surveiller » garde sa carte à part, c'est la seule chose qui doit ressortir.
 const _ligne=(vue,titre,sous)=>`<div onclick="setConvView('${vue}')" style="display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 const reglerHtml="";
-const carnetsHtml=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:16px 2px 0">Mes carnets</div>`
-  +_ligne("boussole","Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes")
-  +_ligne("marche","Mes convictions face au marché","Est-ce que ce en quoi tu crois monte vraiment");
-const masquesLigne2=!masques.length?"":`<div onclick="_convShowPage()" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-top:18px;opacity:.72;cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--dim)">Lignes non affichées (${masques.length})</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Fonds et cryptos à ajouter au nuage</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
-const colonneHtml=`<div class="card" style="padding:2px 14px 8px">${completerHtml}${reglerHtml}${carnetsHtml}</div>${masquesLigne2}`;
+const _carte=(vue,titre,sous)=>`<div onclick="setConvView('${vue}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--txt);font-weight:600">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px;line-height:1.5">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const carnetsHtml=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:22px 2px 8px">Mes carnets</div>`
+  +_carte("boussole","Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes")
+  +_carte("marche","Mes convictions face au marché","Est-ce que ce en quoi tu crois monte vraiment");
+const masquesLigne2=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-top:22px;opacity:.8"><div style="flex:1"><div style="font-size:13px;color:var(--dim)">Lignes non affichées (${masques.length})</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Fonds et cryptos à ajouter au nuage</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const colonneHtml=`${completerHtml}${reglerHtml}${carnetsHtml}${masquesLigne2}`;
 if(convView)return _convVuePage(convView,{d,cv,noThesis,noPlan,noHz,derive,allItems});
 return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div>${legende}${envSelectHtml}${chartHtml}</div>
 ${accueilHtml}
@@ -2172,7 +2207,8 @@ window._planDel=(i)=>{const o=_planLireDOM(_planObj());o.rows.splice(i,1);_planF
 window._planUnite=(u)=>{const o=_planLireDOM(_planObj());const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
   o.unit=u;o.base=(x&&x.qty)||0;delete o.hidWarn;_planFlash=0;_planSave(o);R();};
 window._planHidWarn=()=>{const o=_planObj();o.hidWarn=1;_setPaliers(convPlanTk,o);save();};
-window.setConvView=v=>{convView=v;convFill=null;_convSkip=[];boussoleTk=null;_planFlash=0;_achatFlash=0;R();scrollTo(0,0);};
+window.setConvMode=v=>{convMode=v;R();scrollTo(0,0);};
+window.setConvView=v=>{if(v==null)_convPrec=null;convView=v;convFill=null;_convSkip=[];boussoleTk=null;_planFlash=0;_achatFlash=0;R();scrollTo(0,0);};
 window.setConvFill=t=>{convFill=t;convView="fill";_convSkip=[];R();scrollTo(0,0);};
 window._fillSkip=tk=>{_convSkip.push(tk);R();scrollTo(0,0);};
 window._fillThese=tk=>{const el=document.getElementById("fillTh");const v=el?el.value.trim():"";
@@ -2349,7 +2385,7 @@ document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab=
 }
 
 window.addEventListener('popstate', (event) => { cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; } R(); });
-window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;bSub="resume";watchListOpen=null;} if(id==="home")sel=null; if(id==="analyse"){anaSub="synthese";anaView=null;convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;_convSkip=[];} if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;alertsSub=null;} if(tab!==id){_resetTools();} _convRetourVers=null; pfTk=null; pfPoche=null; _pfFrom=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;_convSkip=[];} if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;} if(tab!==id){_resetTools();} _convRetourVers=null; pfTk=null; pfPoche=null; _pfFrom=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
 window.goHome=()=>{ oWidget=null; cmpOpen=false; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
 window.oP=n=>{ window._dFrom=(tab==="bourse"?"bourse":"home"); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
@@ -2676,6 +2712,7 @@ function _boussoleCompte(tk){return _boussoleFlux(tk).length;}
 function _tkNom(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return _nomAffiche(q,28);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.name)return w.name.length>28?w.name.slice(0,27)+"…":w.name;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.name)return _achatCtx.name.length>28?_achatCtx.name.slice(0,27)+"…":_achatCtx.name;
+  const a=_achat(tk);if(a&&a.name)return a.name.length>28?a.name.slice(0,27)+"…":a.name;
   return tk;}
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
 window.openBoussole=(tk)=>{_memoRetour();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
@@ -2755,10 +2792,12 @@ function _setAchat(tk,o){D.prefs=D.prefs||{};D.prefs.achat=D.prefs.achat||{};
 function _tkCours(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q&&q.cours!=null)return q.cours;
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.lastCours!=null)return w.lastCours;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cours!=null)return _achatCtx.cours;
+  const a=_achat(tk);if(a&&a.lastCours!=null)return a.lastCours;
   return null;}
 function _tkCur(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return curOf(q);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.cur)return w.cur;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cur)return _achatCtx.cur;
+  const a=_achat(tk);if(a&&a.cur)return a.cur;
   return "EUR";}
 // On achète en descendant : le premier seuil franchi est le plus HAUT sous le cours actuel.
 function _achatSuivant(tk){const rows=_achatRows(tk);if(!rows.length)return null;const c=_tkCours(tk);
@@ -2815,16 +2854,24 @@ function _achatPhrase(tk,r){
 window.openAchat=(tk,ctx)=>{_memoRetour();achatTk=tk;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
   convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+// Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
+function _achatIdentite(tk){const o=_achat(tk);if(!o)return;
+  const c=_achatCtx;if(c&&c.tk===tk){if(!o.sym)o.sym=c.sym;if(!o.name)o.name=c.name;if(!o.cur)o.cur=c.cur;
+    if(o.lastCours==null&&c.cours!=null){o.lastCours=c.cours;o.lastUpd=Date.now();}}
+  if(!o.sym){const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w){o.sym=w.sym;o.name=o.name||w.name;o.cur=o.cur||w.cur;}}
+  if(!o.sym){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q){o.sym=_ySym(q)||tk;o.name=o.name||q.titre;o.cur=o.cur||curOf(q);}}}
 function _achatDansSuivi(tk){return ((D.prefs&&D.prefs.watchlist)||[]).some(w=>w.ticker===tk);}
 // Le titre n'existe encore nulle part : il faut lui donner une place. On demande APRÈS le
 // réglage du plan, pour ne pas couper l'utilisateur au milieu de sa saisie.
 window._achatChoisirListe=(tk)=>{const lists=(D.prefs&&D.prefs.watchLists)||[];
   const it=(lib,sous,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div>${sous?`<div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div>`:""}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Plan enregistré</h3><button onclick="_achatRangerFin('')" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
-   +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55;margin-bottom:6px">${esc(tk)} n'est dans aucune de tes listes. Où veux-tu le ranger ?</div>`
+   +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55;margin-bottom:6px">Ton plan est enregistré. Tu peux aussi ranger ${esc(tk)} dans une liste de suivi — c'est facultatif.</div>`
    +lists.map(l=>it(esc(l.name),"",`_achatRangerFin('${escAttr(l.id)}')`)).join("")
-   +it("Non classées","Sans liste, tu le retrouveras dans la liste de suivi","_achatRangerFin('')")
-   +it("＋ Nouvelle liste","Créer une liste et y ranger ce titre",`_achatNouvelleListe('${escAttr(tk)}')`));};
+   +it("Non classées","Dans ta liste de suivi, sans classement","_achatRangerFin('')")
+   +it("＋ Nouvelle liste","Créer une liste et y ranger ce titre",`_achatNouvelleListe('${escAttr(tk)}')`)
+   +it("Ne pas ranger","Le plan vit seul, dans « Plans d'achat »","_achatSansListe()"));};
+window._achatSansListe=()=>{cm();save();R();toast("Plan d'achat enregistré");};
 window._achatNouvelleListe=(tk)=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><h3 style="font-size:16px;font-weight:700">Nouvelle liste</h3><button onclick="_achatChoisirListe('${escAttr(tk)}')" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div class="field"><label>Nom</label><input id="acWlName" placeholder="ex: À surveiller" autocomplete="off"></div><button class="btn btn-p" style="width:100%" onclick="_achatNouvelleListeSave()">Créer et ranger</button>`);
   setTimeout(()=>{const e=document.getElementById("acWlName");if(e)e.focus();},60);};
 window._achatNouvelleListeSave=()=>{const nm=((document.getElementById("acWlName")||{}).value||"").trim();
@@ -2867,8 +2914,10 @@ function _achatLireDOM(o){const rows=[];
     rows.push({q:(q&&q.value!=="")?pn(q.value):"",px:(px&&px.value!=="")?pn(px.value):""});}
   if(rows.length)o.rows=rows;return o;}
 window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());const tk=achatTk;
-  _achatSave(o);_achatFlash=Date.now();R();
-  if(_achatRows(tk).length&&!_tkDetenu(tk)&&!_achatDansSuivi(tk))return _achatChoisirListe(tk);
+  _achatSave(o);_achatIdentite(tk);_achatFlash=Date.now();save();R();
+  if(_achatRows(tk).length&&!_tkDetenu(tk)&&!_achatDansSuivi(tk)&&!(_achat(tk)||{}).vuListe){
+    const a=_achat(tk);if(a)a.vuListe=1;
+    return _achatChoisirListe(tk);}
   toast("Plan d'achat enregistré");};
 // Le composant de paliers est écrit UNE fois et servi partout : page dédiée, parcours
 // « À compléter », accès depuis la fiche action. Un seul code, donc jamais deux versions
@@ -3316,6 +3365,17 @@ function _qualGridHtml(){
   const items=[];Object.entries(D.poches).forEach(([n,p])=>p.positions.forEach(x=>{if(x.noPerf)return;items.push({poche:n,x,sym:_ySym(x),q:_qualOf(x)});}));
   const envs=[...new Set(items.map(i=>i.poche))];
   let list=items.filter(i=>scEnv==="tout"||i.poche===scEnv);
+  // Regroupement par entreprise, après le filtre d'enveloppe (une ligne détenue dans deux
+  // enveloppes reste visible quand on filtre sur l'une ou l'autre).
+  const _cleQual=(i)=>i.sym?("S:"+String(i.sym).toUpperCase()):("T:"+String(i.x.ticker||"").toUpperCase());
+  const _grp={};const _ordre=[];
+  list.forEach(i=>{const k=_cleQual(i);
+    if(!_grp[k]){_grp[k]={...i,x:{...i.x},_val:(i.x.valeur||0)};_ordre.push(k);return;}
+    const g=_grp[k];g._val+=(i.x.valeur||0);
+    const t=String(i.x.titre||"");const cur=String(g.x.titre||"");
+    if(t&&(!cur||t.length<cur.length))g.x.titre=t;
+    if(g.q&&g.q.status!=="ok"&&i.q&&i.q.status==="ok")g.q=i.q;});
+  list=_ordre.map(k=>{const g=_grp[k];g.x.valeur=g._val;return g;});
   const isOk=i=>i.q&&i.q.status==="ok";const isLoad=i=>i.q&&i.q.status==="loading";
   const scored=list.filter(i=>isOk(i)||isLoad(i));
   const naList=list.filter(i=>i.q&&(i.q.status==="na"||i.q.status==="insufficient"));
@@ -3349,7 +3409,7 @@ let h="";
 h+=_qualCardHtml(f,!!(aData.holdings&&((aData.holdings.holdings&&aData.holdings.holdings.length)||(aData.holdings.sectors&&aData.holdings.sectors.length))));
 if(sumOk){const _nc=(f.cash!=null&&f.debt!=null)?((f.cash-f.debt>=0?"+":"")+_fmtBig(f.cash-f.debt)):"—";const rows=[["PER",f.per!=null?f.per.toFixed(1):"—","per"],["Croissance BPA",_fmtPct(f.epsG),"epsG"],["Croissance CA",_fmtPct(f.revG),"revG"],["ROE",_fmtPct(f.roe),"roe"],["Marge nette",_fmtPct(f.mNette),"mNette"],["FCF (12 m)",_fmtBig(f.fcf),"fcf"],["PER prév.",f.fper!=null?f.fper.toFixed(1):"—","fper"],["Marge op.",_fmtPct(f.mOp),"mOp"],["Marge brute",_fmtPct(f.mBrute),"mBrute"],["Trésorerie nette",_nc,"netCash"],["Dette/capitaux",f.debtEq!=null?Math.round(f.debtEq)+" %":"—","debtEq"],["Dividende",_fmtPct(f.divY),"divY"],["Payout",_fmtPct(f.payout),"payout"],["PER/Book",f.pb!=null?f.pb.toFixed(1):"—","pb"],["Capitalisation",_fmtBig(f.cap),"cap"],["Bêta",f.beta!=null?f.beta.toFixed(2):"—","beta"]];if(_showIsin)rows.unshift(["ISIN",_showIsin,"isin"]);h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`+rows.map(_cell).join("")+`</div>`;}
 else if(_showIsin){h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">`+_cell(["ISIN",_showIsin,"isin"])+`</div>`;}
-if(aData.holdings&&aData.holdings.holdings&&aData.holdings.holdings.length){const hd=aData.holdings;h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Composition${hd.category?` · ${esc(hd.category)}`:""}</div>`+hd.holdings.map((hh,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i<hd.holdings.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(hh.name||hh.symbol||"?")}</div>${hh.pays?`<div style="font-size:10px;color:var(--mut)">${esc(YAHOO_COUNTRY_TO_CODE[hh.pays]?_countryName(YAHOO_COUNTRY_TO_CODE[hh.pays]):hh.pays)}</div>`:(hh.pays===null?"":`<div style="font-size:10px;color:var(--mut)">…</div>`)}</div><span class="mono" style="font-size:11px;font-weight:700;flex-shrink:0;margin-left:8px">${hh.pct!=null?(hh.pct*vg(100),1)+" %":"—"}</span></div>`).join("")+`</div>`;}
+if(aData.holdings&&aData.holdings.holdings&&aData.holdings.holdings.length){const hd=aData.holdings;h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Composition${hd.category?` · ${esc(hd.category)}`:""}</div>`+hd.holdings.map((hh,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i<hd.holdings.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(hh.name||hh.symbol||"?")}</div>${hh.pays?`<div style="font-size:10px;color:var(--mut)">${esc(YAHOO_COUNTRY_TO_CODE[hh.pays]?_countryName(YAHOO_COUNTRY_TO_CODE[hh.pays]):hh.pays)}</div>`:(hh.pays===null?"":`<div style="font-size:10px;color:var(--mut)">…</div>`)}</div><span class="mono" style="font-size:11px;font-weight:700;flex-shrink:0;margin-left:8px">${hh.pct!=null?vg(hh.pct*100,1)+" %":"—"}</span></div>`).join("")+`</div>`;}
 else if(aData.holdings&&aData.holdings.sectors&&aData.holdings.sectors.length){const hd=aData.holdings;const sorted=hd.sectors.filter(s=>s.pct>0).sort((a,b)=>b.pct-a.pct);if(sorted.length){h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Secteurs${hd.category?` · ${esc(hd.category)}`:""}</div>`+sorted.map(s=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>${esc(SECTOR_FR[s.sector]||s.sector)}</span><span class="mono" style="color:var(--dim)">${vg(s.pct*100,1)} %</span></div><div style="height:5px;background:var(--card);border-radius:3px;overflow:hidden"><div style="height:100%;width:${vg(s.pct*100,0)}%;background:var(--acc)"></div></div></div>`).join("")+`<div style="font-size:10px;color:var(--mut);margin-top:4px">Composition ligne par ligne indisponible pour ce fonds chez Yahoo — répartition sectorielle à défaut.</div></div>`;}}
 if(sumOk&&f.target!=null){const cours=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;const pot=cours?((f.target-cours)/cours*100):null;const recoMap={strong_buy:"Achat fort",buy:"Achat",hold:"Conserver",underperform:"Sous-performance",sell:"Vente"};const recoTxt=f.reco?(recoMap[f.reco]||f.reco):null;const recoCol=/buy/.test(f.reco||"")?"var(--grn)":/sell|under/.test(f.reco||"")?"var(--red)":"var(--amb)";const recoColHex=/buy/.test(f.reco||"")?"#34d399":/sell|under/.test(f.reco||"")?"#f87171":"#fbbf24";h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Avis des analystes</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Objectif moyen</span><span class="mono" style="font-size:15px;font-weight:700">${f.target.toFixed(2)} ${curSym(aCur)}</span></div>${pot!=null?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Potentiel</span><span class="mono" style="font-size:13px;font-weight:600;color:${pot>=0?"var(--grn)":"var(--red)"}">${pot>=0?"+":""}${vg(pot,1)} %</span></div>`:""}${recoTxt?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Recommandation</span><span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:${recoColHex}22;color:${recoCol}">${esc(recoTxt)}</span></div>`:""}${_analystSpread(f.recTrend)}${f.nbAn?`<div style="font-size:10px;color:var(--mut);margin-top:2px">Basé sur ${f.nbAn} analystes</div>`:""}</div>`;}
 if(sumOk&&f.earnTs&&f.earnTs>Date.now()/1000-86400)h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--dim)">📅 Prochains résultats</span><span><b class="mono" style="font-size:13px;color:var(--txt)">${new Date(f.earnTs*1000).toLocaleDateString("fr-FR")}</b> <span style="font-size:9px;background:#6c8cff22;color:var(--acc);border-radius:99px;padding:1px 7px">auto</span></span></div>`;
@@ -3368,9 +3428,13 @@ if(txt){h+=`<div style="font-size:12px;line-height:1.6;color:var(--txt)">${esc(t
 else h+=`<div style="font-size:12px;color:var(--mut)">Aucune description disponible pour cette valeur.</div>`;
 return h;}
 
+function _achatCarteFiche(){const tk=aSym.includes(".")?aSym.split(".")[0]:aSym;
+  const cours=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
+  const n=_achatRows(tk).length;
+  return `<div onclick="openAchat('${escAttr(tk)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${cours!=null?cours:"null"}})" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">Plan d'achat${n?` <span style="color:var(--mut);font-weight:400">· ${n} palier${n>1?"s":""}</span>`:""}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix tu comptes entrer, et combien</div></div><span style="color:var(--acc);font-size:16px">›</span></div>`;}
 function aPortfHtml(){const hold=_findHolding(aSym,aData.tkGuess);
-if(!hold){return `<div style="text-align:center;padding:26px 16px"><div style="font-size:30px;opacity:.5">💼</div><div style="font-size:13px;color:var(--dim);margin:10px 0 14px">Pas encore dans ton portefeuille.</div><button class="btn btn-p" onclick="aAddFlow()" style="font-size:13px">＋ Ajouter à une enveloppe</button></div>`;}
-let h="";hold.forEach(({poche,x})=>{const cur=curOf(x),sym=curSym(cur);const inv=(x.qty||0)*(x.pru||0);const val=(x.qty||0)*(x.cours||0);const pv=val-inv;const pvP=inv>0?pv/inv*100:0;const cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])||0;const these=(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])||"";const plan=(D.prefs&&D.prefs.plan&&D.prefs.plan[x.ticker])||null;const jr=(D.prefs&&D.prefs.journal&&D.prefs.journal[x.ticker])||[];
+if(!hold){return _achatCarteFiche()+`<div style="text-align:center;padding:20px 16px"><div style="font-size:30px;opacity:.5">💼</div><div style="font-size:13px;color:var(--dim);margin:10px 0 14px">Pas encore dans ton portefeuille.</div><button class="btn btn-p" onclick="aAddFlow()" style="font-size:13px">＋ Ajouter à une enveloppe</button></div>`;}
+let h=_achatCarteFiche();hold.forEach(({poche,x})=>{const cur=curOf(x),sym=curSym(cur);const inv=(x.qty||0)*(x.pru||0);const val=(x.qty||0)*(x.cours||0);const pv=val-inv;const pvP=inv>0?pv/inv*100:0;const cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])||0;const these=(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])||"";const plan=(D.prefs&&D.prefs.plan&&D.prefs.plan[x.ticker])||null;const jr=(D.prefs&&D.prefs.journal&&D.prefs.journal[x.ticker])||[];
 const cell=(l,v2)=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:7px 10px"><div style="font-size:9px;color:var(--mut)">${l}</div><div class="mono" style="font-size:13px;font-weight:600">${v2}</div></div>`;
 if(hold.length>1)h+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:10px 2px 4px">${esc(poche)}</div>`;
 h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px">${cell("Qté × PRU",isPriv()?"•••":fmt2_(x.qty)+" × "+fmt2_(x.pru)+" "+sym)}${cell("Valeur",isPriv()?"•••":Math.round(val*toEur(cur)).toLocaleString("fr-FR")+" €")}${cell("Plus-value",`<span style="color:${pv>=0?"var(--grn)":"var(--red)"}">${isPriv()?"•••":(pv>=0?"+":"")+Math.round(pv)+" "+sym+" · "+(pvP>=0?"+":"")+vg(pvP,1)+" %"}</span>`)}${cell("Enveloppe",esc(poche))}</div>`;
@@ -3391,8 +3455,8 @@ if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
 let h=`<div class="fade">`;
 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
-h+=`<div onclick="openAchat('${escAttr(aSym.includes(".")?aSym.split(".")[0]:aSym)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${cours!=null?cours:"null"}})" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:10px 13px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">Plan d'achat${(()=>{const _n=_achatRows(aSym.includes(".")?aSym.split(".")[0]:aSym).length;return _n?` <span style="color:var(--mut);font-weight:400">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix tu comptes entrer, et combien</div></div><span style="color:var(--acc);font-size:16px">›</span></div>`;
-if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % (${esc(aPeriod)})</span>`:""}</div>`;
+if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
+  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;font-weight:600;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % (${esc(aPeriod)})</span>`:""}</div>`;
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["portf","Mon portefeuille"]];
 h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-bottom:12px;overflow-x:auto">`+tabs.map(t=>`<span onclick="setATab('${t[0]}')" style="font-size:13px;padding-bottom:8px;white-space:nowrap;cursor:pointer;${aTab===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
 if(aTab==="chart"){
@@ -3721,7 +3785,7 @@ function bourseHtml(){const bl=_bPos();const F0=x=>Math.round(x).toLocaleString(
 let tot=0,inv=0,dayE=0,dayB=0;bl.forEach(r=>{tot+=r.v;inv+=(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x));const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;}});
 const pv=tot-inv;const pvPct=inv>0?pv/inv*100:0;const dayPct=dayB>0?dayE/dayB*100:null;
 let sh=`<div class="fade">`;
-sh+=`<div style="display:flex;gap:20px;border-bottom:1px solid var(--bdr);margin:4px 0 14px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Liste de suivi"]].map(t=>`<span onclick="setBSub('${t[0]}')" style="font-size:14px;padding-bottom:9px;cursor:pointer;${bSub===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
+sh+=`<div style="display:flex;gap:20px;border-bottom:1px solid var(--bdr);margin:4px 0 14px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Outils et suivi"]].map(t=>`<span onclick="setBSub('${t[0]}')" style="font-size:14px;padding-bottom:9px;cursor:pointer;${bSub===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
 if(!bl.length){sh+=`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;line-height:1.6;padding:22px 14px">Aucune enveloppe boursière pour l'instant.<br>Crée un compte (PEA, CTO, crypto…) via <b style="color:var(--txt)">Patrimoine → ＋ Ajouter un actif</b>.</div></div>`;return sh;}
 const byP={};bl.forEach(r=>{const o=byP[r.poche]=byP[r.poche]||{v:0,inv:0,n:0};o.v+=r.v;o.inv+=(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x));o.n++;});
 const pNames=Object.keys(byP).sort((a,b)=>byP[b].v-byP[a].v);
@@ -3736,26 +3800,106 @@ const dd2=pNames.map(n=>[n,byP[n].v]);
 sh+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 2px 6px">Répartition par enveloppe</div>`;
 sh+=`<div class="card"><div style="display:flex;align-items:center;gap:16px">${dn(dd2,cols,120)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd2.map((d,i)=>`<div onclick="oP('${escAttr(d[0])}')" style="display:flex;align-items:center;gap:5px;font-size:10px;cursor:pointer"><div style="width:7px;height:7px;border-radius:50%;background:${cols[i]}"></div><span style="color:var(--dim);flex:1">${esc(d[0])}</span><span class="mono" style="font-weight:500">${vg((d[1]/(tot||1))*100,1)}% · ${fmtE_(d[1])} €</span></div>`).join("")}</div></div></div>`;
 sh+=worldMapHtml();
-sh+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:16px 2px 6px">Outils</div>`;
-sh+=`<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:6px">`+[["conv","Convertisseur"],["pru","Calcul PRU"]].map(t=>`<span onclick="swiPru=${t[0]==="pru"?"true":"false"};R()" style="font-size:11px;padding:4px 10px;border-radius:99px;cursor:pointer;${(swiPru?(t[0]==="pru"):(t[0]==="conv"))?"background:#6c8cff22;color:var(--acc);font-weight:700":"border:1px solid var(--bdr);color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
-sh+=swiPru?pruCalcHtml():explorerHtml();
+sh+=`<div style="display:none">`+[["conv","Convertisseur"],["pru","Calcul PRU"]].map(t=>`<span onclick="swiPru=${t[0]==="pru"?"true":"false"};R()" style="font-size:11px;padding:4px 10px;border-radius:99px;cursor:pointer;${(swiPru?(t[0]==="pru"):(t[0]==="conv"))?"background:#6c8cff22;color:var(--acc);font-weight:700":"border:1px solid var(--bdr);color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
 }
 if(bSub==="positions"){
 sh+=pNames.map((n,i)=>{const o=byP[n];const plE=o.v-o.inv;const plP=o.inv>0?plE/o.inv*100:0;
 return `<div class="card" onclick="oP('${escAttr(n)}')" style="border-left:3px solid ${cols[i]};padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer"><div style="min-width:0"><div style="font-size:14px;font-weight:700">${esc(n)}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${o.n} position${o.n>1?"s":""}</div></div><div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div class="mono" style="font-size:14px;font-weight:700">${fmtE_(o.v)} €</div><div class="mono" style="font-size:11px;color:${plE>=0?"var(--grn)":"var(--red)"}">${plE>=0?"+":""}${isPriv()?"•••":F0(plE)+" €"} · ${plP>=0?"+":""}${vg(plP,1)} %</div></div><span style="color:var(--mut);font-size:18px">›</span></div></div>`;}).join("");
 }
 if(bSub==="suivi"){
-sh+=watchListOpen?watchListDetailHtml():watchListsHubHtml();
+if(bTool)sh+=bToolHtml();
+else if(bPage==="listes")sh+=watchListOpen?watchListDetailHtml():watchListsPageHtml();
+else if(bPage==="plans")sh+=plansAchatPageHtml();
+else sh+=outilsHubHtml();
 }
 sh+=`</div>`;return sh;}
+window.setBTool=v=>{bTool=v||null;R();scrollTo(0,0);};
+window.setBPage=v=>{bPage=v||null;watchListOpen=null;R();scrollTo(0,0);};
+function _bRetour(lbl,act){return `<div onclick="${act}" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ ${lbl}</div>`;}
+// Quatre outils au même format : une grille qui reste lisible et qui pourra en accueillir d'autres.
+function outilsHubHtml(){
+  const wl=(D.prefs&&D.prefs.watchlist)||[];
+  const lists=(D.prefs&&D.prefs.watchLists)||[];
+  const plans=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
+  const tuile=(id,titre,sous)=>`<div onclick="setBTool('${id}')" class="card card-tap" style="padding:14px 12px;margin:0;display:flex;flex-direction:column;justify-content:space-between;min-height:96px"><div style="font-size:13px;font-weight:700;line-height:1.3">${titre}</div><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">${sous}</div></div>`;
+  const entree=(page,titre,sous,cpt)=>`<div onclick="setBPage('${page}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${sous}</div></div>${cpt?`<span class="mono" style="font-size:10.5px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:2px 9px">${cpt}</span>`:""}<span style="color:var(--mut);font-size:14px;margin-left:8px">›</span></div>`;
+  let s2=`<div class="card card-tap" onclick="openSearchModal('view')" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:14px;border:1.5px solid #6c8cff55"><span style="color:var(--acc);font-size:14px">🔎</span><span style="flex:1;color:var(--mut);font-size:13px">Rechercher (nom, ticker, ISIN)</span></div>`;
+  s2+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:0 2px 8px">Outils</div>`;
+  s2+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">`
+    +tuile("cmp","Comparer plusieurs actions","Mettre deux courbes ou plus côte à côte")
+    +tuile("pru","Calcul PRU","Retrouver ton prix de revient unitaire")
+    +tuile("conv","Convertisseur","Passer d'une devise à l'autre")
+    +tuile("simu","Simulateur d'objectif","En combien de temps tu atteins ton objectif")
+    +`</div>`;
+  s2+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:0 2px 8px">Suivi</div>`;
+  s2+=entree("listes","Listes de suivi","Les titres que tu surveilles, rangés par liste",lists.length||wl.length?String(wl.length):"");
+  s2+=entree("plans","Plans d'achat","À quels prix tu comptes entrer",plans.length?String(plans.length):"");
+  return s2;
+}
+function bToolHtml(){
+  const t={cmp:"Comparer plusieurs actions",pru:"Calcul PRU",conv:"Convertisseur",simu:"Simulateur d'objectif"}[bTool]||"Outil";
+  let corps="";
+  if(bTool==="pru")corps=pruCalcHtml();
+  else if(bTool==="conv")corps=explorerHtml();
+  else if(bTool==="simu")corps=simuObjHtml();
+  else if(bTool==="cmp")corps=`<div class="card card-tap" onclick="openCmp()" style="display:flex;align-items:center;gap:9px;padding:14px"><span style="color:var(--acc);font-size:14px">⇄</span><span style="flex:1;color:var(--dim);font-size:13px">Choisir les actions à comparer</span><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  return _bRetour("Outils et suivi","setBTool(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 12px">${t}</h2>`+corps;
+}
+function watchListsPageHtml(){
+  return _bRetour("Outils et suivi","setBPage(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 12px">Listes de suivi</h2>`+watchListsHubHtml();
+}
+// Tous les plans d'achat, qu'ils soient rangés dans une liste ou non.
+function plansAchatPageHtml(){
+  const tks=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
+  let s2=_bRetour("Outils et suivi","setBPage(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 4px">Plans d'achat</h2>`
+    +`<div style="font-size:11px;color:var(--mut);line-height:1.5;margin:0 2px 12px">À quels prix tu comptes entrer, et combien. Un plan n'a pas besoin d'être rangé dans une liste.</div>`;
+  if(!tks.length)return s2+`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Aucun plan d'achat pour l'instant.<br>Tu peux en créer un depuis la fiche d'un titre.</div>`;
+  const lignes=tks.map(tk=>{const rows=_achatRows(tk).slice().sort((a,b)=>b.px-a.px);
+    const sym=curSym(_tkCur(tk));const c=_tkCours(tk);
+    const prochain=_achatSuivant(tk);
+    const etat=c==null?"cours inconnu":(prochain?`prochain palier ${vg(prochain.px,2)} ${esc(sym)}`:`tous les paliers atteints`);
+    return `<div onclick="openAchat('${escAttr(tk)}')" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(_tkNom(tk))}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)} · ${rows.length} palier${rows.length>1?"s":""} · ${etat}</div></div><div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:12px">${c!=null?vg(c,2)+" "+esc(sym):"—"}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;}).join("");
+  return s2+`<div class="card">${lignes}</div>`;
+}
+// Simulateur : de la capitalisation, rien d'autre. Aucune donnée externe, aucun conseil.
+function simuObjHtml(){
+  const d=ga();const p0=Math.round(d.tN||0);
+  const v=_simu||{};
+  const ch=(id,lbl,val,ph,suf)=>`<div style="margin-bottom:10px"><div style="font-size:10px;color:var(--mut);margin-bottom:5px">${lbl}</div><div style="display:flex;align-items:center;gap:8px"><input id="${id}" inputmode="decimal" value="${val!=null?val:""}" placeholder="${ph}" oninput="_simuSet('${id}',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px">${suf?`<span style="font-size:11px;color:var(--mut)">${suf}</span>`:""}</div></div>`;
+  const obj=pn(v.obj),tx=pn(v.tx),vers=pn(v.vers),ans=pn(v.ans);
+  let res="";
+  if(obj>0){
+    const i=(tx||0)/100/12;
+    const fv=(n)=>i>0?(p0*Math.pow(1+i,n)+vers*((Math.pow(1+i,n)-1)/i)):(p0+vers*n);
+    let mois=null;
+    if(fv(0)>=obj)mois=0;
+    else if(vers>0||i>0){for(let n=1;n<=1200;n++){if(fv(n)>=obj){mois=n;break;}}}
+    const phrase=mois===0?`Ton patrimoine actuel dépasse déjà cet objectif.`
+      :(mois==null?`Sans versement ni rendement, cet objectif n'est pas atteint.`
+      :`Objectif atteint en <b style="color:var(--txt)">${Math.floor(mois/12)} an${Math.floor(mois/12)>1?"s":""}${mois%12?` et ${mois%12} mois`:""}</b>.`);
+    res+=`<div style="font-size:12.5px;color:var(--dim);line-height:1.6;padding:12px 0 4px;border-top:1px solid var(--sep)">${phrase}</div>`;
+    if(ans>0){
+      const N=Math.round(ans*12);
+      const need=i>0?((obj-p0*Math.pow(1+i,N))*i/(Math.pow(1+i,N)-1)):((obj-p0)/N);
+      res+=`<div style="font-size:12.5px;color:var(--dim);line-height:1.6;padding-top:8px">Pour l'atteindre en ${vg(ans,0)} an${ans>1?"s":""} : <b style="color:var(--txt)">${need<=0?"aucun versement nécessaire":fmt_(Math.ceil(need))+" € par mois"}</b>.</div>`;}
+  }
+  return `<div class="card"><div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:14px">Ton patrimoine actuel : <b class="mono" style="color:var(--txt)">${fmt_(p0)} €</b>. Renseigne le reste, le calcul se met à jour.</div>`
+   +ch("simObj","Objectif",v.obj,"150000","€")
+   +ch("simTx","Rendement annuel estimé",v.tx,"6","%")
+   +ch("simVers","Versement mensuel",v.vers,"300","€")
+   +ch("simAns","Horizon souhaité — optionnel",v.ans,"10","ans")
+   +res
+   +`<div style="font-size:10px;color:var(--mut);line-height:1.5;margin-top:14px">Projection à rendement constant. La réalité ne l'est jamais : c'est un ordre de grandeur, pas une prévision.</div></div>`;
+}
+window._simuSet=(id,val)=>{_simu=_simu||{};
+  const k={simObj:"obj",simTx:"tx",simVers:"vers",simAns:"ans"}[id];if(!k)return;
+  _simu[k]=val;clearTimeout(_simuT);_simuT=setTimeout(()=>{R();},450);};
 function watchListsHubHtml(){
 const lists=(D.prefs&&D.prefs.watchLists)||[];
 const wl=(D.prefs&&D.prefs.watchlist)||[];
 const countFor=(id)=>wl.filter(w=>w.listId===id).length;
 const unlistedCount=wl.filter(w=>!w.listId).length;
-let s=`<div class="card card-tap" onclick="openSearchModal('view')" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:10px;border:1.5px solid #6c8cff55"><span style="color:var(--acc);font-size:14px">🔎</span><span style="flex:1;color:var(--mut);font-size:13px">Rechercher (nom, ticker, ISIN)</span></div>`;
-s+=`<div class="card card-tap" onclick="openCmp()" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:14px;border:1.5px solid #6c8cff55"><span style="color:var(--acc);font-size:14px">⇄</span><span style="flex:1;color:var(--mut);font-size:13px">Comparer plusieurs actions</span></div>`;
-s+=`<div class="card card-tap" onclick="newWatchList()" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-bottom:14px;border:1px dashed #6c8cff66;color:var(--acc);font-size:12px;font-weight:700">＋ Nouvelle liste</div>`;
+let s=`<div class="card card-tap" onclick="newWatchList()" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-bottom:14px;border:1px dashed #6c8cff66;color:var(--acc);font-size:12px;font-weight:700">＋ Nouvelle liste</div>`;
 const cols=["var(--acc)","var(--amb)","var(--grn)","#a78bfa","#f472b6","#5eead4"];
 const rowHtml=(id,name,count,color)=>`<div class="card card-tap" onclick="openWatchList('${escAttr(id)}')" style="display:flex;justify-content:space-between;align-items:center;padding:14px;margin-bottom:8px"><span style="display:flex;align-items:center;gap:10px"><span style="width:8px;height:8px;border-radius:50%;background:${color};flex-shrink:0"></span><span style="font-size:13px;font-weight:700">${esc(name)}</span></span><span style="display:flex;align-items:center;gap:8px">${count?`<span class="mono" style="font-size:10.5px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:2px 9px">${count}</span>`:""}<span style="color:var(--dim);font-size:14px">›</span></span></div>`;
 if(!lists.length&&!wl.length){s+=`<div style="text-align:center;color:var(--mut);font-size:11px;padding:16px 6px;line-height:1.6">Recherche une action ci-dessus, ou crée une première liste pour organiser ce que tu suis.</div>`;}
@@ -3794,7 +3938,7 @@ const WL_PAL=["#6c8cff","#fbbf24","#34d399","#a78bfa","#f472b6","#5eead4","#f871
 window._pickWlColor=()=>{const used=(D.prefs&&D.prefs.watchLists||[]).map(l=>l.color).filter(Boolean);let c=WL_PAL.find(x=>!used.includes(x));if(c)return c;const cnt={};WL_PAL.forEach(x=>cnt[x]=0);used.forEach(x=>{if(cnt[x]!=null)cnt[x]++;});return WL_PAL.reduce((a,b)=>cnt[a]<=cnt[b]?a:b);};
 window.saveNewWatchList=()=>{const nm=(document.getElementById("wlName").value||"").trim();if(!nm)return toast("Donne un nom");if(!D.prefs)D.prefs={};if(!D.prefs.watchLists)D.prefs.watchLists=[];const id="wl"+Date.now().toString(36);D.prefs.watchLists.push({id,name:nm,color:_pickWlColor()});cm();save();watchListOpen=id;R();};
 window.openWatchList=(id)=>{watchListOpen=id;R();scrollTo(0,0);};
-window.closeWatchList=()=>{watchListOpen=null;R();};
+window.closeWatchList=()=>{watchListOpen=null;bPage="listes";R();};
 window.renameWatchList=(id)=>{const l=(D.prefs.watchLists||[]).find(x=>x.id===id);if(!l)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Renommer</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="wlName" value="${escAttr(l.name)}" autocomplete="off"></div><button class="btn btn-p" onclick="saveRenameWatchList('${escAttr(id)}')">Enregistrer</button>`);setTimeout(()=>{const e=document.getElementById("wlName");if(e)e.focus();},50);};
 window.saveRenameWatchList=(id)=>{const l=(D.prefs.watchLists||[]).find(x=>x.id===id);if(!l)return;const nm=(document.getElementById("wlName").value||"").trim();if(!nm)return toast("Donne un nom");l.name=nm;cm();save();R();};
 window.delWatchList=(id)=>{if(!confirm("Supprimer cette liste ? Les valeurs repassent en Non classées."))return;D.prefs.watchLists=(D.prefs.watchLists||[]).filter(x=>x.id!==id);(D.prefs.watchlist||[]).forEach(w=>{if(w.listId===id)w.listId=null;});watchListOpen=null;save();R();};
@@ -3846,11 +3990,37 @@ const higherBetter={"PER":false,"Marge nette":true,"Croissance CA":true,"Dividen
 h+=`<div class="card" style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr><td></td>${cmpList.map((c,i)=>`<td style="padding:6px 8px;font-weight:700;color:${COLS[i%COLS.length]};text-align:right">${esc(c.sym)}</td>`).join("")}</tr></thead><tbody>${rows.map(r=>{const vals=cmpList.map(c=>r[1](c));const nums=vals.map(v=>{const n=parseFloat(String(v).replace("%","").replace(",","."));return isNaN(n)?null:n;});let bestIdx=-1;if(nums.some(n=>n!=null)){const dir=higherBetter[r[0]];let best=null;nums.forEach((n,i)=>{if(n==null)return;if(best==null||(dir?n>best:n<best)){best=n;bestIdx=i;}});}return `<tr style="border-top:1px solid var(--sep)"><td style="padding:6px 8px;color:var(--dim)">${r[0]}</td>${vals.map((v,i)=>`<td style="padding:6px 8px;text-align:right;font-family:monospace;${i===bestIdx?"color:var(--grn);font-weight:700":""}">${v}</td>`).join("")}</tr>`;}).join("")}</tbody></table></div>`;
 h+=`</div>`;return h;}
 window.addWatch=(sym,name,cur,listId)=>{if(!D.prefs)D.prefs={};if(!D.prefs.watchlist)D.prefs.watchlist=[];const existing=D.prefs.watchlist.find(x=>x.sym===sym);if(existing){if(listId!==undefined)existing.listId=listId||null;save();return;}const tk=sym.includes(".")?sym.split(".")[0]:sym;D.prefs.watchlist.push({sym,ticker:tk,name:name||tk,cur:cur||"USD",listId:listId||null});save();};
+window._askDelWatchPlan=(sym,tk)=>{const n=_achatRows(tk).length;
+  const it=(lib,sous,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Retirer ${esc(tk)} du suivi</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55">Ce titre a un plan d'achat (${n} palier${n>1?"s":""}). Que veux-tu en faire ?</div>`
+   +it("Garder le plan","Le titre sort de la liste, le plan reste actif dans « Plans d'achat »",`_delWatchGarde('${escAttr(sym)}')`)
+   +it("Supprimer aussi le plan","Le titre et son plan disparaissent",`_delWatchTout('${escAttr(sym)}','${escAttr(tk)}')`));};
+window._delWatchGarde=(sym)=>{const w=(D.prefs.watchlist||[]).find(x=>x.sym===sym);
+  if(w){_achatIdentiteDepuis(w);}
+  delWatch(sym);cm();};
+window._delWatchTout=(sym,tk)=>{_setAchat(tk,null);
+  if(D.prefs&&D.prefs.achatSync){delete D.prefs.achatSync[tk];delete D.prefs.achatSync["wl:"+tk];}
+  delWatch(sym);cm();};
+// Avant de perdre la ligne de suivi, le plan récupère ce qu'elle savait du titre.
+function _achatIdentiteDepuis(w){const o=_achat(w.ticker);if(!o)return;
+  if(!o.sym)o.sym=w.sym;if(!o.name)o.name=w.name;if(!o.cur)o.cur=w.cur;
+  if(o.lastCours==null&&w.lastCours!=null){o.lastCours=w.lastCours;o.lastUpd=w.lastUpd||Date.now();}}
 window.delWatch=(sym)=>{if(D.prefs&&D.prefs.watchlist){D.prefs.watchlist=D.prefs.watchlist.filter(x=>x.sym!==sym);save();}};
-window.askDelWatch=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;sm(`<div style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Retirer du suivi ?</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:16px">Retirer <b>${esc(w.ticker||w.name||sym)}</b> de ta liste de suivi ?</p><button class="btn" style="width:100%;background:var(--red);color:#fff;border:none" onclick="delWatch('${escAttr(sym)}');cm();R();">Retirer</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);};
+window.askDelWatch=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;
+  // Le plan d'achat ne dépend pas de la liste : on ne le supprime pas dans son dos.
+  if(_achatRows(w.ticker).length)return _askDelWatchPlan(sym,w.ticker);
+  sm(`<div style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Retirer du suivi ?</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:16px">Retirer <b>${esc(w.ticker||w.name||sym)}</b> de ta liste de suivi ?</p><button class="btn" style="width:100%;background:var(--red);color:#fff;border:none" onclick="delWatch('${escAttr(sym)}');cm();R();">Retirer</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);};
 window.setWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Alertes ${esc(w.ticker)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><p style="font-size:11px;color:var(--dim);margin-bottom:12px">Mets un seuil bas, un seuil haut, ou les deux (en ${esc(w.cur)}).</p><div class="row"><div class="field"><label>Alerte ↓ bas</label><input id="wtl" value="${w.target!=null?w.target:""}" inputmode="decimal" placeholder="ex: 5"></div><div class="field"><label>Alerte ↑ haut</label><input id="wth" value="${w.targetHigh!=null?w.targetHigh:""}" inputmode="decimal" placeholder="ex: 10"></div></div><div style="font-size:10px;color:var(--mut);margin:2px 0 12px">↓ alerte quand le cours descend dessous · ↑ quand il monte dessus</div><button class="btn btn-p" onclick="saveWatchTarget('${escAttr(sym)}')">Enregistrer</button>`);};
 window.saveWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;const loRaw=(document.getElementById("wtl")||{}).value||"";const hiRaw=(document.getElementById("wth")||{}).value||"";const lo=pn(loRaw),hi=pn(hiRaw);if(loRaw.trim()&&lo>0){w.target=lo;}else{delete w.target;delete w.notified;}if(hiRaw.trim()&&hi>0){w.targetHigh=hi;}else{delete w.targetHigh;delete w.notifiedHigh;}cm();save();};
-window.refreshWatch=async()=>{if(!D.prefs||!D.prefs.watchlist||!D.prefs.watchlist.length)return;for(const w of D.prefs.watchlist){try{const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(w.sym)}&range=5d&_t=${Date.now()}`);const j=await r.json();const res=j&&j.chart&&j.chart.result&&j.chart.result[0];const meta=res&&res.meta;const p=meta&&meta.regularMarketPrice;if(p!=null){w.lastCours=p;w.lastUpd=Date.now();}}catch(e){}}save();};
+window.refreshWatch=async()=>{if(!D.prefs)return;
+  // Un plan d'achat sans liste doit quand même voir son cours suivi, sinon il ne se
+  // déclencherait jamais.
+  const plans=Object.keys(D.prefs.achat||{}).map(tk=>({tk:tk,o:D.prefs.achat[tk]}))
+    .filter(p=>p.o&&p.o.sym&&!((D.prefs.watchlist||[]).some(w=>w.ticker===p.tk))&&!(ga().ap||[]).some(y=>y.ticker===p.tk));
+  for(const p of plans){try{const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(p.o.sym)}&range=5d&_t=${Date.now()}`);const j=await r.json();const res=j&&j.chart&&j.chart.result&&j.chart.result[0];const meta=res&&res.meta;const px=meta&&meta.regularMarketPrice;if(px!=null){p.o.lastCours=px;p.o.lastUpd=Date.now();}}catch(e){}}
+  if(plans.length){_syncCibleAchat();save();}
+  if(!D.prefs.watchlist||!D.prefs.watchlist.length)return;for(const w of D.prefs.watchlist){try{const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(w.sym)}&range=5d&_t=${Date.now()}`);const j=await r.json();const res=j&&j.chart&&j.chart.result&&j.chart.result[0];const meta=res&&res.meta;const p=meta&&meta.regularMarketPrice;if(p!=null){w.lastCours=p;w.lastUpd=Date.now();}}catch(e){}}save();};
 window.editGoal=()=>{const g=(D.prefs&&D.prefs.goalNetWorth)||"";sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Objectif de patrimoine</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><p style="font-size:11px;color:var(--dim);margin-bottom:12px">Fixe un montant cible. La barre de progression s'affiche dans Analyse › Synthèse.</p><div class="field"><label>Objectif (€)</label><input id="goalIn" inputmode="decimal" value="${g}" placeholder="ex: 150000"></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="saveGoal()">Enregistrer</button>${g?`<button class="btn" style="background:var(--card);border:1px solid var(--bdr);color:var(--mut)" onclick="clearGoal()">Retirer</button>`:""}</div>`);};
 window.saveGoal=()=>{const v=pn((document.getElementById("goalIn")||{}).value);if(!D.prefs)D.prefs={};if(v>0)D.prefs.goalNetWorth=v;else delete D.prefs.goalNetWorth;cm();save();};
 window.clearGoal=()=>{if(D.prefs)delete D.prefs.goalNetWorth;cm();save();};
