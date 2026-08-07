@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "211";
+const APP_VERSION = "212";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -226,6 +226,11 @@ const ETF_BREAKDOWN_BY_TICKER={
   ANX:"us100",CNDX:"us100",PUST:"us100",
   CW8:"world",IWDA:"world",SWDA:"world",VWCE:"world",EUNL:"world",DCAM:"world",
 };
+window._fondsFlousInfo=()=>{const l=(window._cvwmFondsFlous||[]);
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Fonds non détaillés</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+   +`<div style="font-size:12.5px;color:var(--dim);line-height:1.65">Pour ces lignes, la source ne publie aucune composition : impossible de savoir dans quels pays elles investissent. Elles sont donc comptées à part, plutôt que rattachées à un pays deviné.</div>`
+   +(l.length?`<div style="margin-top:12px">`+l.map(n=>`<div style="font-size:12px;color:var(--dim);padding:7px 0;border-top:1px solid var(--sep)">${esc(n)}</div>`).join("")+`</div>`:"")
+   +`<div style="font-size:11px;color:var(--mut);line-height:1.6;margin-top:12px">C'est fréquent pour les fonds français et les ETF cotés à Paris. Les ETF irlandais ou américains sont, eux, détaillés — mais sur leurs 10 premières lignes seulement, ce qui couvre environ un quart d'un ETF large.</div>`);};
 function _countryName(code){if(!code)return"";if(code===DIVERSIFIED_CODE)return"Fonds (non détaillé)";if(code===CRYPTO_CODE)return"Crypto";if(code===UNKNOWN_CODE)return"Pays non identifié";return COUNTRY_NAMES[code]||code.toUpperCase();}
 // Codes qui ne correspondent à aucun pays : jamais coloriés sur la carte, listés à part sous la légende.
 function _isNoCountry(code){return code===DIVERSIFIED_CODE||code===CRYPTO_CODE||code===UNKNOWN_CODE;}
@@ -430,7 +435,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_aFrom=null,pfPoche=null,pfTk=null,_pfFrom=null,_aStack=[],alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",_convPrec=null,bTool=null,bPage=null,_simu=null,_simuT=null,_convRetourVers=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -867,24 +872,7 @@ function _derive(){
 function _videHtml(txt,action,libelle){
   return `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:220px;padding:20px"><div style="width:34px;height:34px;border-radius:50%;border:1px solid var(--bdr);opacity:.7"></div><div style="font-size:12.5px;color:var(--dim);line-height:1.6;margin-top:14px;max-width:280px">${txt}</div>${action?`<div onclick="${action}" style="margin-top:14px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">${libelle} ›</div>`:""}</div>`;
 }
-function _memoRetour(){
-  const dansConv=(tab==="analyse"&&anaSub==="conv");
-  if(!dansConv){_convRetourVers={tab:tab,sel:sel,bSub:bSub,anaSub:anaSub,pfPoche:pfPoche,pfTk:pfTk,watchListOpen:watchListOpen};_convPrec=null;}
-  else _convPrec=convView||null;
-}
-function _convRetourLbl(){const m=_convRetourVers;
-  if(!m)return {convictions:"Mes convictions",boussole:"Ma boussole",completer:"À compléter"}[_convPrec]||"Conviction";
-  if(m.tab==="posfiche"&&m.pfTk)return m.pfTk;
-  if(m.tab==="bourse")return "Bourse";
-  if(m.tab==="home")return "Patrimoine";
-  return "Retour";}
-window._convBack=()=>{const m=_convRetourVers;
-  if(!m&&_convPrec){const p=_convPrec;_convPrec=null;return setConvView(p);}
-  if(m){_convRetourVers=null;_convPrec=null;convView=null;convFill=null;boussoleTk=null;
-    tab=m.tab;sel=m.sel;bSub=m.bSub;anaSub=m.anaSub;pfPoche=m.pfPoche;pfTk=m.pfTk;watchListOpen=m.watchListOpen;
-    R();scrollTo(0,0);return;}
-  setConvView(null);};
-function _convRetour(){return `<div onclick="_convBack()" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ ${esc(_convRetourLbl())}</div>`;}
+function _convRetour(){return `<div onclick="_navBack()" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ ${esc(_navLbl())}</div>`;}
 function _convEntete(titre,phrase,aide){
   return `<div style="margin-bottom:12px"><div style="display:flex;align-items:center;gap:6px"><h2 style="font-size:19px;font-weight:700">${titre}</h2>${aide?`<span onclick="_convAide('${aide}')" style="display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;background:var(--acc);color:#fff;font-size:10px;font-weight:700;cursor:pointer">?</span>`:""}</div><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${phrase}</div></div>`;
 }
@@ -964,9 +952,7 @@ function _convVuePage(vue,ctx){
     const boutons=un
       ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><span onclick="_bsNote('${escAttr(un)}')" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Note de journal</span><span onclick="${th?`_bsTheseMenu('${escAttr(un)}')`:`_bsThese('${escAttr(un)}')`}" style="padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Thèse</span></div>`
       : `<div onclick="_bsChoisirTitre()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Écrire</div>`;
-    const retour=(un&&!_convRetourVers)
-      ? `<div onclick="openBoussole(null)" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ Ma boussole</div>`
-      : _convRetour();
+    const retour=_convRetour();
     const entete=un
       ? `<div style="margin-bottom:12px"><h2 style="font-size:19px;font-weight:700">${_lienTitre(un,esc(_tkNom(un)))}</h2><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${esc(un)}${_tkDetenu(un)?"":" · titre non détenu"} · ce que tu as écrit sur cette ligne</div></div>`
       : _convEntete("Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes");
@@ -1060,6 +1046,9 @@ const _show=(D.prefs&&D.prefs.convShow)||{};
 const candidats=d.ap.filter(x=>!x.noPerf);
 const retenus=candidats.filter(x=>cv[x.ticker]&&(!_horsDefaut(x)||_show[x.ticker]));
 const masques=candidats.filter(x=>_horsDefaut(x)&&!_show[x.ticker]);
+// Tout ce qui est réglable sur le nuage, affiché ou non : le point d'accès ne doit jamais
+// disparaître, sinon on ne peut plus rien masquer une fois tout activé.
+const gerables=candidats.filter(x=>_horsDefaut(x));
 // Le poids est relatif à CE QUI EST AFFICHÉ : les points somment toujours à 100 % du nuage. Activer un
 // fonds redistribue donc tous les poids — c'est voulu, et c'est écrit noir sur blanc sous le graphique,
 // sinon on croirait que le portefeuille a bougé.
@@ -1079,7 +1068,7 @@ const hzFiltre=`<div style="margin-top:8px">${_hzLbl
 const legende=`<span style="display:inline-flex;flex-wrap:wrap;gap:9px;align-items:center">${envNames.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${_pocheColor(n)}"></span>${esc(n)}</span>`).join("")}</span>`;
 const envSelectHtml=hzFiltre;
 const flaggedItems=items.filter(i=>i.flagged);
-const masquesLigne=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${masques.length} ligne${masques.length>1?"s":""} non affichée${masques.length>1?"s":""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">Fonds et cryptos — à ajouter au nuage si tu veux les comparer</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const masquesLigne=!gerables.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;cursor:pointer"><div style="flex:1"><div style="font-size:13px;font-weight:700">${masques.length} ligne${masques.length>1?"s":""} non affichée${masques.length>1?"s":""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">Fonds et cryptos — à ajouter au nuage si tu veux les comparer</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 const chartHtml=(allItems.length?_convChartSvg(items):`<div style="text-align:center;padding:26px 10px"><div style="font-size:12px;color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:11px;color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:12px;color:var(--acc);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:11px;color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+``;
 // ── LES TROIS SECTIONS SOUS LE NUAGE ────────────────────────────────────────────────────────
 // Avant, onze éléments s'empilaient en mélangeant ce qui demande une réaction, ce qui reste à
@@ -1112,7 +1101,7 @@ const _carte=(vue,titre,sous)=>`<div onclick="setConvView('${vue}')" class="card
 const carnetsHtml=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:22px 2px 8px">Mes carnets</div>`
   +_carte("boussole","Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes")
   +_carte("marche","Mes convictions face au marché","Est-ce que ce en quoi tu crois monte vraiment");
-const masquesLigne2=!masques.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-top:22px;opacity:.8"><div style="flex:1"><div style="font-size:13px;color:var(--dim)">Lignes non affichées (${masques.length})</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Fonds et cryptos à ajouter au nuage</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+const masquesLigne2=!gerables.length?"":`<div onclick="_convShowPage()" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-top:22px;opacity:.8"><div style="flex:1"><div style="font-size:13px;color:var(--dim)">${masques.length?`Lignes non affichées (${masques.length})`:"Lignes affichées sur le nuage"}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${masques.length?"Fonds et cryptos à ajouter au nuage":`Tes ${gerables.length} fonds et cryptos sont affichés — tu peux en masquer`}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
 const colonneHtml=`${completerHtml}${reglerHtml}${carnetsHtml}${masquesLigne2}`;
 if(convView)return _convVuePage(convView,{d,cv,noThesis,noPlan,noHz,derive,allItems});
 return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px"><div class="section" style="margin:0">Conviction vs poids</div><span onclick="convChartHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:17px;height:17px;border-radius:50%;background:var(--acc);color:#fff;font-size:11px;font-weight:700;cursor:pointer">?</span></div>${legende}${envSelectHtml}${chartHtml}</div>
@@ -1644,6 +1633,7 @@ async function loadUserEnv() {
     const migrated = await applyPortfolioMigrations();
     rc(D);
     cm(); 
+    try{_navRestaure();}catch(e){}
     R();
     if(!(D.prefs&&D.prefs.onboardingDone)&&_acctEmpty())setTimeout(()=>showGuide(0),350);
 
@@ -2114,6 +2104,77 @@ window.doSignOut = async () => {
 };
 
 // ══════════════ RENDER ══════════════
+
+function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,watchListOpen:watchListOpen,
+ anaSub:anaSub,anaView:anaView,convView:convView,convMode:convMode,convFill:convFill,convEnv:convEnv,
+ convPlanTk:convPlanTk,achatTk:achatTk,boussoleTk:boussoleTk,boussoleFiltre:boussoleFiltre,
+ boussoleOrdre:boussoleOrdre,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,agendaOpen:agendaOpen,
+ agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
+ aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz};}
+function _navApply(m){if(!m)return;
+ tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
+ anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
+ convFill=m.convFill||null;if(m.convEnv!=null)convEnv=m.convEnv;
+ convPlanTk=m.convPlanTk||null;achatTk=m.achatTk||null;boussoleTk=m.boussoleTk||null;
+ if(m.boussoleFiltre)boussoleFiltre=m.boussoleFiltre;if(m.boussoleOrdre)boussoleOrdre=m.boussoleOrdre;
+ pfPoche=m.pfPoche||null;pfTk=m.pfTk||null;alertsSub=m.alertsSub||null;
+ agendaOpen=!!m.agendaOpen;agendaSub=m.agendaSub||null;resDetail=m.resDetail||null;
+ aSym=m.aSym||null;aName=m.aName||null;aCur=m.aCur||null;aTab=m.aTab||"chart";
+ if(m.aPeriod)aPeriod=m.aPeriod;if(m.aChartType)aChartType=m.aChartType;
+ aData=m.aData||{};cmpOpen=!!m.cmpOpen;cmpList=m.cmpList||[];oWidget=m.oWidget||null;
+ if(m.convHz)convHz=m.convHz;}
+function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
+// Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
+// laisser l'utilisateur bloqué sur un écran sans sortie.
+function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
+ convView=null;convFill=null;boussoleTk=null;anaView=null;agendaOpen=false;agendaSub=null;
+ resDetail=null;pfTk=null;pfPoche=null;}
+window._navBack=()=>{const m=_nav.pop();
+ if(m)_navApply(m);else _navRacine();
+ R();scrollTo(0,0);};
+// Libellé de la flèche : décrit l'écran vers lequel on revient réellement.
+function _navTabBas(){for(let i=_nav.length-1;i>=0;i--){const m=_nav[i];
+  if(m&&m.tab&&m.tab!=="posfiche"&&m.tab!=="detail")return m.tab;}
+ return "home";}
+function _navLbl(){const m=_nav[_nav.length-1];
+ if(!m)return "Retour";
+ if(m.aSym)return (m.aSym.includes(".")?m.aSym.split(".")[0]:m.aSym);
+ if(m.pfTk)return m.pfTk;
+ if(m.tab==="detail")return m.sel||"Enveloppe";
+ if(m.tab==="home")return "Patrimoine";
+ if(m.tab==="alerts")return "Alertes";
+ if(m.tab==="news")return "Actus";
+ if(m.tab==="bourse"){if(m.cmpOpen)return "Comparateur";
+   if(m.watchListOpen)return "Listes de suivi";
+   if(m.bPage==="plans")return "Plans d'achat";
+   if(m.bPage==="listes")return "Listes de suivi";
+   if(m.bTool)return "Outils et suivi";
+   if(m.bSub==="suivi")return "Outils et suivi";
+   return "Bourse";}
+ if(m.tab==="analyse"){
+   if(m.convView==="convictions")return "Mes convictions";
+   if(m.convView==="boussole")return m.boussoleTk?"Ma boussole":"Conviction";
+   if(m.convView==="completer")return "À compléter";
+   if(m.convView)return "Conviction";
+   if(m.anaSub==="conv")return "Conviction";
+   return "Analyse";}
+ return "Retour";}
+// L'app peut être relancée par le système au retour d'un lien externe (une actu ouverte
+// dans le navigateur, par exemple). On réécrit l'écran courant à chaque rendu pour pouvoir
+// le restituer tel quel — sinon l'utilisateur repart de l'accueil.
+function _navLeger(m){const o={};Object.keys(m).forEach(k=>{if(k!=="aData"&&k!=="cmpList")o[k]=m[k];});return o;}
+function _navSauve(){try{localStorage.setItem("cvNav",JSON.stringify({t:Date.now(),
+  s:_navLeger(_navSnap()),p:_nav.map(_navLeger)}));}catch(e){}}
+function _navRestaure(){try{
+  const raw=localStorage.getItem("cvNav");if(!raw)return false;
+  const o=JSON.parse(raw);if(!o||!o.s)return false;
+  if(Date.now()-(o.t||0)>3600000)return false;   // trop ancien : on repart de l'accueil
+  _nav=(o.p||[]).map(x=>Object.assign({},x,{aData:{},cmpList:[]}));
+  _navApply(Object.assign({},o.s,{aData:{},cmpList:[]}));
+  // Une fiche était ouverte : ses données ne sont pas persistées, on les recharge.
+  if(aSym){aData={tkGuess:null,isin:null};
+    setTimeout(()=>{try{loadAChart();loadASumm();}catch(e){}},0);}
+  return true;}catch(e){return false;}}
 function R(){
 if (!currentUser) { const appEl = document.getElementById("app"); if(appEl) appEl.innerHTML = ""; const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'none'; window.requireAuth('login'); return; }
 const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'block';
@@ -2209,7 +2270,7 @@ window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.pre
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
-window.openPlan=(tk)=>{_memoRetour();convPlanTk=tk;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openPlan=(tk)=>{_navPush();convPlanTk=tk;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._planSet=(i,champ,val)=>{const o=_planObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_planFlash=0;_planSave(o);};
 window._planAdd=()=>{const o=_planLireDOM(_planObj());o.rows.push({q:"",px:""});_setPaliers(convPlanTk,o);_planFlash=0;R();};
@@ -2220,8 +2281,8 @@ window._planUnite=(u)=>{const o=_planLireDOM(_planObj());const x=(ga().ap||[]).f
   o.unit=u;o.base=(x&&x.qty)||0;delete o.hidWarn;_planFlash=0;_planSave(o);R();};
 window._planHidWarn=()=>{const o=_planObj();o.hidWarn=1;_setPaliers(convPlanTk,o);save();};
 window.setConvMode=v=>{convMode=v;R();scrollTo(0,0);};
-window.setConvView=v=>{if(v==null)_convPrec=null;convView=v;convFill=null;_convSkip=[];boussoleTk=null;_planFlash=0;_achatFlash=0;R();scrollTo(0,0);};
-window.setConvFill=t=>{convFill=t;convView="fill";_convSkip=[];R();scrollTo(0,0);};
+window.setConvView=v=>{if(v==null)return _navBack();_navPush();convView=v;convFill=null;_convSkip=[];boussoleTk=null;_planFlash=0;_achatFlash=0;R();scrollTo(0,0);};
+window.setConvFill=t=>{_navPush();convFill=t;convView="fill";_convSkip=[];R();scrollTo(0,0);};
 window._fillSkip=tk=>{_convSkip.push(tk);R();scrollTo(0,0);};
 window._fillThese=tk=>{const el=document.getElementById("fillTh");const v=el?el.value.trim():"";
   if(!v)return toast("Écris quelques mots, ou passe cette ligne.");
@@ -2259,14 +2320,14 @@ window._convShowTog=(tk)=>{D.prefs=D.prefs||{};D.prefs.convShow=D.prefs.convShow
   if(D.prefs.convShow[tk])delete D.prefs.convShow[tk];else D.prefs.convShow[tk]=true;
   save();_convShowPage();};
 window.setConvEnv=v=>{convEnv=v;R();};
-if(tab==="posfiche"){const _pfh=posFicheHtml();if(!_pfh){pfTk=null;pfPoche=null;tab=(_pfFrom&&_pfFrom.tab)||"home";_pfFrom=null;return R();}h+=_pfh;}
+if(tab==="posfiche"){const _pfh=posFicheHtml();if(!_pfh){const _m=_nav.pop();if(_m)_navApply(_m);else{pfTk=null;pfPoche=null;tab="home";}return R();}h+=_pfh;}
 if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}
 if(p.positions.length===0){
-h+=`<div class="fade"><button onclick="history.back()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 20px"><div style="width:4px;height:24px;border-radius:2px;background:${_pocheColor(sel)}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2></div><div style="text-align:center;padding:30px 0"><div style="font-size:32px;margin-bottom:12px">📂</div><div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune position</div><div style="font-size:12px;color:var(--dim);margin-bottom:20px;line-height:1.4">Ajoute ta première position pour<br>commencer à suivre cette enveloppe.</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="margin-top:8px">📥 Importer un CSV</div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="margin-top:14px;font-size:12px;color:var(--acc);cursor:pointer">+ Enregistrer un P&L réalisé passé</div><div style="margin-top:16px;text-align:center"><button onclick="dEnv('${escAttr(sel)}')" style="background:none;border:1px solid var(--bdr);border-radius:8px;padding:8px 16px;color:var(--mut);font-size:12px;cursor:pointer">🗑 Supprimer cette enveloppe</button></div></div></div>`;
+h+=`<div class="fade"><button onclick="_navBack()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 20px"><div style="width:4px;height:24px;border-radius:2px;background:${_pocheColor(sel)}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2></div><div style="text-align:center;padding:30px 0"><div style="font-size:32px;margin-bottom:12px">📂</div><div style="font-size:15px;font-weight:600;margin-bottom:8px">Aucune position</div><div style="font-size:12px;color:var(--dim);margin-bottom:20px;line-height:1.4">Ajoute ta première position pour<br>commencer à suivre cette enveloppe.</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="margin-top:8px">📥 Importer un CSV</div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="margin-top:14px;font-size:12px;color:var(--acc);cursor:pointer">+ Enregistrer un P&L réalisé passé</div><div style="margin-top:16px;text-align:center"><button onclick="dEnv('${escAttr(sel)}')" style="background:none;border:1px solid var(--bdr);border-radius:8px;padding:8px 16px;color:var(--mut);font-size:12px;cursor:pointer">🗑 Supprimer cette enveloppe</button></div></div></div>`;
 } else {
 const ip=p.pl>=0;
 const sortedPositions=applyPosSort(p.positions); const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
-h+=`<div class="fade"><button onclick="history.back()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${_pocheColor(sel)}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2>${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#72768c22;color:#9296a8;font-weight:600">hors total</span>':''}</div><div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:7px;height:7px;border-radius:50%;background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${vg((d[1]/dt)*100,1)}%</span></div>`).join("")}</div></div>`;
+h+=`<div class="fade"><button onclick="_navBack()" style="background:none;border:none;color:var(--acc);font-size:13px;cursor:pointer;padding:6px 0;font-weight:500">← Retour</button><div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:2px;background:${_pocheColor(sel)}"></div><h2 style="font-size:20px;font-weight:700">${esc(sel)}</h2>${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#72768c22;color:#9296a8;font-weight:600">hors total</span>':''}</div><div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:10px"><div style="width:7px;height:7px;border-radius:50%;background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${vg((d[1]/dt)*100,1)}%</span></div>`).join("")}</div></div>`;
 h+=(()=>{const _fxc=[...new Set(p.positions.map(curOf).filter(c=>c!=="EUR"))];const _ofx=_fxc.length===1?_fxc[0]:null;const _fsym=_ofx?curSym(_ofx):"";const investiFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*x.pru,0):0;const valeurFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*x.cours,0):0;const plFx=valeurFx-investiFx;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,_ofx?fmt_(investiFx)+" "+_fsym:""],["Valeur",fmt_(p.valeur)+" €",null,_ofx?fmt_(valeurFx)+" "+_fsym:""],["P&L latent",fL(p.pl),ip?"var(--grn)":"var(--red)",_ofx?(plFx>=0?"+":"")+fmt_(plFx)+" "+_fsym:""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),realPL>=0?"var(--grn)":"var(--red)",pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:8px;text-align:center"><div style="font-size:10px;color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:12px;font-weight:600;${m[2]?"color:"+m[2]:""};margin-top:3px">${m[1]}</div>${m[3]?`<div class="mono" style="font-size:10px;color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})();
 h+=`<div onclick="_envReglages('${escAttr(sel)}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:12px"><span style="flex:1;font-size:12.5px;color:var(--dim)">⚙ Réglages de cette enveloppe</span><span style="color:var(--acc);font-size:15px">›</span></div>`;
 h+=`<label style="display:none;align-items:center;gap:8px;font-size:11px;color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:8px"><input type="checkbox" ${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'checked':''} onchange="togglePocheExclTotal('${escAttr(sel)}')"> Exclure cette enveloppe du patrimoine total</label>`;
@@ -2398,21 +2459,26 @@ if($){
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
 }
+try{_navSauve();}catch(e){}
 if(tab==="bourse"&&aSym&&!cmpOpen&&aTab==="chart")setTimeout(drawAChart,30);
 if(tab==="bourse"&&bSub==="resume"&&!cmpOpen&&!aSym)setTimeout(_paintWorldMap,0);
 if(tab==="news"&&newsKey!==_newsTickers().map(p=>p.tk).sort().join(",")&&!newsLoading)loadNews();
 const tabs=[["bourse","Bourse"],["analyse","Analyse"],["news","Actus"],["alerts","Alertes"],["home","Patrimoine"]];
-const _pfNavTab=_pfFrom?(_pfFrom.tab==="detail"?(window._dFrom||"home"):_pfFrom.tab):"home";
-document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]===(window._dFrom||"home"))||(tab==="posfiche"&&t[0]===_pfNavTab);return`<button class="nav-btn${ac?" active":""}" onclick="${t[0]==='home'?'goHome()':"gt('"+t[0]+"')"}"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
+const _pfNavTab=_navTabBas();
+document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]===_navTabBas())||(tab==="posfiche"&&t[0]===_pfNavTab);return`<button class="nav-btn${ac?" active":""}" onclick="${t[0]==='home'?'goHome()':"gt('"+t[0]+"')"}"><span style="font-size:14px;font-weight:${ac?700:400}">${t[1]}</span>${t[0]==="alerts"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--acc);border-radius:1px;margin-top:1px"></div>':""}</button>`}).join("");
 
 // RESTAURATION fb23f43 : suppression de l'appel à bindInteraction/renderOverview (n'existaient pas dans la version d'origine)
 }
 
-window.addEventListener('popstate', (event) => { cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; } R(); });
-window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;_convSkip=[];} if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;} if(tab!==id){_resetTools();} _convRetourVers=null; _aStack=[]; pfTk=null; pfPoche=null; _pfFrom=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.addEventListener('popstate', (event) => { _resetTools();
+  if(_nav.length)return _navBack();
+  cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; pfTk=null; pfPoche=null;
+  if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; }
+  R(); });
+window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;_convSkip=[];} if(id==="alerts"){agendaOpen=false;agendaSub=null;resDetail=null;} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
-window.goHome=()=>{ oWidget=null; cmpOpen=false; _resetTools(); pfTk=null; pfPoche=null; _pfFrom=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
-window.oP=n=>{ window._dFrom=(tab==="bourse"?"bourse":"home"); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
+window.goHome=()=>{ oWidget=null; cmpOpen=false; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
+window.oP=n=>{ _navPush(); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 const PFAMC={cote:"#6c8cff",nc:"#f472b6",immo:"#5eead4"};
 function _famColor(id){if(PFAMC[id])return PFAMC[id];const fams=_families();const customIds=fams.map(f=>f.id).filter(fid=>!PFAMC[fid]);const idx=customIds.indexOf(id);return DCOL[(idx>=0?idx:0)%DCOL.length];}
 function _families(){if(!D.prefs)D.prefs={};if(!Array.isArray(D.prefs.families)){if(D.prefs.familiesInit){D.prefs.families=[];}else{D.prefs.families=[{id:"cote",name:"Coté"},{id:"nc",name:"Non coté"}];D.prefs.familiesInit=true;}}return D.prefs.families;}
@@ -2439,10 +2505,10 @@ function _backBtn(label){return `<div onclick="setAnaView(null)" style="display:
 window.setAlertsSub=v=>{alertsSub=(alertsSub===v?null:v);R();};
 window.toggleDivSec=(key,cur)=>{divSecOpen[key]=!cur;R();};
 window.toggleDivPosExpand=(tk)=>{divPosExpand=(divPosExpand===tk?null:tk);R();};
-window.openAgenda=()=>{agendaOpen=true;agendaSub=null;resDetail=null;R();scrollTo(0,0);};
-window.closeAgenda=()=>{if(resDetail){resDetail=null;}else if(agendaSub){agendaSub=null;}else{agendaOpen=false;}R();scrollTo(0,0);};
-window.setAgendaSub=(v)=>{agendaSub=v;resDetail=null;R();scrollTo(0,0);};
-window.openResDetail=(tk)=>{resDetail=tk;R();scrollTo(0,0);};
+window.openAgenda=()=>{_navPush();agendaOpen=true;agendaSub=null;resDetail=null;R();scrollTo(0,0);};
+window.closeAgenda=()=>{_navBack();};
+window.setAgendaSub=(v)=>{_navPush();agendaSub=v;resDetail=null;R();scrollTo(0,0);};
+window.openResDetail=(tk)=>{_navPush();resDetail=tk;R();scrollTo(0,0);};
 window.toggleAgendaExp=(which)=>{if(which==="earn")agendaExpEarn=!agendaExpEarn;else if(which==="pos")agendaExpPos=!agendaExpPos;else agendaExpDiv=!agendaExpDiv;R();};
 window.setScoreProfile=v=>{if(!D.prefs)D.prefs={};D.prefs.scoreProfile=v;R();save();};
 window.scoreHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Comment marche le score ?</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:12px;color:var(--dim);line-height:1.6">Chaque position part de <b style="color:var(--txt)">5/10</b>, puis gagne ou perd des points sur 5 critères :<br><br>🟢 <b style="color:var(--txt)">P&L%</b> : ta plus/moins-value latente. Le seuil s'adapte au type d'actif : il faut une variation plus grande en crypto pour que ça compte (marché plus volatil), une plus petite pour un fonds (marché plus calme).<br>⚖️ <b style="color:var(--txt)">Poids</b> : la taille de la ligne (idéal 8–22% ; trop petite ou trop grosse = pénalité).<br>💸 <b style="color:var(--txt)">Dividende</b> : le rendement courant (bonus seulement).<br>📈 <b style="color:var(--txt)">7j</b> : le momentum sur 7 jours.<br>🎯 <b style="color:var(--txt)">Cible</b> : bonus si le cours est proche/sous ta cible d'achat (opportunité).<br><br><b style="color:var(--txt)">Le profil</b> (Croissance / Équilibré / Dividende, à choisir juste au-dessus de la liste) repondère ces critères :<br>• <b style="color:var(--txt)">Croissance</b> : ignore le dividende, valorise le momentum.<br>• <b style="color:var(--txt)">Dividende</b> : valorise fortement le rendement.<br>• <b style="color:var(--txt)">Équilibré</b> : tout à poids égal.<br><br>Note finale bornée entre 1 et 10 → S≥9, A≥7, B≥5, C≥3, D&lt;3.</div>`)};
@@ -2739,7 +2805,7 @@ function _tkNom(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return _no
   const a=_achat(tk);if(a&&a.name)return a.name.length>28?a.name.slice(0,27)+"…":a.name;
   return tk;}
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
-window.openBoussole=(tk)=>{_memoRetour();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._bsFiltre=(v)=>{boussoleFiltre=v;R();};
 window._bsOrdre=()=>{boussoleOrdre=(boussoleOrdre==="recent"?"ancien":"recent");R();};
 // Sélecteur de titre : le champ « titre non détenu » est EN HAUT, c'est le cas qu'on vient
@@ -2882,7 +2948,7 @@ function _achatPart(tk,r){const o=_achat(tk);
   return (o&&o.unit==="amount")?`pour ${vg(r.q,0)} ${curSym(_tkCur(tk))}`:`${vg(r.q,0)} actions`;}
 function _achatPhrase(tk,r){
   return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))} — ton plan prévoyait d'acheter ${_achatPart(tk,r)}.`;}
-window.openAchat=(tk,ctx)=>{_memoRetour();achatTk=tk;
+window.openAchat=(tk,ctx)=>{_navPush();achatTk=tk;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
   convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 // Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
@@ -3041,8 +3107,8 @@ window.savePlanTargets=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].pos
   const cb=pn((document.getElementById("fCB")||{}).value);
   if(cb>0)p.cible=cb;else delete p.cible;
   save();R();toast("Alerte enregistrée");};
-window.posFiche=(poche,tk)=>{const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return;if(tab!=="posfiche"){_pfFrom={tab,sel,bSub,anaSub};}pfPoche=poche;pfTk=tk;tab="posfiche";R();};
-window.pfClose=()=>{pfTk=null;pfPoche=null;if(_pfFrom){tab=_pfFrom.tab;sel=_pfFrom.sel;if(_pfFrom.bSub)bSub=_pfFrom.bSub;if(_pfFrom.anaSub)anaSub=_pfFrom.anaSub;_pfFrom=null;}else{tab="home";}R();};
+window.posFiche=(poche,tk)=>{const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return;_navPush();pfPoche=poche;pfTk=tk;tab="posfiche";R();scrollTo(0,0);};
+window.pfClose=()=>{_navBack();};
 // Prochaine date de résultats FIABLE d'une position : ne renvoie qu'une date future,
 // en préférant calendarEvents (earnHist.nextEarnTs) au earningsTimestamp de quotefull (souvent périmé).
 function _nextEarn(x){if(!x)return null;const now=Date.now()/1000;const c=[];const eh=D&&D.prefs&&D.prefs.earnHist&&D.prefs.earnHist[x.ticker];if(eh&&eh.nextEarnTs)c.push(eh.nextEarnTs);if(x.earnTs)c.push(x.earnTs);const fut=c.filter(t=>t&&t>now-86400);return fut.length?Math.min(...fut):null;}
@@ -3102,24 +3168,7 @@ const _fmtBig=v=>{if(v==null)return "—";const a=Math.abs(v);if(a>=1e12)return 
 
 function _findHolding(sym,tkGuess){if(!D||!D.poches)return null;const res=[];Object.entries(D.poches).forEach(([n,pk])=>{(pk.positions||[]).forEach(x=>{if(_ySym(x)===sym||(tkGuess&&x.ticker===tkGuess)){res.push({poche:n,x});}});});return res.length?res:null;}
 
-window.aClose=()=>{
-  const m=_aStack.pop();
-  // On remontait d'une fiche à l'autre : on redescend la même pile, fiche par fiche.
-  if(m&&m.fiche){const f=m.fiche;aSym=f.aSym;aName=f.aName;aCur=f.aCur;aTab=f.aTab;aPeriod=f.aPeriod;aChartType=f.aChartType;aData=f.aData;R();scrollTo(0,0);return;}
-  aSym=null;_resetTools();
-  if(m){
-    tab=m.tab;sel=m.sel;
-    if(m.bSub)bSub=m.bSub;
-    if(m.anaSub)anaSub=m.anaSub;
-    anaView=m.anaView||null;convView=m.convView||null;
-    if(m.convMode)convMode=m.convMode;
-    boussoleTk=m.boussoleTk||null;convPlanTk=m.convPlanTk||null;achatTk=m.achatTk||null;
-    bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
-    pfPoche=m.pfPoche||null;pfTk=m.pfTk||null;alertsSub=m.alertsSub||null;
-    _convRetourVers=m.convRetour||null;_convPrec=m.convPrec||null;
-    if(m.boussoleFiltre)boussoleFiltre=m.boussoleFiltre;
-  }else{tab="bourse";}
-  R();scrollTo(0,0);};
+window.aClose=()=>{_resetTools();_navBack();};
 // Ouvre la fiche d'un titre depuis n'importe où. Ne fait rien si on y est déjà.
 window.openTitre=(tk)=>{
   if(!tk)return;
@@ -3139,10 +3188,7 @@ window.setATab=t=>{aTab=t;R();if(t==="desc")loadDesc();};
 window.aOpenFund=(sym,name,cur,isin)=>{aOpen(sym,name,cur,null,isin);aTab="fund";R();};
 window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();};
 window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);};
-window.aOpen=async(sym,name,cur,tkGuess,isin)=>{
-  _aStack.push(aSym
-    ?{fiche:{aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,aChartType:aChartType,aData:aData}}
-    :{tab:tab,sel:sel,bSub:bSub,anaSub:anaSub,anaView:anaView,convView:convView,convMode:convMode,boussoleTk:boussoleTk,convPlanTk:convPlanTk,achatTk:achatTk,bPage:bPage,bTool:bTool,watchListOpen:watchListOpen,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,convRetour:_convRetourVers,convPrec:_convPrec,boussoleFiltre:boussoleFiltre});cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();};
+window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();};
 async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
 async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
 try{
@@ -3514,13 +3560,13 @@ async function loadANews(){
   try{
     const r=await fetchT(`${WORKER_URL}/?news=${encodeURIComponent(tk)}&_cb=${Date.now()}`,{cache:"no-store"},15000);
     const j=await r.json();const map=(j&&j.news)||{};
-    const nm=(aName||"").trim();const items=[];
+    const items=[];const vus={};
     Object.keys(map).forEach(k=>{(map[k]||[]).forEach(a=>{
-      if(!a||!a.title||!a.link)return;
-      if(!_newsRelevant(a.title,tk,nm))return;
+      if(!a||!a.title||!a.link||vus[a.link])return;
+      vus[a.link]=1;
       items.push({title:a.title,publisher:a.publisher||"",link:a.link,t:(a.t||0)*1000});});});
     items.sort((a,b)=>b.t-a.t);
-    aData.news=items.slice(0,15);_fCacheSet(ck,aData.news);
+    aData.news=items.slice(0,30);_fCacheSet(ck,aData.news);
   }catch(e){aData.news=[];}
   if(aSym)R();
 }
@@ -3583,7 +3629,7 @@ function worldMapHtml(){const d=ga();const exp={};
 // Taux de couverture des fonds : quelle part de leur montant a pu être rattachée à de vrais pays.
 // Yahoo ne publie que les 10 premières lignes d'un fonds (vérifié : c'est sa limite, pas la nôtre),
 // donc on répartit ce qu'on sait et on dit honnêtement combien il en reste. Aucune extrapolation.
-let _fondsVal=0,_fondsCouv=0;
+let _fondsVal=0,_fondsCouv=0;const _fondsFlous=[];
 d.ap.forEach(x=>{if(x.noPerf)return;
 const bkKey=ETF_BREAKDOWN_BY_TICKER[x.ticker];
 if(bkKey){
@@ -3604,7 +3650,7 @@ if(auto&&auto.parts&&auto.parts.length){
   return;
 }
 const c=_positionCountry(x);
-if(c===DIVERSIFIED_CODE)_fondsVal+=(x.valeur||0); // fonds dont on ne connaît aucune ligne
+if(c===DIVERSIFIED_CODE){_fondsVal+=(x.valeur||0);_fondsFlous.push(_nomAffiche(x,30));} // fonds dont on ne connaît aucune ligne
 exp[c]=(exp[c]||0)+(x.valeur||0);});
 const total=Object.values(exp).reduce((s,v)=>s+v,0);
 if(total<=0)return"";
@@ -3619,12 +3665,13 @@ const rows=shown.map((it,i)=>`<div style="display:flex;align-items:center;gap:8p
   // Les trois « sans pays » ne sont plus confondus : un fonds partiellement connu, une crypto qui n'a
   // pas de pays par nature, et une position qu'on n'a pas su résoudre ne disent pas la même chose.
   const couv=_fondsVal>0?(_fondsCouv/_fondsVal*100):null;
+  window._cvwmFondsFlous=_fondsFlous;
   const blocs=[[DIVERSIFIED_CODE,diversifiedV,couv!=null?`${vg(couv,0)} % des lignes identifiées`:""],
                [CRYPTO_CODE,exp[CRYPTO_CODE]||0,"sans pays par nature"],
                [UNKNOWN_CODE,exp[UNKNOWN_CODE]||0,"non résolu"]].filter(b=>b[1]>0);
   if(!blocs.length)return"";
   return `<div style="margin-top:3px;padding-top:8px;border-top:1px solid var(--sep)">`+blocs.map(([code,v,note])=>
-    `<div style="display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:var(--mut);flex-shrink:0"></span><span style="flex:1;font-size:11.5px;color:var(--dim)">${esc(_countryName(code))}${note?` <span style="color:var(--mut);font-size:10px">· ${esc(note)}</span>`:""}</span><span class="mono" style="font-size:11px;font-weight:700">${vg(v/total*100,1)}%</span></div>`).join("")+`</div>`;})();
+    `<div ${code===DIVERSIFIED_CODE?`onclick="_fondsFlousInfo()" style="cursor:pointer;"`:"style=\""}display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:var(--mut);flex-shrink:0"></span><span style="flex:1;font-size:11.5px;color:var(--dim)">${esc(_countryName(code))}${note?` <span style="color:var(--mut);font-size:10px">· ${esc(note)}</span>`:""}${code===DIVERSIFIED_CODE?` <span style="color:var(--acc);font-size:10px">ⓘ</span>`:""}</span><span class="mono" style="font-size:11px;font-weight:700">${vg(v/total*100,1)}%</span></div>`).join("")+`</div>`;})();
 return `<div class="card"><div class="section">Exposition géographique</div><svg id="cvwmMap" viewBox="${WORLD_MAP_VB}" width="100%" height="auto" fill="${landCol}" style="display:block;margin-bottom:8px">${WORLD_MAP_BODY}</svg>${rows}${_paysEchecLigne(d)}<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4">Pays déduit du siège social de l'entreprise. Quand il est inconnu, la position est listée à part plutôt que rattachée à un pays deviné. Les fonds sont répartis sur les lignes que publie notre source (les 10 principales) ; le reste apparaît en « Fonds (non détaillé) ». Tu peux corriger un pays depuis la fiche de la position (✎).</div></div>`;}
 // Liste des positions que la carte n'a pas su placer. Elle est dérivée du MÊME périmètre que la carte
 // (d.ap exclut déjà les enveloppes sorties du patrimoine, ex. « Gestion famille ») : sinon on annonce
@@ -3913,15 +3960,15 @@ else if(bPage==="plans")sh+=plansAchatPageHtml();
 else sh+=outilsHubHtml();
 }
 sh+=`</div>`;return sh;}
-window.setBTool=v=>{bTool=v||null;R();scrollTo(0,0);};
-window.setBPage=v=>{bPage=v||null;watchListOpen=null;R();scrollTo(0,0);};
+window.setBTool=v=>{if(!v)return _navBack();_navPush();bTool=v;R();scrollTo(0,0);};
+window.setBPage=v=>{if(!v)return _navBack();_navPush();bPage=v;watchListOpen=null;R();scrollTo(0,0);};
 function _bRetour(lbl,act){return `<div onclick="${act}" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:13px;cursor:pointer;padding:4px 2px 10px;font-weight:600">‹ ${lbl}</div>`;}
 // Quatre outils au même format : une grille qui reste lisible et qui pourra en accueillir d'autres.
 function outilsHubHtml(){
   const wl=(D.prefs&&D.prefs.watchlist)||[];
   const lists=(D.prefs&&D.prefs.watchLists)||[];
   const plans=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
-  const tuile=(id,titre,sous)=>`<div onclick="setBTool('${id}')" class="card card-tap" style="padding:14px 12px;margin:0;display:flex;flex-direction:column;justify-content:space-between;min-height:96px"><div style="font-size:13px;font-weight:700;line-height:1.3">${titre}</div><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">${sous}</div></div>`;
+  const tuile=(id,titre,sous)=>`<div onclick="${id==="cmp"?"openCmp()":`setBTool('${id}')`}" class="card card-tap" style="padding:14px 12px;margin:0;display:flex;flex-direction:column;justify-content:space-between;min-height:96px"><div style="font-size:13px;font-weight:700;line-height:1.3">${titre}</div><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">${sous}</div></div>`;
   const entree=(page,titre,sous,cpt)=>`<div onclick="setBPage('${page}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${sous}</div></div>${cpt?`<span class="mono" style="font-size:10.5px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:2px 9px">${cpt}</span>`:""}<span style="color:var(--mut);font-size:14px;margin-left:8px">›</span></div>`;
   let s2=`<div class="card card-tap" onclick="openSearchModal('view')" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:14px;border:1.5px solid #6c8cff55"><span style="color:var(--acc);font-size:14px">🔎</span><span style="flex:1;color:var(--mut);font-size:13px">Rechercher (nom, ticker, ISIN)</span></div>`;
   s2+=`<div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:1px;margin:0 2px 8px">Outils</div>`;
@@ -3942,7 +3989,6 @@ function bToolHtml(){
   if(bTool==="pru")corps=pruCalcHtml();
   else if(bTool==="conv")corps=explorerHtml();
   else if(bTool==="simu")corps=simuObjHtml();
-  else if(bTool==="cmp")corps=`<div class="card card-tap" onclick="openCmp()" style="display:flex;align-items:center;gap:9px;padding:14px"><span style="color:var(--acc);font-size:14px">⇄</span><span style="flex:1;color:var(--dim);font-size:13px">Choisir les actions à comparer</span><span style="color:var(--mut);font-size:14px">›</span></div>`;
   return _bRetour("Outils et suivi","setBTool(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 12px">${t}</h2>`+corps;
 }
 function watchListsPageHtml(){
@@ -3953,13 +3999,14 @@ function plansAchatPageHtml(){
   const tks=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
   let s2=_bRetour("Outils et suivi","setBPage(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 4px">Plans d'achat</h2>`
     +`<div style="font-size:11px;color:var(--mut);line-height:1.5;margin:0 2px 12px">À quels prix tu comptes entrer, et combien. Un plan n'a pas besoin d'être rangé dans une liste.</div>`;
-  if(!tks.length)return s2+`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Aucun plan d'achat pour l'instant.<br>Tu peux en créer un depuis la fiche d'un titre.</div>`;
+  const bAjout=`<div onclick="openSearchModal('achat')" class="card card-tap" style="display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;margin-top:10px;border:1px dashed #6c8cff66;color:var(--acc);font-size:12.5px;font-weight:700">＋ Nouveau plan d'achat</div>`;
+  if(!tks.length)return s2+`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px;line-height:1.6">Aucun plan d'achat pour l'instant.<br>Cherche un titre pour lui en créer un.</div>`+bAjout;
   const lignes=tks.map(tk=>{const rows=_achatRows(tk).slice().sort((a,b)=>b.px-a.px);
     const sym=curSym(_tkCur(tk));const c=_tkCours(tk);
     const prochain=_achatSuivant(tk);
     const etat=c==null?"cours inconnu":(prochain?`prochain palier ${vg(prochain.px,2)} ${esc(sym)}`:`tous les paliers atteints`);
     return `<div onclick="openAchat('${escAttr(tk)}')" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)} · ${rows.length} palier${rows.length>1?"s":""} · ${etat}</div></div><div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:12px">${c!=null?vg(c,2)+" "+esc(sym):"—"}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;}).join("");
-  return s2+`<div class="card">${lignes}</div>`;
+  return s2+`<div class="card">${lignes}</div>`+bAjout;
 }
 // Simulateur : de la capitalisation, rien d'autre. Aucune donnée externe, aucun conseil.
 function simuObjHtml(){
@@ -4043,8 +4090,8 @@ window.newWatchList=()=>{sm(`<div style="display:flex;justify-content:space-betw
 const WL_PAL=["#6c8cff","#fbbf24","#34d399","#a78bfa","#f472b6","#5eead4","#f87171","#38bdf8"];
 window._pickWlColor=()=>{const used=(D.prefs&&D.prefs.watchLists||[]).map(l=>l.color).filter(Boolean);let c=WL_PAL.find(x=>!used.includes(x));if(c)return c;const cnt={};WL_PAL.forEach(x=>cnt[x]=0);used.forEach(x=>{if(cnt[x]!=null)cnt[x]++;});return WL_PAL.reduce((a,b)=>cnt[a]<=cnt[b]?a:b);};
 window.saveNewWatchList=()=>{const nm=(document.getElementById("wlName").value||"").trim();if(!nm)return toast("Donne un nom");if(!D.prefs)D.prefs={};if(!D.prefs.watchLists)D.prefs.watchLists=[];const id="wl"+Date.now().toString(36);D.prefs.watchLists.push({id,name:nm,color:_pickWlColor()});cm();save();watchListOpen=id;R();};
-window.openWatchList=(id)=>{watchListOpen=id;R();scrollTo(0,0);};
-window.closeWatchList=()=>{watchListOpen=null;bPage="listes";R();};
+window.openWatchList=(id)=>{_navPush();watchListOpen=id;R();scrollTo(0,0);};
+window.closeWatchList=()=>{_navBack();};
 window.renameWatchList=(id)=>{const l=(D.prefs.watchLists||[]).find(x=>x.id===id);if(!l)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Renommer</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="wlName" value="${escAttr(l.name)}" autocomplete="off"></div><button class="btn btn-p" onclick="saveRenameWatchList('${escAttr(id)}')">Enregistrer</button>`);setTimeout(()=>{const e=document.getElementById("wlName");if(e)e.focus();},50);};
 window.saveRenameWatchList=(id)=>{const l=(D.prefs.watchLists||[]).find(x=>x.id===id);if(!l)return;const nm=(document.getElementById("wlName").value||"").trim();if(!nm)return toast("Donne un nom");l.name=nm;cm();save();R();};
 window.delWatchList=(id)=>{if(!confirm("Supprimer cette liste ? Les valeurs repassent en Non classées."))return;D.prefs.watchLists=(D.prefs.watchLists||[]).filter(x=>x.id!==id);(D.prefs.watchlist||[]).forEach(w=>{if(w.listId===id)w.listId=null;});watchListOpen=null;save();R();};
@@ -4066,12 +4113,17 @@ window._EXCH_PRIMARY={PAR:1,NMS:1,NGM:1,NCM:1,NYQ:1,NGS:1,ASE:1,PCX:1,BTS:1,LSE:
 window._EXCH_SECONDARY={DXE:1,CXE:1,CHI:1,PNK:1,PINK:1,OTC:1,OQB:1,OQX:1,OEM:1,STU:1,HAN:1,MUN:1,BER:1,DUS:1,HAM:1,FRA:1,SG:1,GTX:1,MEX:1,BUE:1,SAO:1};
 window._rankQuotes=(arr)=>arr.map((m,i)=>[m,i]).sort((a,b)=>{const ra=_EXCH_SECONDARY[a[0].exchange]?0:(_EXCH_PRIMARY[a[0].exchange]?2:1);const rb=_EXCH_SECONDARY[b[0].exchange]?0:(_EXCH_PRIMARY[b[0].exchange]?2:1);return (rb-ra)||(a[1]-b[1]);}).map(x=>x[0]);
 window._gsRun=async()=>{const q=(document.getElementById("gsInput")||{}).value||"";const out=document.getElementById("gsRes");if(!out)return;if(!q.trim()){out.innerHTML="";return;}out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Recherche…</div>`;let _sq=q.trim();window._gsIsin=null;if(ISIN_RE.test(_sq)){const _ri=await isinToTicker(_sq);if(_ri&&_ri.sym){_sq=_ri.sym;window._gsIsin=_ri.isin||_sq;}}try{const r=await fetchT(`${WORKER_URL}/?search=${encodeURIComponent(_sq)}`);const j=await r.json();const quotes=(j.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol);if(!quotes.length){out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Aucun résultat.</div>`;return;}window._gsRes=_rankQuotes(quotes).slice(0,8);out.innerHTML=window._gsRes.map((m,i)=>{const nm=m.longname||m.shortname||"";return `<div onclick="_gsPick(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:8px;margin-bottom:4px;cursor:pointer;background:var(--inp)"><div style="font-size:12px;font-weight:600">${esc(m.symbol)} <span style="color:var(--dim);font-weight:400">· ${esc(_devise(m.currency,m.symbol,m.exchange))}</span></div><div style="font-size:10px;color:var(--dim)">${esc(nm)}</div><div style="font-size:10px;color:var(--mut)">${esc(m.exchange||"")}</div></div>`;}).join("");}catch(e){out.innerHTML=`<div style="color:var(--mut);font-size:11px;padding:6px">Erreur réseau, réessaie.</div>`;}};
-window._gsPick=(i)=>{const m=window._gsRes&&window._gsRes[i];if(!m)return;if(window._searchMode==="add"){addWatch(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",window._searchTargetList);cm();toast("Ajouté");R();}else{cm();aOpen(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",null,window._gsIsin||null);}};
+window._gsPick=(i)=>{const m=window._gsRes&&window._gsRes[i];if(!m)return;
+ // Créer un plan d'achat sur un titre cherché : même mécanique que partout ailleurs, la
+ // liste de suivi restera proposée (et facultative) au moment d'enregistrer.
+ if(window._searchMode==="achat"){const _sy=m.symbol;const _tk=(_sy.includes(".")?_sy.split(".")[0]:_sy).toUpperCase();
+   cm();openAchat(_tk,{sym:_sy,name:m.longname||m.shortname||_sy,cur:_devise(m.currency,_sy,m.exchange)||"EUR",cours:null});return;}
+ if(window._searchMode==="add"){addWatch(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",window._searchTargetList);cm();toast("Ajouté");R();}else{cm();aOpen(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",null,window._gsIsin||null);}};
 function explorerHtml(){const fxR=(D.prefs&&D.prefs.fxRates)||{};const curList=[...new Set(["EUR","USD","GBP","CHF","JPY","CAD","AUD"].concat(Object.keys(fxR)))];const opt=(selc)=>curList.map(c=>`<option value="${c}" ${c===selc?"selected":""}>${curSym(c)} ${c}</option>`).join("");const cf=convFrom||"USD",ct=convTo||"EUR",ca=(convAmt!=null?convAmt:100);const convResVal=ca*toEur(cf)/toEur(ct);const oneRate=toEur(cf)/toEur(ct);let s=`<div class="fade">`;s+=`<div class="card"><div class="section">Convertisseur</div><input id="convAmt" inputmode="decimal" value="${ca}" oninput="_convCalc()" style="width:100%;margin-bottom:8px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-family:inherit;font-size:15px;padding:10px 12px;outline:none"><div style="display:flex;align-items:center;gap:8px"><select id="convFrom" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit">${opt(cf)}</select><button onclick="convSwap()" style="background:none;border:1px solid var(--bdr);border-radius:8px;padding:8px 11px;color:var(--acc);cursor:pointer;font-size:15px">↔</button><select id="convTo" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit">${opt(ct)}</select></div><div style="text-align:center;margin-top:12px"><div class="mono" id="convRes" style="font-size:24px;font-weight:700;color:var(--acc)">${fmt2_(convResVal)} ${curSym(ct)}</div><div id="convRate" style="font-size:10px;color:var(--mut);margin-top:2px">1 ${cf} = ${oneRate.toFixed(4)} ${ct}</div></div></div>`;s+=`</div>`;return s;}
 window._convCalc=()=>{const a=pn((document.getElementById("convAmt")||{}).value);const f=(document.getElementById("convFrom")||{}).value||"EUR";const t=(document.getElementById("convTo")||{}).value||"EUR";convAmt=a;convFrom=f;convTo=t;const res=a*toEur(f)/toEur(t);const el=document.getElementById("convRes");const rt=document.getElementById("convRate");if(el)el.textContent=fmt2_(res)+" "+curSym(t);if(rt)rt.textContent="1 "+f+" = "+(toEur(f)/toEur(t)).toFixed(4)+" "+t;};
 window.convSwap=()=>{const f=convFrom;convFrom=convTo;convTo=f;R();};
-window.openCmp=()=>{cmpOpen=true;cmpList=[];R();};
-window.closeCmp=()=>{cmpOpen=false;R();};
+window.openCmp=()=>{_navPush();cmpOpen=true;cmpList=[];R();scrollTo(0,0);};
+window.closeCmp=()=>{_navBack();};
 window.cmpRemove=(sym)=>{cmpList=cmpList.filter(x=>x.sym!==sym);R();};
 window.cmpAddPos=(tk)=>{const x=(ga().ap||[]).find(y=>y.ticker===tk);if(!x)return;
   if(cmpList.length>=4)return toast("4 actions maximum.");
