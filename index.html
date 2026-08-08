@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "212";
+const APP_VERSION = "213";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -228,7 +228,7 @@ const ETF_BREAKDOWN_BY_TICKER={
 };
 window._fondsFlousInfo=()=>{const l=(window._cvwmFondsFlous||[]);
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Fonds non détaillés</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
-   +`<div style="font-size:12.5px;color:var(--dim);line-height:1.65">Pour ces lignes, la source ne publie aucune composition : impossible de savoir dans quels pays elles investissent. Elles sont donc comptées à part, plutôt que rattachées à un pays deviné.</div>`
+   +`<div style="font-size:12.5px;color:var(--dim);line-height:1.65">Pour ces lignes, la source ne publie aucune composition : impossible de savoir dans quels pays elles investissent. Rien à corriger de ton côté — ce n'est pas une saisie manquante, c'est une donnée que la source ne fournit pas. Elles sont donc comptées à part, plutôt que rattachées à un pays deviné.</div>`
    +(l.length?`<div style="margin-top:12px">`+l.map(n=>`<div style="font-size:12px;color:var(--dim);padding:7px 0;border-top:1px solid var(--sep)">${esc(n)}</div>`).join("")+`</div>`:"")
    +`<div style="font-size:11px;color:var(--mut);line-height:1.6;margin-top:12px">C'est fréquent pour les fonds français et les ETF cotés à Paris. Les ETF irlandais ou américains sont, eux, détaillés — mais sur leurs 10 premières lignes seulement, ce qui couvre environ un quart d'un ETF large.</div>`);};
 function _countryName(code){if(!code)return"";if(code===DIVERSIFIED_CODE)return"Fonds (non détaillé)";if(code===CRYPTO_CODE)return"Crypto";if(code===UNKNOWN_CODE)return"Pays non identifié";return COUNTRY_NAMES[code]||code.toUpperCase();}
@@ -336,7 +336,7 @@ async function refreshEtfHoldings(){
     if(!tickers.length)return;
     for(const t of tickers){
       try{
-        const h=await fundFetch("holdings",map[t]);
+        const h=await fundFetchHoldings(map[t]);
         // "isFund" : le Worker a confirmé que ce symbole est bien un fonds/ETF (famille, catégorie ou secteurs connus),
         // même si le détail ligne par ligne est absent chez Yahoo (fréquent sur les petits fonds européens). Dans ce cas
         // il ne faut surtout pas retomber sur la devinette pays-par-devise (ex: un ETF Émergents en EUR ne doit pas
@@ -435,7 +435,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2175,8 +2175,14 @@ function _navRestaure(){try{
   if(aSym){aData={tkGuess:null,isin:null};
     setTimeout(()=>{try{loadAChart();loadASumm();}catch(e){}},0);}
   return true;}catch(e){return false;}}
+let _rPending=false;
+document.addEventListener("focusout",()=>{if(_rPending){_rPending=false;setTimeout(R,0);}},true);
 function R(){
 if (!currentUser) { const appEl = document.getElementById("app"); if(appEl) appEl.innerHTML = ""; const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'none'; window.requireAuth('login'); return; }
+{const _fae=document.activeElement;
+ if(_fae&&(_fae.tagName==="INPUT"||_fae.tagName==="TEXTAREA")&&!["checkbox","radio","range","button","submit"].includes(_fae.type)){
+   _rPending=true;return;
+ }}
 const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'block';
 
 if(!D)return; const d=ga(); const $=document.getElementById("app"); if(!$) return; let h="";
@@ -2270,7 +2276,7 @@ window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.pre
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
-window.openPlan=(tk)=>{_navPush();convPlanTk=tk;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.openPlan=(tk)=>{_navPush();convPlanTk=tk;_planUnitPend=null;convView="plan";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._planSet=(i,champ,val)=>{const o=_planObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_planFlash=0;_planSave(o);};
 window._planAdd=()=>{const o=_planLireDOM(_planObj());o.rows.push({q:"",px:""});_setPaliers(convPlanTk,o);_planFlash=0;R();};
@@ -2278,7 +2284,7 @@ window._planDel=(i)=>{const o=_planLireDOM(_planObj());o.rows.splice(i,1);_planF
 // Changer d'unité remet la base de comparaison à la quantité du jour : sinon l'avertissement
 // « plus à jour » se déclencherait immédiatement sur des paliers tout juste saisis.
 window._planUnite=(u)=>{const o=_planLireDOM(_planObj());const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
-  o.unit=u;o.base=(x&&x.qty)||0;delete o.hidWarn;_planFlash=0;_planSave(o);R();};
+  o.unit=u;o.base=(x&&x.qty)||0;delete o.hidWarn;_planUnitPend={tk:convPlanTk,unit:u};_planFlash=0;_planSave(o);R();};
 window._planHidWarn=()=>{const o=_planObj();o.hidWarn=1;_setPaliers(convPlanTk,o);save();};
 window.setConvMode=v=>{convMode=v;R();scrollTo(0,0);};
 window.setConvView=v=>{if(v==null)return _navBack();_navPush();convView=v;convFill=null;_convSkip=[];boussoleTk=null;_planFlash=0;_achatFlash=0;R();scrollTo(0,0);};
@@ -2694,9 +2700,7 @@ function _nomAffiche(x,max){
 function _paliers(tk){return (D.prefs&&D.prefs.paliers&&D.prefs.paliers[tk])||null;}
 function _paliersRows(tk){const o=_paliers(tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
 function _setPaliers(tk,o){D.prefs=D.prefs||{};D.prefs.paliers=D.prefs.paliers||{};
-  // On conserve le réglage même sans palier saisi, sinon le choix d'unité est perdu au rendu
-  // suivant. « Avoir un plan » se lit partout via _paliersRows(), qui exige un prix.
-  const garde=o&&((o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0)))||o.unit==="qty");
+  const garde=o&&o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0));
   if(garde)D.prefs.paliers[tk]=o;else delete D.prefs.paliers[tk];}
 function _aUnPlan(x){return !!(x&&(_paliersRows(x.ticker).length||x.cibleHaut||x.cible));}
 // Le palier suivant à atteindre = le plus bas au-dessus du cours. C'est lui qu'on recopie dans
@@ -2709,19 +2713,22 @@ function _paliersAtteints(x){return _paliersRows(x.ticker).filter(r=>(x.cours||0
 function _syncCibleHaut(){
   if(!D||!D.poches)return;
   D.prefs=D.prefs||{};D.prefs.palierSync=D.prefs.palierSync||{};
-  Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{
+  Object.entries(D.poches).forEach(([poche,p])=>p.positions.forEach(x=>{
+    // Clé par (enveloppe, ticker) : un même titre détenu dans deux enveloppes a deux
+    // marqueurs indépendants, même si les deux partagent le même plan de sortie.
+    const cle=poche+"|"+x.ticker;
     const rows=_paliersRows(x.ticker);
-    const pose=D.prefs.palierSync[x.ticker];
+    const pose=D.prefs.palierSync[cle];
     if(!rows.length){
       // Plan vidé : on retire la cible que la synchronisation avait posée, et elle seule.
       if(pose!=null&&x.cibleHaut===pose)delete x.cibleHaut;
-      delete D.prefs.palierSync[x.ticker];
+      delete D.prefs.palierSync[cle];
       return;
     }
     const n=_palierSuivant(x);
     // Plus de palier au-dessus du cours : on garde le plus haut, pour ne pas effacer une alerte.
     const px=n?n.px:Math.max(...rows.map(r=>r.px));
-    if(px>0){x.cibleHaut=px;D.prefs.palierSync[x.ticker]=px;}
+    if(px>0){x.cibleHaut=px;D.prefs.palierSync[cle]=px;}
   }));
 }
 // Migration : un objectif de vente déjà saisi devient un palier « 100 % à ce prix ». Rien n'est perdu,
@@ -2882,7 +2889,7 @@ window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.no
 function _achat(tk){return (D.prefs&&D.prefs.achat&&D.prefs.achat[tk])||null;}
 function _achatRows(tk){const o=_achat(tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
 function _setAchat(tk,o){D.prefs=D.prefs||{};D.prefs.achat=D.prefs.achat||{};
-  const garde=o&&((o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0)))||o.unit==="amount");
+  const garde=o&&o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0));
   if(garde)D.prefs.achat[tk]=o;else delete D.prefs.achat[tk];}
 // Un titre peut être détenu, seulement suivi, ou ni l'un ni l'autre : on cherche son cours et sa
 // devise dans cet ordre, et on ne renvoie rien plutôt que d'inventer.
@@ -2910,10 +2917,11 @@ function _syncCibleAchat(){
   if(!D)return;D.prefs=D.prefs||{};D.prefs.achatSync=D.prefs.achatSync||{};
   const mk=(tk)=>{const rows=_achatRows(tk);if(!rows.length)return null;
     const n=_achatSuivant(tk);return n?n.px:Math.min.apply(null,rows.map(r=>r.px));};
-  if(D.poches)Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{
-    const px=mk(x.ticker);const m=D.prefs.achatSync[x.ticker];
-    if(!(px>0)){if(m!=null&&x.cible===m)delete x.cible;delete D.prefs.achatSync[x.ticker];return;}
-    if(x.cible==null||x.cible===m){x.cible=px;D.prefs.achatSync[x.ticker]=px;}
+  if(D.poches)Object.entries(D.poches).forEach(([poche,p])=>p.positions.forEach(x=>{
+    const cle=poche+"|"+x.ticker;
+    const px=mk(x.ticker);const m=D.prefs.achatSync[cle];
+    if(!(px>0)){if(m!=null&&x.cible===m)delete x.cible;delete D.prefs.achatSync[cle];return;}
+    if(x.cible==null||x.cible===m){x.cible=px;D.prefs.achatSync[cle]=px;}
   }));
   ((D.prefs&&D.prefs.watchlist)||[]).forEach(w=>{
     const px=mk(w.ticker);const k="wl:"+w.ticker,m=D.prefs.achatSync[k];
@@ -2948,7 +2956,7 @@ function _achatPart(tk,r){const o=_achat(tk);
   return (o&&o.unit==="amount")?`pour ${vg(r.q,0)} ${curSym(_tkCur(tk))}`:`${vg(r.q,0)} actions`;}
 function _achatPhrase(tk,r){
   return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))} — ton plan prévoyait d'acheter ${_achatPart(tk,r)}.`;}
-window.openAchat=(tk,ctx)=>{_navPush();achatTk=tk;
+window.openAchat=(tk,ctx)=>{_navPush();achatTk=tk;_achatUnitPend=null;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
   convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 // Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
@@ -2985,7 +2993,8 @@ window._achatRangerFin=(listId)=>{const tk=achatTk;const c=_achatCtx;
 // _planObj/_planSave vivaient dans une portée imbriquée : remontés ici, au même niveau que
 // le reste de la mécanique des paliers, pour être visibles depuis le bouton d'enregistrement.
 function _planObj(){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
-  const o=_paliers(convPlanTk)||{unit:"pct",base:(x&&x.qty)||0,rows:[]};
+  const pend=(_planUnitPend&&_planUnitPend.tk===convPlanTk)?_planUnitPend.unit:"pct";
+  const o=_paliers(convPlanTk)||{unit:pend,base:(x&&x.qty)||0,rows:[]};
   if(!o.rows||!o.rows.length)o.rows=[{q:"",px:""}];
   return o;}
 function _planSave(o){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
@@ -2993,7 +3002,8 @@ function _planSave(o){const x=(ga().ap||[]).find(y=>y.ticker===convPlanTk);
   if(o.unit==="qty"&&x&&!o.base)o.base=x.qty||0;
   _setPaliers(convPlanTk,o);
   _syncCibleHaut();save();}
-function _achatObj(){const o=_achat(achatTk)||{unit:"qty",rows:[]};
+function _achatObj(){const pend=(_achatUnitPend&&_achatUnitPend.tk===achatTk)?_achatUnitPend.unit:"qty";
+  const o=_achat(achatTk)||{unit:pend,rows:[]};
   if(!o.rows||!o.rows.length)o.rows=[{q:"",px:""}];
   return o;}
 function _achatSave(o){o.rows=(o.rows||[]).filter(r=>Number(r.px)>0||Number(r.q)>0);
@@ -3002,7 +3012,7 @@ window._achSet=(i,champ,val)=>{const o=_achatObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_achatFlash=0;_achatSave(o);};
 window._achAdd=()=>{const o=_achatLireDOM(_achatObj());o.rows.push({q:"",px:""});_setAchat(achatTk,o);_achatFlash=0;R();};
 window._achDel=(i)=>{const o=_achatLireDOM(_achatObj());o.rows.splice(i,1);_achatFlash=0;_achatSave(o);R();};
-window._achUnite=(u)=>{const o=_achatLireDOM(_achatObj());o.unit=u;_achatFlash=0;_achatSave(o);R();};
+window._achUnite=(u)=>{const o=_achatLireDOM(_achatObj());o.unit=u;_achatUnitPend={tk:achatTk,unit:u};_achatFlash=0;_achatSave(o);R();};
 // On relit les champs affichés plutôt que de se fier au dernier onchange : ce qui est à l'écran
 // est exactement ce qui est enregistré.
 function _achatLireDOM(o){const rows=[];
@@ -3029,15 +3039,21 @@ function _planEditorHtml(x,fill){
   // détient réellement. Dans la devise de cotation, celle des champs de prix.
   const qt=x.qty||0;
   const repere=`<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px">PRU ${vg(x.pru,2)} ${esc(sym)} · cours ${vg(x.cours,2)} ${esc(sym)}<br>${vg(qt,qt%1?2:0)} action${qt>1?"s":""} détenue${qt>1?"s":""}</div>`;
-  const bascule=`<div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden;margin-bottom:12px">${[["pct","%"],["qty","actions"]].map(u=>`<span onclick="_planUnite('${u[0]}')" style="padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div>`;
+  // Hiérarchie voulue : d'abord ce qu'on remplit (unité, puis lignes), ensuite l'ajout d'un
+  // palier, puis l'action principale bien en avant — les explications passent en dernier,
+  // discrètes, sous un filet séparateur.
+  const bascule=`<div style="margin-bottom:16px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Unité</div><div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden">${[["pct","%"],["qty","actions"]].map(u=>`<span onclick="_planUnite('${u[0]}')" style="padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div></div>`;
+  const lignesLabel=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tes paliers</div>`;
   const lignes=rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input id="plq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="pct"?"50":"20"}" onchange="_planSet(${i},'q',this.value)" style="width:74px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut);width:44px">${o.unit==="pct"?"%":"actions"}</span><span style="font-size:11px;color:var(--mut)">à</span><input id="plp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="300" onchange="_planSet(${i},'px',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut)">${esc(sym)}</span><span onclick="_planDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`).join("");
-  const avert=(perime&&!o.hidWarn)?`<div style="display:flex;gap:8px;align-items:flex-start;background:var(--inp);border-radius:10px;padding:10px;margin-bottom:10px"><div style="flex:1;font-size:11px;color:var(--dim);line-height:1.5">Ces paliers sont en actions, et ta position a changé depuis : elle est passée de ${vg(perime.avant,0)} à ${vg(perime.apres,0)} actions. Un palier de ${rows[0]&&rows[0].q?vg(rows[0].q,0):"—"} actions vise maintenant ${rows[0]&&rows[0].q&&perime.apres?vg(rows[0].q/perime.apres*100,0):"—"} % de la ligne au lieu de ${rows[0]&&rows[0].q&&perime.avant?vg(rows[0].q/perime.avant*100,0):"—"} %.</div><span onclick="_planHidWarn()" style="color:var(--mut);font-size:14px;cursor:pointer">✕</span></div>`:"";
-  const trop=(o.unit==="pct"&&somme>100)?`<div style="font-size:11px;color:var(--amb);margin-top:8px">Tes paliers totalisent ${vg(somme,0)} % de la position — plus que ce que tu détiens.</div>`:"";
+  const trop=(o.unit==="pct"&&somme>100)?`<div style="font-size:11px;color:var(--amb);margin-top:2px;margin-bottom:4px">Tes paliers totalisent ${vg(somme,0)} % de la position — plus que ce que tu détiens.</div>`:"";
+  const ajout=`<div onclick="_planAdd()" style="display:inline-block;margin-top:4px;margin-bottom:22px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`;
   // Rien ne s'enregistre en silence : un bouton, et une confirmation qui reste affichée
   // jusqu'à la modification suivante.
   const flash=(_planFlash===x.ticker)?`<span style="font-size:11.5px;color:var(--dim);margin-left:12px">Enregistré ✓</span>`:"";
-  const btn=`<div style="display:flex;align-items:center;margin-top:14px"><button class="btn btn-p" style="padding:10px 18px;font-size:12.5px" onclick="_planEnregistrer()">${fill?"Enregistrer et continuer":"Enregistrer"}</button>${flash}</div>`;
-  return repere+bascule+avert+lignes+trop+`<div onclick="_planAdd()" style="display:inline-block;margin-top:6px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`+btn;
+  const btn=`<div style="display:flex;align-items:center;margin-bottom:16px"><button class="btn btn-p" style="padding:12px 22px;font-size:13.5px;font-weight:700" onclick="_planEnregistrer()">${fill?"Enregistrer et continuer":"Enregistrer"}</button>${flash}</div>`;
+  const avert=(perime&&!o.hidWarn)?`<div style="display:flex;gap:8px;align-items:flex-start;background:var(--inp);border-radius:10px;padding:10px;margin-bottom:8px"><div style="flex:1;font-size:10.5px;color:var(--mut);line-height:1.5">Ces paliers sont en actions, et ta position a changé depuis : elle est passée de ${vg(perime.avant,0)} à ${vg(perime.apres,0)} actions. Un palier de ${rows[0]&&rows[0].q?vg(rows[0].q,0):"—"} actions vise maintenant ${rows[0]&&rows[0].q&&perime.apres?vg(rows[0].q/perime.apres*100,0):"—"} % de la ligne au lieu de ${rows[0]&&rows[0].q&&perime.avant?vg(rows[0].q/perime.avant*100,0):"—"} %.</div><span onclick="_planHidWarn()" style="color:var(--mut);font-size:14px;cursor:pointer">✕</span></div>`:"";
+  const secondaire=avert?`<div style="border-top:1px solid var(--sep);padding-top:10px">${avert}</div>`:"";
+  return repere+bascule+lignesLabel+lignes+trop+ajout+btn+secondaire;
 }
 function _planLireDOM(o){const rows=[];
   for(let i=0;i<o.rows.length;i++){const q=document.getElementById("plq"+i),px=document.getElementById("plp"+i);
@@ -3055,15 +3071,18 @@ function _achatEditorHtml(tk){
   // Pas de cours connu : on le dit, on n'affiche pas un repère faux.
   const qt=q?(q.qty||0):0;
   const repere=`<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px">${c!=null?`cours ${vg(c,2)} ${esc(sym)}`:"Cours inconnu pour ce titre — il s'affichera dès qu'il aura été récupéré."}${q?`<br>PRU ${vg(q.pru,2)} ${esc(sym)} · ${vg(qt,qt%1?2:0)} action${qt>1?"s":""} déjà détenue${qt>1?"s":""}`:""}</div>`;
-  const bascule=`<div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden;margin-bottom:12px">${[["qty","actions"],["amount","montant"]].map(u=>`<span onclick="_achUnite('${u[0]}')" style="padding:5px 12px;font-size:11px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div>`;
+  const bascule=`<div style="margin-bottom:16px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Unité</div><div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden">${[["qty","actions"],["amount","montant"]].map(u=>`<span onclick="_achUnite('${u[0]}')" style="padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div></div>`;
   const unite=o.unit==="amount"?esc(sym):"actions";
+  const lignesLabel=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tes paliers</div>`;
   const lignes=rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input id="acq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="amount"?"500":"10"}" onchange="_achSet(${i},'q',this.value)" style="width:74px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut);width:44px">${unite}</span><span style="font-size:11px;color:var(--mut)">à</span><input id="acp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="120" onchange="_achSet(${i},'px',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut)">${esc(sym)}</span><span onclick="_achDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`).join("");
-  const div=_achatDivergence(tk);
-  const note=div?`<div style="font-size:11px;color:var(--amb);line-height:1.55;margin-top:8px">Ton alerte de baisse est réglée sur ${vg(div.seuil,2)} ${esc(sym)}, alors que ton prochain palier d'achat est à ${vg(div.plan,2)} ${esc(sym)}. Elle a été modifiée à la main : le plan ne l'écrase pas.</div>`:"";
-  const rappel=`<div style="font-size:10.5px;color:var(--mut);line-height:1.55;margin-top:10px">Le palier le plus proche sous le cours alimente ton alerte de baisse : tu es prévenu quand le prix y arrive.</div>`;
+  const ajout=`<div onclick="_achAdd()" style="display:inline-block;margin-top:4px;margin-bottom:22px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`;
   const flash=(_achatFlash&&achatTk===tk)?`<span style="font-size:11.5px;color:var(--dim);margin-left:12px">Enregistré ✓</span>`:"";
-  const btn=`<div style="display:flex;align-items:center;margin-top:14px"><button class="btn btn-p" style="padding:10px 18px;font-size:12.5px" onclick="_achEnregistrer()">Enregistrer</button>${flash}</div>`;
-  return repere+bascule+lignes+note+`<div onclick="_achAdd()" style="display:inline-block;margin-top:6px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`+rappel+btn;
+  const btn=`<div style="display:flex;align-items:center;margin-bottom:16px"><button class="btn btn-p" style="padding:12px 22px;font-size:13.5px;font-weight:700" onclick="_achEnregistrer()">Enregistrer</button>${flash}</div>`;
+  const div=_achatDivergence(tk);
+  const note=div?`<div style="font-size:10.5px;color:var(--amb);line-height:1.55;margin-bottom:8px">Ton alerte de baisse est réglée sur ${vg(div.seuil,2)} ${esc(sym)}, alors que ton prochain palier d'achat est à ${vg(div.plan,2)} ${esc(sym)}. Elle a été modifiée à la main : le plan ne l'écrase pas.</div>`:"";
+  const rappel=`<div style="font-size:10.5px;color:var(--mut);line-height:1.55">Le palier le plus proche sous le cours alimente ton alerte de baisse : tu es prévenu quand le prix y arrive.</div>`;
+  const secondaire=`<div style="border-top:1px solid var(--sep);padding-top:10px">${note}${rappel}</div>`;
+  return repere+bascule+lignesLabel+lignes+ajout+btn+secondaire;
 }
 function _convDormante(tk){
   const ts=_convTs(tk);
@@ -3159,6 +3178,16 @@ const _mc=document.getElementById("mcur");if(_mc&&cur){const u=String(cur).toUpp
 const tick=sym.includes(".")?sym.split(".")[0]:sym;const msEl=document.getElementById("ms");if(msEl&&typeof SECTORS!=="undefined"&&SECTORS[tick]&&!msEl.value)msEl.value=SECTORS[tick];
 const b=document.getElementById("mkSug");if(b)b.innerHTML=`<div style="padding:7px 10px;font-size:11px;color:var(--grn)">✓ ${esc(name||sym)} · ${esc(sym)}</div>`;};
 const FUND_URL="https://convicto-fund.bya-2mo.workers.dev";
+// Certains codes fonds Yahoo (10 caractères, ex. « 0P0000M6PZ ») ne répondent à ?holdings=
+// qu'avec le suffixe « .F » — sans lui, Yahoo renvoie « no data » alors que la composition
+// existe. On retente avant d'abandonner ; si ça échoue aussi, la source ne couvre pas ce fonds.
+async function fundFetchHoldings(sym){
+  let h=await fundFetch("holdings",sym);
+  if((!h||h.error)&&/^0P[0-9A-Z]{8}$/i.test(sym)){
+    try{h=await fundFetch("holdings",sym+".F");}catch(e){}
+  }
+  return h;
+}
 function _ySym(x){if(!x)return null;if(x.avSymbol)return x.avSymbol;if(typeof KNOWN_EU!=="undefined"&&KNOWN_EU[x.ticker])return KNOWN_EU[x.ticker];return x.ticker;}
 function _fCacheGet(k,ttl){try{const o=JSON.parse(localStorage.getItem(k)||"null");if(o&&Date.now()-o.t<ttl)return o.d;}catch(e){}return null;}
 function _fCacheSet(k,d){try{localStorage.setItem(k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
@@ -3192,7 +3221,7 @@ window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetT
 async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
 async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
 try{
-  const h=await fundFetch("holdings",aSym);
+  const h=await fundFetchHoldings(aSym);
   if(h&&!h.error&&h.holdings&&h.holdings.length){
     aData.holdings=h;if(aSym)R();
     const withCountry=h.holdings.slice();
@@ -3671,7 +3700,8 @@ const rows=shown.map((it,i)=>`<div style="display:flex;align-items:center;gap:8p
                [UNKNOWN_CODE,exp[UNKNOWN_CODE]||0,"non résolu"]].filter(b=>b[1]>0);
   if(!blocs.length)return"";
   return `<div style="margin-top:3px;padding-top:8px;border-top:1px solid var(--sep)">`+blocs.map(([code,v,note])=>
-    `<div ${code===DIVERSIFIED_CODE?`onclick="_fondsFlousInfo()" style="cursor:pointer;"`:"style=\""}display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:var(--mut);flex-shrink:0"></span><span style="flex:1;font-size:11.5px;color:var(--dim)">${esc(_countryName(code))}${note?` <span style="color:var(--mut);font-size:10px">· ${esc(note)}</span>`:""}${code===DIVERSIFIED_CODE?` <span style="color:var(--acc);font-size:10px">ⓘ</span>`:""}</span><span class="mono" style="font-size:11px;font-weight:700">${vg(v/total*100,1)}%</span></div>`).join("")+`</div>`;})();
+    (()=>{const clic=code===DIVERSIFIED_CODE;
+    return `<div ${clic?'onclick="_fondsFlousInfo()"':""} style="${clic?"cursor:pointer;":""}display:flex;align-items:center;gap:8px;padding:4px 0"><span style="width:8px;height:8px;border-radius:50%;background:var(--mut);flex-shrink:0"></span><span style="flex:1;font-size:11.5px;color:var(--dim)">${esc(_countryName(code))}${note?` <span style="color:var(--mut);font-size:10px">· ${esc(note)}</span>`:""}${clic?` <span style="color:var(--acc);font-size:10px;margin-left:3px">ⓘ</span>`:""}</span><span class="mono" style="font-size:11px;font-weight:700;margin-left:6px">${vg(v/total*100,1)}%</span></div>`;})()).join("")+`</div>`;})();
 return `<div class="card"><div class="section">Exposition géographique</div><svg id="cvwmMap" viewBox="${WORLD_MAP_VB}" width="100%" height="auto" fill="${landCol}" style="display:block;margin-bottom:8px">${WORLD_MAP_BODY}</svg>${rows}${_paysEchecLigne(d)}<div style="font-size:10px;color:var(--mut);margin-top:8px;line-height:1.4">Pays déduit du siège social de l'entreprise. Quand il est inconnu, la position est listée à part plutôt que rattachée à un pays deviné. Les fonds sont répartis sur les lignes que publie notre source (les 10 principales) ; le reste apparaît en « Fonds (non détaillé) ». Tu peux corriger un pays depuis la fiche de la position (✎).</div></div>`;}
 // Liste des positions que la carte n'a pas su placer. Elle est dérivée du MÊME périmètre que la carte
 // (d.ap exclut déjà les enveloppes sorties du patrimoine, ex. « Gestion famille ») : sinon on annonce
@@ -3684,7 +3714,7 @@ function _paysASituer(d){
   const ech=(D.prefs&&D.prefs.paysEchec)||{};
   return d.ap.filter(x=>!x.noPerf).map(x=>{
     const code=_positionCountry(x,x.poche);
-    if(!_isNoCountry(code)||code===CRYPTO_CODE)return null;
+    if(!_isNoCountry(code)||code===CRYPTO_CODE||code===DIVERSIFIED_CODE)return null;
     const e=ech[x.ticker];
     const raison=e?e.raison:(x.manual?"manuelle":(code===DIVERSIFIED_CODE?"fonds":"attente"));
     return {tk:x.ticker,titre:x.titre||"",poche:x.poche,raison,libelle:(e&&e.libelle)||""};
@@ -3694,15 +3724,15 @@ function _paysASituer(d){
 function _paysEchecLigne(d){
   const n=_paysASituer(d).length;
   if(!n)return"";
-  return `<div onclick="_paysEchecPage()" class="card-tap" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid var(--bdr);border-radius:10px;cursor:pointer"><span style="flex:1;font-size:11.5px;color:var(--dim)">${n} position${n>1?"s":""} sans pays identifié</span><span style="color:var(--mut);font-size:13px">›</span></div>`;
+  return `<div onclick="_paysEchecPage()" class="card-tap" style="display:flex;align-items:center;gap:8px;margin-top:10px;padding:9px 10px;border:1px solid var(--bdr);border-radius:10px;cursor:pointer"><span style="flex:1;font-size:11.5px;color:var(--dim)">${n} position${n>1?"s":""} au pays inconnu <span style="color:var(--acc)">— à renseigner</span></span><span style="color:var(--mut);font-size:13px">›</span></div>`;
 }
 // Page de correction : on montre le libellé BRUT renvoyé par la source, pour qu'un écart soit
 // diagnosticable (ex. un pays que notre table ne connaît pas encore) et corrigeable à la main.
 window._paysEchecPage=()=>{
   const lignes=_paysASituer().map(it=>{
     const det=(_PAYS_RAISONS[it.raison]||it.raison)+(it.libelle?" : « "+esc(it.libelle)+" »":"");
-    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(it.tk)}${it.titre?` <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(it.titre)}</span>`:""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(it.poche)} · ${det}</div></div><span onclick="cm();ePos('${escAttr(it.poche)}','${escAttr(it.tk)}')" style="color:var(--acc);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0">✎ Corriger</span></div>`;}).join("");
-  sm(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:17px;font-weight:700">Positions sans pays</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:14px">Ces positions ne sont rattachées à aucun pays. On préfère te le dire plutôt que d'en deviner un. Tu peux les corriger à la main.</div>${lignes||`<div style="color:var(--mut);font-size:12px">Aucune.</div>`}`);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(it.tk)}${it.titre?` <span style="font-weight:400;color:var(--dim);font-size:11px">${esc(it.titre)}</span>`:""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(it.poche)} · ${det}</div></div><span onclick="cm();ePos('${escAttr(it.poche)}','${escAttr(it.tk)}')" style="color:var(--acc);font-size:11px;font-weight:600;cursor:pointer;flex-shrink:0">✎ Attribuer un pays</span></div>`;}).join("");
+  sm(`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h3 style="font-size:17px;font-weight:700">Positions au pays inconnu</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="font-size:11px;color:var(--dim);line-height:1.6;margin-bottom:14px">Ces lignes ne sont rattachées à aucun pays — ni deviné, ni par leur devise. « Corriger » veut dire : tu choisis toi-même le pays de la position, dans sa fiche. Rien n'est fait à ta place.</div>${lignes||`<div style="color:var(--mut);font-size:12px">Aucune.</div>`}`);
 };
 function _cvwmTierOp(pct){return pct>=25?1:pct>=10?0.82:pct>=5?0.64:pct>=2?0.46:pct>=0.5?0.3:0.18;}
 function _paintWorldMap(){
