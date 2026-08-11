@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "214";
+const APP_VERSION = "215";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -435,7 +435,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -921,10 +921,10 @@ function _convVuePage(vue,ctx){
       +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitre(x.ticker,esc(_nomAffiche(x,30)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(x.poche)}</div>${_planEditorHtml(x,false)}</div>`;
   }
   if(vue==="achat"){
-    const tk=achatTk;
+    const tk=achatTk;const pch=achatPoche||"";
     if(!tk)return _convRetour()+`<div class="card">Aucun titre choisi.</div>`;
     return _convRetour()+_convEntete("Plan d'achat","À quels prix tu comptes entrer, et combien à chaque fois. Chaque palier sert aussi d'alerte de baisse.")
-      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(tk)}${_tkDetenu(tk)?"":" · titre non détenu"}</div>${_achatEditorHtml(tk)}</div>`;
+      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(tk)}${pch?" · "+esc(pch):(_tkDetenu(tk)?"":" · titre non détenu")}</div>${_achatEditorHtml(pch,tk)}</div>`;
   }
   if(vue==="boussole"){
     const un=boussoleTk;
@@ -1809,6 +1809,53 @@ async function applyPortfolioMigrations(){
     changed=true;
   }
 
+  // ── Plans d'achat par ticker → plans par enveloppe (jouée UNE seule fois) ───────────────
+  // Ne touche que le portfolio chargé en mémoire. L'enveloppe vide ("|TICKER") est légitime :
+  // c'est un plan sur un titre qu'on ne détient nulle part, qui doit être conservé tel quel.
+  if(!D.prefs||!D.prefs.migAchatEnvFait){
+    D.prefs=D.prefs||{};
+    const _posA=(tk)=>{const c=[];Object.entries(D.poches).forEach(([poche,p])=>p.positions.forEach(x=>{
+      if(x.ticker===tk)c.push({poche:poche,x:x});}));return c;};
+    const _plusGrosseA=(c)=>c.slice().sort((a,b)=>((b.x.qty||0)*(b.x.cours||0))-((a.x.qty||0)*(a.x.cours||0)))[0];
+    const ancA=D.prefs.achat||{};
+    const neufA={};
+    Object.keys(ancA).forEach(k=>{
+      if(k.indexOf("|")>=0){neufA[k]=ancA[k];return;}        // déjà au nouveau format
+      const o=ancA[k];const cands=_posA(k);
+      // Titre détenu nulle part : le plan reste autonome, sans enveloppe.
+      if(!cands.length){neufA[_pkPal("",k)]=o;return;}
+      let choisi=cands[0];
+      if(cands.length>1){
+        // Un plan d'achat n'a pas de « base » (contrairement aux paliers de vente) : on la teste
+        // quand même par sûreté, puis on retient la position la plus grosse.
+        const parBase=(o&&o.base>0)?cands.find(c=>Math.abs((c.x.qty||0)-o.base)<0.0001):null;
+        choisi=parBase||_plusGrosseA(cands);
+      }
+      neufA[_pkPal(choisi.poche,k)]=o;
+    });
+    D.prefs.achat=neufA;                                     // l'ancien format disparaît
+    // Seuils bas devenus orphelins : une position dont l'enveloppe n'a plus de plan, et dont le
+    // seuil avait été POSÉ par la synchronisation (il correspond à un marqueur). Un seuil saisi
+    // à la main n'a aucun marqueur : on n'y touche jamais.
+    const syncA=D.prefs.achatSync||{};
+    Object.entries(D.poches).forEach(([poche,p])=>p.positions.forEach(x=>{
+      const cle=_pkPal(poche,x.ticker);
+      if(neufA[cle])return;
+      const pose=syncA[cle];
+      if(x.cible!=null&&pose!=null&&x.cible===pose){delete x.cible;delete syncA[cle];}
+    }));
+    // Même règle pour la liste de suivi, qui reste indexée par ticker : son seuil vient
+    // désormais du plan SANS enveloppe.
+    ((D.prefs.watchlist)||[]).forEach(w=>{
+      if(neufA[_pkPal("",w.ticker)])return;
+      const k="wl:"+w.ticker;const pose=syncA[k];
+      if(w.target!=null&&pose!=null&&w.target===pose){delete w.target;delete syncA[k];}
+    });
+    D.prefs.achatSync=syncA;
+    D.prefs.migAchatEnvFait=1;
+    changed=true;
+  }
+
   if(!D.migV8){
     D.prefs=D.prefs||{};
     if(D.prefs.conv){
@@ -2488,8 +2535,8 @@ const _palDetail=(()=>{const l=[];Object.entries(D.poches).forEach(([poche,p])=>
   _paliersAtteints(x).forEach(r=>l.push(`<div class="card" style="border-left:3px solid var(--amb)"><div style="font-size:12.5px;color:var(--dim);line-height:1.6">${_palierPhrase(x,r)}</div><div style="display:flex;gap:14px;margin-top:8px"><span onclick="openPlan('${escAttr(x.ticker)}','${escAttr(x.poche)}')" style="font-size:11.5px;color:var(--acc);font-weight:600;cursor:pointer">Voir le plan ›</span><span onclick="openTitre('${escAttr(x.ticker)}')" style="font-size:11.5px;color:var(--dim);font-weight:600;cursor:pointer">La fiche ›</span></div></div>`));}));
   return l.length?`<div style="font-size:11px;color:var(--dim);font-weight:600;margin-bottom:6px">Paliers de vente atteints</div>`+l.join(""):"";})();
 h+=_palDetail;
-const _achDetail=(()=>{const l=[];Object.keys((D.prefs&&D.prefs.achat)||{}).forEach(tk=>{
-  _achatAtteints(tk).forEach(r=>l.push(`<div class="card" style="border-left:3px solid var(--dim)"><div style="font-size:12.5px;color:var(--dim);line-height:1.6">${_achatPhrase(tk,r)}</div><div style="display:flex;gap:14px;margin-top:8px"><span onclick="openAchat('${escAttr(tk)}')" style="font-size:11.5px;color:var(--acc);font-weight:600;cursor:pointer">Voir le plan ›</span><span onclick="openTitre('${escAttr(tk)}')" style="font-size:11.5px;color:var(--dim);font-weight:600;cursor:pointer">La fiche ›</span></div></div>`));});
+const _achDetail=(()=>{const l=[];Object.keys((D.prefs&&D.prefs.achat)||{}).forEach(cle=>{const _d=_achatCleSplit(cle);const tk=_d.tk;const poche=_d.poche;
+  _achatAtteints(poche,tk).forEach(r=>l.push(`<div class="card" style="border-left:3px solid var(--dim)"><div style="font-size:12.5px;color:var(--dim);line-height:1.6">${_achatPhrase(poche,tk,r)}</div><div style="display:flex;gap:14px;margin-top:8px"><span onclick="openAchat('${escAttr(tk)}',null,'${escAttr(poche)}')" style="font-size:11.5px;color:var(--acc);font-weight:600;cursor:pointer">Voir le plan ›</span><span onclick="openTitre('${escAttr(tk)}')" style="font-size:11.5px;color:var(--dim);font-weight:600;cursor:pointer">La fiche ›</span></div></div>`));});
   return l.length?`<div style="font-size:11px;color:var(--dim);font-weight:600;margin:${_palDetail?"12px":"0"} 0 6px">Paliers d'achat atteints</div>`+l.join(""):"";})();
 h+=_achDetail;
 const ciblesHtml=(()=>{let o="";if(reached.length){o+=`<div style="font-size:11px;color:var(--red);font-weight:600;margin-bottom:6px">🔔 Cible atteinte</div>`;reached.forEach(a=>{o+=_acard(a)});}
@@ -2866,7 +2913,7 @@ function _boussoleCompte(tk){return _boussoleFlux(tk).length;}
 function _tkNom(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return _nomAffiche(q,28);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.name)return w.name.length>28?w.name.slice(0,27)+"…":w.name;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.name)return _achatCtx.name.length>28?_achatCtx.name.slice(0,27)+"…":_achatCtx.name;
-  const a=_achat(tk);if(a&&a.name)return a.name.length>28?a.name.slice(0,27)+"…":a.name;
+  const a=(_achatToutes(tk).find(z=>z.o&&z.o.name)||{}).o;if(a&&a.name)return a.name.length>28?a.name.slice(0,27)+"…":a.name;
   return tk;}
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
 window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
@@ -2885,7 +2932,7 @@ window._bsChoisirTitre=(suite)=>{const d=ga();
    +(wl.length?`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:14px 2px 2px">Ta liste de suivi</div>`+wl.map(w=>`<div onclick="_bsTitrePick('${escAttr(w.ticker)}','${escAttr(f)}')" style="display:flex;justify-content:space-between;gap:10px;padding:11px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="font-size:13px">${esc(w.name||w.ticker)}</span><span style="font-size:10.5px;color:var(--mut)">${esc(w.ticker)}</span></div>`).join(""):""));};
 window._bsTitreLibre=(suite)=>{const el=document.getElementById("bsTk");const tk=((el||{}).value||"").trim().toUpperCase();
   if(!tk)return toast("Indique un ticker.");_bsTitrePick(tk,suite);};
-window._bsTitrePick=(tk,suite)=>{cm();if(suite==="achat")openAchat(tk);else openBoussole(tk);};
+window._bsTitrePick=(tk,suite)=>{cm();if(suite==="achat")openAchat(tk,null,"");else openBoussole(tk);};
 // Première thèse écrite : une explication courte, montrée UNE fois pour toute l'app.
 function _bsPremiereFois(){return !(D.prefs&&D.prefs.boussoleVu);}
 window._bsNote=(tk)=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><div><h3 style="font-size:16px;font-weight:700">${esc(_tkNom(tk))}</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">Note de journal${_tkDetenu(tk)?"":" · titre non détenu"}</div></div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><textarea id="bsTxt" rows="4" placeholder="Ce que tu décides aujourd'hui, et pourquoi…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical"></textarea><button class="btn btn-p" style="margin-top:10px;width:100%" onclick="_bsNoteSave('${escAttr(tk)}')">Enregistrer</button>`);
@@ -2943,81 +2990,93 @@ window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.no
 // Même mécanique que les paliers de sortie, côté entrée. Vit dans prefs (colonne JSON) : aucune
 // colonne SQL à créer. Deux unités possibles, jamais mélangées : actions, ou montant dans la
 // devise de cotation du titre.
-function _achat(tk){return (D.prefs&&D.prefs.achat&&D.prefs.achat[tk])||null;}
-function _achatRows(tk){const o=_achat(tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
-function _setAchat(tk,o){D.prefs=D.prefs||{};D.prefs.achat=D.prefs.achat||{};
+// { "ENVELOPPE|TICKER": {...} }  —  enveloppe vide ("|TICKER") = plan sur un titre non détenu.
+function _achat(poche,tk){return (D.prefs&&D.prefs.achat&&D.prefs.achat[_pkPal(poche,tk)])||null;}
+function _achatRows(poche,tk){const o=_achat(poche,tk);return (o&&Array.isArray(o.rows))?o.rows.filter(r=>r&&r.px>0):[];}
+function _setAchat(poche,tk,o){D.prefs=D.prefs||{};D.prefs.achat=D.prefs.achat||{};
+  const cle=_pkPal(poche,tk);
   const garde=o&&o.rows&&o.rows.some(r=>r&&(Number(r.px)>0||Number(r.q)>0));
-  if(garde)D.prefs.achat[tk]=o;else delete D.prefs.achat[tk];}
+  if(garde)D.prefs.achat[cle]=o;else delete D.prefs.achat[cle];}
+// Découpe une clé de plan en {poche, tk}. La première barre sépare : un ticker n'en contient pas.
+function _achatCleSplit(cle){const i=String(cle).indexOf("|");
+  return (i<0)?{poche:"",tk:String(cle)}:{poche:cle.slice(0,i),tk:cle.slice(i+1)};}
+// Tous les plans d'un même titre, toutes enveloppes confondues. Sert aux replis d'affichage
+// (nom, devise, dernier cours) qui n'ont pas d'enveloppe sous la main.
+function _achatToutes(tk){const out=[];const m=(D.prefs&&D.prefs.achat)||{};
+  Object.keys(m).forEach(cle=>{const d=_achatCleSplit(cle);if(d.tk===tk)out.push({poche:d.poche,tk:d.tk,o:m[cle]});});
+  return out;}
 // Un titre peut être détenu, seulement suivi, ou ni l'un ni l'autre : on cherche son cours et sa
 // devise dans cet ordre, et on ne renvoie rien plutôt que d'inventer.
 function _tkCours(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q&&q.cours!=null)return q.cours;
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.lastCours!=null)return w.lastCours;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cours!=null)return _achatCtx.cours;
-  const a=_achat(tk);if(a&&a.lastCours!=null)return a.lastCours;
+  const a=(_achatToutes(tk).find(z=>z.o&&z.o.lastCours!=null)||{}).o;if(a&&a.lastCours!=null)return a.lastCours;
   return null;}
 function _tkCur(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return curOf(q);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w&&w.cur)return w.cur;
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.cur)return _achatCtx.cur;
-  const a=_achat(tk);if(a&&a.cur)return a.cur;
+  const a=(_achatToutes(tk).find(z=>z.o&&z.o.cur)||{}).o;if(a&&a.cur)return a.cur;
   return "EUR";}
 // On achète en descendant : le premier seuil franchi est le plus HAUT sous le cours actuel.
-function _achatSuivant(tk){const rows=_achatRows(tk);if(!rows.length)return null;const c=_tkCours(tk);
+function _achatSuivant(poche,tk){const rows=_achatRows(poche,tk);if(!rows.length)return null;const c=_tkCours(tk);
   if(c==null)return rows.slice().sort((a,b)=>b.px-a.px)[0];
   const bas=rows.filter(r=>r.px<c).sort((a,b)=>b.px-a.px);
   return bas.length?bas[0]:null;}
-function _achatAtteints(tk){const c=_tkCours(tk);if(c==null)return [];
-  return _achatRows(tk).filter(r=>c<=r.px).sort((a,b)=>a.px-b.px);}
+function _achatAtteints(poche,tk){const c=_tkCours(tk);if(c==null)return [];
+  return _achatRows(poche,tk).filter(r=>c<=r.px).sort((a,b)=>a.px-b.px);}
 // Le plan alimente le seuil BAS existant (position.cible / watchlist.target), donc les alertes
 // déjà en place continuent de fonctionner sans rien changer ailleurs. On note ce qu'on a écrit
 // (achatSync) : si la valeur a été changée à la main depuis, on n'y touche plus et on le dit.
+// SENS UNIQUE, et cloisonné : le plan d'une enveloppe alimente le seuil bas de CETTE position.
+// La liste de suivi, elle, reste par ticker : elle est alimentée par le plan SANS enveloppe.
 function _syncCibleAchat(){
   if(!D)return;D.prefs=D.prefs||{};D.prefs.achatSync=D.prefs.achatSync||{};
-  const mk=(tk)=>{const rows=_achatRows(tk);if(!rows.length)return null;
-    const n=_achatSuivant(tk);return n?n.px:Math.min.apply(null,rows.map(r=>r.px));};
+  const mk=(poche,tk)=>{const rows=_achatRows(poche,tk);if(!rows.length)return null;
+    const n=_achatSuivant(poche,tk);return n?n.px:Math.min.apply(null,rows.map(r=>r.px));};
   if(D.poches)Object.entries(D.poches).forEach(([poche,p])=>p.positions.forEach(x=>{
-    const cle=poche+"|"+x.ticker;
-    const px=mk(x.ticker);const m=D.prefs.achatSync[cle];
+    const cle=_pkPal(poche,x.ticker);
+    const px=mk(poche,x.ticker);const m=D.prefs.achatSync[cle];
     if(!(px>0)){if(m!=null&&x.cible===m)delete x.cible;delete D.prefs.achatSync[cle];return;}
     if(x.cible==null||x.cible===m){x.cible=px;D.prefs.achatSync[cle]=px;}
   }));
   ((D.prefs&&D.prefs.watchlist)||[]).forEach(w=>{
-    const px=mk(w.ticker);const k="wl:"+w.ticker,m=D.prefs.achatSync[k];
+    const px=mk("",w.ticker);const k="wl:"+w.ticker,m=D.prefs.achatSync[k];
     if(!(px>0)){if(m!=null&&w.target===m)delete w.target;delete D.prefs.achatSync[k];return;}
     if(w.target==null||w.target===m){w.target=px;D.prefs.achatSync[k]=px;}
   });
 }
 // Le seuil bas a-t-il été fixé à la main, différent du plan ? On le constate, on ne corrige rien.
-function _achatDivergence(tk){const rows=_achatRows(tk);if(!rows.length)return null;
-  const px=(_achatSuivant(tk)||{}).px||Math.min.apply(null,rows.map(r=>r.px));
-  const q=(ga().ap||[]).find(y=>y.ticker===tk);
-  const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);
+function _achatDivergence(poche,tk){const rows=_achatRows(poche,tk);if(!rows.length)return null;
+  const px=(_achatSuivant(poche,tk)||{}).px||Math.min.apply(null,rows.map(r=>r.px));
+  const q=poche?(ga().ap||[]).find(y=>y.ticker===tk&&y.poche===poche):null;
+  const w=poche?null:((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);
   const seuil=q?q.cible:(w?w.target:null);
   if(seuil==null||!(px>0))return null;
   return (Math.abs(seuil-px)<0.0001)?null:{seuil:seuil,plan:px};}
-function _achatCle(tk,r){return "A:"+tk+"@"+r.px;}
+function _achatCle(poche,tk,r){return "A:"+_pkPal(poche,tk)+"@"+r.px;}
 function _achatNouveaux(){const vus=(D.prefs&&D.prefs.achatVu)||{};const out=[];
-  Object.keys((D.prefs&&D.prefs.achat)||{}).forEach(tk=>{
-    _achatAtteints(tk).forEach(r=>{if(!vus[_achatCle(tk,r)])out.push({tk:tk,r:r});});});
+  Object.keys((D.prefs&&D.prefs.achat)||{}).forEach(cle=>{const d=_achatCleSplit(cle);
+    _achatAtteints(d.poche,d.tk).forEach(r=>{if(!vus[_achatCle(d.poche,d.tk,r)])out.push({poche:d.poche,tk:d.tk,r:r});});});
   return out;}
 window._achatVoir=()=>{const n=_achatNouveaux();D.prefs=D.prefs||{};D.prefs.achatVu=D.prefs.achatVu||{};
-  n.forEach(o=>{D.prefs.achatVu[_achatCle(o.tk,o.r)]=Date.now();});
+  n.forEach(o=>{D.prefs.achatVu[_achatCle(o.poche,o.tk,o.r)]=Date.now();});
   save();gt("alerts");alertsSub="cibles";R();};
 window._achatMasquer=()=>{const n=_achatNouveaux();D.prefs=D.prefs||{};D.prefs.achatVu=D.prefs.achatVu||{};
-  n.forEach(o=>{D.prefs.achatVu[_achatCle(o.tk,o.r)]=Date.now();});save();R();};
+  n.forEach(o=>{D.prefs.achatVu[_achatCle(o.poche,o.tk,o.r)]=Date.now();});save();R();};
 function _achatBandeau(){const n=_achatNouveaux();if(!n.length)return "";
   const t=n.length===1
     ? `${esc(n[0].tk)} est descendu à ${vg(n[0].r.px,2)} ${esc(curSym(_tkCur(n[0].tk)))}`
     : `${n.length} paliers d'achat atteints`;
   return `<div class="card" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px;border-left:3px solid var(--dim)"><div onclick="_achatVoir()" style="flex:1;cursor:pointer"><div style="font-size:12.5px;font-weight:700">${t}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Voir ce que ton plan prévoyait ›</div></div><span onclick="_achatMasquer()" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`;}
-function _achatPart(tk,r){const o=_achat(tk);
+function _achatPart(poche,tk,r){const o=_achat(poche,tk);
   return (o&&o.unit==="amount")?`pour ${vg(r.q,0)} ${curSym(_tkCur(tk))}`:`${vg(r.q,0)} actions`;}
-function _achatPhrase(tk,r){
-  return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))} — ton plan prévoyait d'acheter ${_achatPart(tk,r)}.`;}
-window.openAchat=(tk,ctx)=>{_navPush();achatTk=tk;_achatUnitPend=null;
+function _achatPhrase(poche,tk,r){
+  return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))}${poche?" ("+esc(poche)+")":""} — ton plan prévoyait d'acheter ${_achatPart(poche,tk,r)}.`;}
+window.openAchat=(tk,ctx,poche)=>{_navPush();achatTk=tk;achatPoche=poche||"";_achatUnitPend=null;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
   convView="achat";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 // Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
-function _achatIdentite(tk){const o=_achat(tk);if(!o)return;
+function _achatIdentite(poche,tk){const o=_achat(poche,tk);if(!o)return;
   const c=_achatCtx;if(c&&c.tk===tk){if(!o.sym)o.sym=c.sym;if(!o.name)o.name=c.name;if(!o.cur)o.cur=c.cur;
     if(o.lastCours==null&&c.cours!=null){o.lastCours=c.cours;o.lastUpd=Date.now();}}
   if(!o.sym){const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y.ticker===tk);if(w){o.sym=w.sym;o.name=o.name||w.name;o.cur=o.cur||w.cur;}}
@@ -3061,17 +3120,17 @@ function _planSave(o){const x=_planPos();
   if(o.unit==="qty"&&x&&!o.base)o.base=x.qty||0;
   _setPaliers(convPlanPoche,convPlanTk,o);
   _syncCibleHaut();save();}
-function _achatObj(){const pend=(_achatUnitPend&&_achatUnitPend.tk===achatTk)?_achatUnitPend.unit:"qty";
-  const o=_achat(achatTk)||{unit:pend,rows:[]};
+function _achatObj(){const pend=(_achatUnitPend&&_achatUnitPend.tk===achatTk&&_achatUnitPend.poche===achatPoche)?_achatUnitPend.unit:"qty";
+  const o=_achat(achatPoche,achatTk)||{unit:pend,rows:[]};
   if(!o.rows||!o.rows.length)o.rows=[{q:"",px:""}];
   return o;}
 function _achatSave(o){o.rows=(o.rows||[]).filter(r=>Number(r.px)>0||Number(r.q)>0);
-  _setAchat(achatTk,o);_syncCibleAchat();save();}
+  _setAchat(achatPoche,achatTk,o);_syncCibleAchat();save();}
 window._achSet=(i,champ,val)=>{const o=_achatObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_achatFlash=0;_achatSave(o);};
-window._achAdd=()=>{const o=_achatLireDOM(_achatObj());o.rows.push({q:"",px:""});_setAchat(achatTk,o);_achatFlash=0;R();};
+window._achAdd=()=>{const o=_achatLireDOM(_achatObj());o.rows.push({q:"",px:""});_setAchat(achatPoche,achatTk,o);_achatFlash=0;R();};
 window._achDel=(i)=>{const o=_achatLireDOM(_achatObj());o.rows.splice(i,1);_achatFlash=0;_achatSave(o);R();};
-window._achUnite=(u)=>{const o=_achatLireDOM(_achatObj());o.unit=u;_achatUnitPend={tk:achatTk,unit:u};_achatFlash=0;_achatSave(o);R();};
+window._achUnite=(u)=>{const o=_achatLireDOM(_achatObj());o.unit=u;_achatUnitPend={tk:achatTk,poche:achatPoche,unit:u};_achatFlash=0;_achatSave(o);R();};
 // On relit les champs affichés plutôt que de se fier au dernier onchange : ce qui est à l'écran
 // est exactement ce qui est enregistré.
 function _achatLireDOM(o){const rows=[];
@@ -3079,10 +3138,12 @@ function _achatLireDOM(o){const rows=[];
     if(!q&&!px){rows.push(o.rows[i]);continue;}
     rows.push({q:(q&&q.value!=="")?pn(q.value):"",px:(px&&px.value!=="")?pn(px.value):""});}
   if(rows.length)o.rows=rows;return o;}
-window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());const tk=achatTk;
-  _achatSave(o);_achatIdentite(tk);_achatFlash=Date.now();save();R();
-  if(_achatRows(tk).length&&!_tkDetenu(tk)&&!_achatDansSuivi(tk)&&!(_achat(tk)||{}).vuListe){
-    const a=_achat(tk);if(a)a.vuListe=1;
+window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());const tk=achatTk;const poche=achatPoche;
+  _achatSave(o);_achatIdentite(poche,tk);_achatFlash=Date.now();save();R();
+  // Ranger dans une liste ne concerne que les plans SANS enveloppe : un plan rattaché à une
+  // enveloppe porte déjà sur un titre détenu.
+  if(!poche&&_achatRows(poche,tk).length&&!_tkDetenu(tk)&&!_achatDansSuivi(tk)&&!(_achat(poche,tk)||{}).vuListe){
+    const a=_achat(poche,tk);if(a)a.vuListe=1;
     return _achatChoisirListe(tk);}
   toast("Plan d'achat enregistré");};
 // Le composant de paliers est écrit UNE fois et servi partout : page dédiée, parcours
@@ -3121,11 +3182,11 @@ function _planLireDOM(o){const rows=[];
   if(rows.length)o.rows=rows;return o;}
 window._planEnregistrer=()=>{const o=_planLireDOM(_planObj());
   const cle=_pkPal(convPlanPoche,convPlanTk);_planSave(o);_planFlash=cle;R();toast("Plan de sortie enregistré");};
-function _achatEditorHtml(tk){
+function _achatEditorHtml(poche,tk){
   const sym=curSym(_tkCur(tk));
   const c=_tkCours(tk);
-  const q=(ga().ap||[]).find(y=>y.ticker===tk);
-  const o=_achat(tk)||{unit:"qty",rows:[]};
+  const q=poche?(ga().ap||[]).find(y=>y.ticker===tk&&y.poche===poche):(ga().ap||[]).find(y=>y.ticker===tk);
+  const o=_achat(poche,tk)||{unit:"qty",rows:[]};
   const rows=(o.rows&&o.rows.length)?o.rows:[{q:"",px:""}];
   // Pas de cours connu : on le dit, on n'affiche pas un repère faux.
   const qt=q?(q.qty||0):0;
@@ -3135,9 +3196,9 @@ function _achatEditorHtml(tk){
   const lignesLabel=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tes paliers</div>`;
   const lignes=rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input id="acq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="amount"?"500":"10"}" onchange="_achSet(${i},'q',this.value)" style="width:74px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut);width:44px">${unite}</span><span style="font-size:11px;color:var(--mut)">à</span><input id="acp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="120" onchange="_achSet(${i},'px',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut)">${esc(sym)}</span><span onclick="_achDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`).join("");
   const ajout=`<div onclick="_achAdd()" style="display:inline-block;margin-top:4px;margin-bottom:22px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`;
-  const flash=(_achatFlash&&achatTk===tk)?`<span style="font-size:11.5px;color:var(--dim);margin-left:12px">Enregistré ✓</span>`:"";
+  const flash=(_achatFlash&&achatTk===tk&&achatPoche===poche)?`<span style="font-size:11.5px;color:var(--dim);margin-left:12px">Enregistré ✓</span>`:"";
   const btn=`<div style="display:flex;align-items:center;margin-bottom:16px"><button class="btn btn-p" style="padding:12px 22px;font-size:13.5px;font-weight:700" onclick="_achEnregistrer()">Enregistrer</button>${flash}</div>`;
-  const div=_achatDivergence(tk);
+  const div=_achatDivergence(poche,tk);
   const note=div?`<div style="font-size:10.5px;color:var(--amb);line-height:1.55;margin-bottom:8px">Ton alerte de baisse est réglée sur ${vg(div.seuil,2)} ${esc(sym)}, alors que ton prochain palier d'achat est à ${vg(div.plan,2)} ${esc(sym)}. Elle a été modifiée à la main : le plan ne l'écrase pas.</div>`:"";
   const rappel=`<div style="font-size:10.5px;color:var(--mut);line-height:1.55">Le palier le plus proche sous le cours alimente ton alerte de baisse : tu es prévenu quand le prix y arrive.</div>`;
   const secondaire=`<div style="border-top:1px solid var(--sep);padding-top:10px">${note}${rappel}</div>`;
@@ -3217,7 +3278,7 @@ ${cell("Poids bourse",vg(poids,1)+" %")}
 <div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Conviction</span><span class="mono" id="${_convId}" style="font-size:16px;font-weight:800;color:${_convColor(conv)}">${conv}</span></div>${convSlider}</div>
 <div class="card card-tap" onclick="openBoussole('${escAttr(tk)}')" style="margin-bottom:8px;padding:11px 13px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">Ma boussole${(()=>{const n=_boussoleCompte(tk);return n?` <span style="color:var(--mut);font-weight:400">· ${n} entrée${n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px;line-height:1.5">${these?esc(these.length>92?these.slice(0,91)+"…":these):"Tes convictions et tes décisions, à relire quand tu doutes"}</div></div><span style="color:var(--acc);font-size:16px">›</span></div>
 ${(()=>{const et=_nextEarn(p);return et?`<div class="card" style="margin-bottom:8px;font-size:12px">📅 Prochains résultats · ${new Date(et*1000).toLocaleDateString("fr-FR")} <span style="font-size:9px;background:#6c8cff22;color:var(--acc);border-radius:99px;padding:1px 7px;margin-left:4px">auto</span></div>`:"";})()}
-<div class="card" style="margin-bottom:8px"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Mes plans sur cette ligne</div><div onclick="openPlan('${escAttr(tk)}','${escAttr(poche)}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:12.5px;color:var(--txt)">Plan de sortie${(()=>{const _n=_paliersRows(poche,tk).length;return _n?` <span style="color:var(--mut)">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix vendre, et quelle part</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div onclick="openAchat('${escAttr(tk)}')" style="display:flex;align-items:center;gap:10px;padding:10px 0 12px;cursor:pointer"><div style="flex:1"><div style="font-size:12.5px;color:var(--txt)">Plan d'achat${(()=>{const _n=_achatRows(tk).length;return _n?` <span style="color:var(--mut)">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix renforcer, et combien</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Alerte de baisse</div>${_achatRows(tk).length?`<div style="display:flex;align-items:center;gap:8px;background:var(--inp);border-radius:8px;padding:9px 10px"><div style="flex:1;font-size:11.5px;color:var(--dim);line-height:1.5">Seuil bas ${p.cible!=null?`<b>${vg(p.cible,2)} ${esc(sym)}</b>`:"—"} — il vient de ton plan d'achat.</div><span onclick="openAchat('${escAttr(tk)}')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer">Modifier ›</span></div>`:`<div style="display:flex;gap:8px"><input id="fCB" inputmode="decimal" value="${p.cible||""}" placeholder="Seuil bas (${sym})" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-family:inherit;font-size:12px"><button class="btn" style="font-size:11px;padding:8px 10px" onclick="savePlanTargets('${escAttr(poche)}','${escAttr(tk)}')">OK</button></div>`}
+<div class="card" style="margin-bottom:8px"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Mes plans sur cette ligne</div><div onclick="openPlan('${escAttr(tk)}','${escAttr(poche)}')" style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:12.5px;color:var(--txt)">Plan de sortie${(()=>{const _n=_paliersRows(poche,tk).length;return _n?` <span style="color:var(--mut)">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix vendre, et quelle part</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div onclick="openAchat('${escAttr(tk)}',null,'${escAttr(poche)}')" style="display:flex;align-items:center;gap:10px;padding:10px 0 12px;cursor:pointer"><div style="flex:1"><div style="font-size:12.5px;color:var(--txt)">Plan d'achat${(()=>{const _n=_achatRows(poche,tk).length;return _n?` <span style="color:var(--mut)">· ${_n} palier${_n>1?"s":""}</span>`:"";})()}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix renforcer, et combien</div></div><span style="color:var(--mut);font-size:14px">›</span></div><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Alerte de baisse</div>${_achatRows(poche,tk).length?`<div style="display:flex;align-items:center;gap:8px;background:var(--inp);border-radius:8px;padding:9px 10px"><div style="flex:1;font-size:11.5px;color:var(--dim);line-height:1.5">Seuil bas ${p.cible!=null?`<b>${vg(p.cible,2)} ${esc(sym)}</b>`:"—"} — il vient de ton plan d'achat.</div><span onclick="openAchat('${escAttr(tk)}',null,'${escAttr(poche)}')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer">Modifier ›</span></div>`:`<div style="display:flex;gap:8px"><input id="fCB" inputmode="decimal" value="${p.cible||""}" placeholder="Seuil bas (${sym})" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-family:inherit;font-size:12px"><button class="btn" style="font-size:11px;padding:8px 10px" onclick="savePlanTargets('${escAttr(poche)}','${escAttr(tk)}')">OK</button></div>`}
 ${prog!=null?`<div style="margin-top:10px"><div style="height:6px;border-radius:3px;background:var(--inp);overflow:hidden"><div style="height:6px;background:var(--acc);width:${vg(prog,0)}%"></div></div><div class="mono" style="display:flex;justify-content:space-between;font-size:9px;color:var(--mut);margin-top:3px"><span>PRU ${fmt2_(p.pru)}</span><span style="color:var(--txt)">${fmt2_(p.cours)}</span><span>${fmt2_(p.cibleHaut)}</span></div></div>`:""}</div>
 <div style="display:flex;gap:8px;margin-bottom:16px"><button class="btn" style="flex:1;background:#34d39915;border:1px solid #34d39944;color:var(--grn)" onclick="reinforce('${escAttr(poche)}','${escAttr(tk)}')">＋ Acheter</button><button class="btn" style="flex:1;background:#f8717115;border:1px solid #f8717144;color:var(--red)" onclick="sellPos('${escAttr(poche)}','${escAttr(tk)}')">− Vendre</button><button class="btn" style="flex:1" onclick="ePos('${escAttr(poche)}','${escAttr(tk)}')">Modifier</button></div>
 </div>`;}
@@ -3264,7 +3325,7 @@ window.openTitre=(tk)=>{
   if(aSym&&(aSym.includes(".")?aSym.split(".")[0]:aSym).toUpperCase()===t)return;
   const x=(ga().ap||[]).find(y=>String(y.ticker).toUpperCase()===t);
   const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>String(y.ticker).toUpperCase()===t);
-  const a=_achat(tk)||_achat(t);
+  const a=(_achatToutes(tk)[0]||_achatToutes(t)[0]||{}).o||null;
   const sym=x?(_ySym(x)||x.ticker):(w?w.sym:((a&&a.sym)||t));
   const nom=x?(x.titre||t):(w?(w.name||t):((a&&a.name)||t));
   const cur=x?curOf(x):(w?w.cur:((a&&a.cur)||_devise("",sym)||"EUR"));
@@ -3632,7 +3693,7 @@ return h;}
 
 function _achatCarteFiche(){const tk=aSym.includes(".")?aSym.split(".")[0]:aSym;
   const cours=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
-  const n=_achatRows(tk).length;
+  const n=_achatRows("",tk).length;
   return `<div onclick="openAchat('${escAttr(tk)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${cours!=null?cours:"null"}})" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:12.5px;font-weight:700">Plan d'achat${n?` <span style="color:var(--mut);font-weight:400">· ${n} palier${n>1?"s":""}</span>`:""}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">À quels prix tu comptes entrer, et combien</div></div><span style="color:var(--acc);font-size:16px">›</span></div>`;}
 // Les actus de CE titre : même source que l'onglet Actus, même filtre de pertinence, mais
 // interrogée sur un seul ticker (le titre affiché n'est pas forcément détenu ni suivi).
@@ -3664,7 +3725,7 @@ function aNewsHtml(){
   return aData.news.map(a=>`<a href="${escAttr(a.link)}" target="_blank" rel="noopener" class="card card-tap" style="display:block;text-decoration:none;color:inherit;margin-bottom:6px;padding:12px 13px"><div style="font-size:12.5px;font-weight:600;line-height:1.45">${esc(a.title)}</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:5px"><span style="font-size:10px;color:var(--mut)">${esc(a.publisher)}</span><span style="font-size:10px;color:var(--mut)">${a.t?_relTime(a.t):""}</span></div></a>`).join("");
 }
 function aPortfHtml(){const hold=_findHolding(aSym,aData.tkGuess);
-if(!hold){const _tk=aSym.includes(".")?aSym.split(".")[0]:aSym;const _np=_achatRows(_tk).length;
+if(!hold){const _tk=aSym.includes(".")?aSym.split(".")[0]:aSym;const _np=_achatRows("",_tk).length;
 const _c=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
 return `<div style="text-align:center;padding:20px 16px"><div style="font-size:30px;opacity:.5">💼</div><div style="font-size:13px;color:var(--dim);margin:10px 0 14px">Pas encore dans ton portefeuille.</div><button class="btn btn-p" onclick="aAddFlow()" style="font-size:13px">＋ Ajouter à une enveloppe</button><div style="height:10px"></div><button class="btn btn-p" onclick="openAchat('${escAttr(_tk)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${_c!=null?_c:"null"}})" style="font-size:13px">${_np?`Modifier mon plan d'achat · ${_np} palier${_np>1?"s":""}`:"＋ Ajouter un plan d'achat"}</button></div>`;}
 let h=_achatCarteFiche();hold.forEach(({poche,x})=>{const cur=curOf(x),sym=curSym(cur);const inv=(x.qty||0)*(x.pru||0);const val=(x.qty||0)*(x.cours||0);const pv=val-inv;const pvP=inv>0?pv/inv*100:0;const cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])||0;const these=(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])||"";const plan=(D.prefs&&D.prefs.plan&&D.prefs.plan[x.ticker])||null;const jr=(D.prefs&&D.prefs.journal&&D.prefs.journal[x.ticker])||[];
@@ -4056,7 +4117,7 @@ function _bRetour(lbl,act){return `<div onclick="${act}" style="display:inline-f
 function outilsHubHtml(){
   const wl=(D.prefs&&D.prefs.watchlist)||[];
   const lists=(D.prefs&&D.prefs.watchLists)||[];
-  const plans=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
+  const plans=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(cle=>{const d=_achatCleSplit(cle);return _achatRows(d.poche,d.tk).length;});
   const tuile=(id,titre,sous)=>`<div onclick="${id==="cmp"?"openCmp()":`setBTool('${id}')`}" class="card card-tap" style="padding:14px 12px;margin:0;display:flex;flex-direction:column;justify-content:space-between;min-height:96px"><div style="font-size:13px;font-weight:700;line-height:1.3">${titre}</div><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">${sous}</div></div>`;
   const entree=(page,titre,sous,cpt)=>`<div onclick="setBPage('${page}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:600">${titre}</div><div style="font-size:10.5px;color:var(--mut);margin-top:3px">${sous}</div></div>${cpt?`<span class="mono" style="font-size:10.5px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:2px 9px">${cpt}</span>`:""}<span style="color:var(--mut);font-size:14px;margin-left:8px">›</span></div>`;
   let s2=`<div class="card card-tap" onclick="openSearchModal('view')" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:14px;border:1.5px solid #6c8cff55"><span style="color:var(--acc);font-size:14px">🔎</span><span style="flex:1;color:var(--mut);font-size:13px">Rechercher (nom, ticker, ISIN)</span></div>`;
@@ -4085,16 +4146,17 @@ function watchListsPageHtml(){
 }
 // Tous les plans d'achat, qu'ils soient rangés dans une liste ou non.
 function plansAchatPageHtml(){
-  const tks=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(tk=>_achatRows(tk).length);
+  const tks=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(cle=>{const d=_achatCleSplit(cle);return _achatRows(d.poche,d.tk).length;})
+    .map(_achatCleSplit);
   let s2=_bRetour("Outils et suivi","setBPage(null)")+`<h2 style="font-size:18px;font-weight:700;margin:0 2px 4px">Plans d'achat</h2>`
     +`<div style="font-size:11px;color:var(--mut);line-height:1.5;margin:0 2px 12px">À quels prix tu comptes entrer, et combien. Un plan n'a pas besoin d'être rangé dans une liste.</div>`;
   const bAjout=`<div onclick="openSearchModal('achat')" class="card card-tap" style="display:flex;align-items:center;justify-content:center;gap:7px;padding:13px;margin-top:10px;border:1px dashed #6c8cff66;color:var(--acc);font-size:12.5px;font-weight:700">＋ Nouveau plan d'achat</div>`;
   if(!tks.length)return s2+`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px;line-height:1.6">Aucun plan d'achat pour l'instant.<br>Cherche un titre pour lui en créer un.</div>`+bAjout;
-  const lignes=tks.map(tk=>{const rows=_achatRows(tk).slice().sort((a,b)=>b.px-a.px);
+  const lignes=tks.map(d=>{const tk=d.tk,poche=d.poche;const rows=_achatRows(poche,tk).slice().sort((a,b)=>b.px-a.px);
     const sym=curSym(_tkCur(tk));const c=_tkCours(tk);
-    const prochain=_achatSuivant(tk);
+    const prochain=_achatSuivant(poche,tk);
     const etat=c==null?"cours inconnu":(prochain?`prochain palier ${vg(prochain.px,2)} ${esc(sym)}`:`tous les paliers atteints`);
-    return `<div onclick="openAchat('${escAttr(tk)}')" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)} · ${rows.length} palier${rows.length>1?"s":""} · ${etat}</div></div><div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:12px">${c!=null?vg(c,2)+" "+esc(sym):"—"}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;}).join("");
+    return `<div onclick="openAchat('${escAttr(tk)}',null,'${escAttr(poche)}')" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}${poche?` <span style="font-size:10px;color:var(--mut);font-weight:400">· ${esc(poche)}</span>`:""}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)} · ${rows.length} palier${rows.length>1?"s":""} · ${etat}</div></div><div style="text-align:right;flex-shrink:0"><div class="mono" style="font-size:12px">${c!=null?vg(c,2)+" "+esc(sym):"—"}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;}).join("");
   return s2+`<div class="card">${lignes}</div>`+bAjout;
 }
 // Simulateur : de la capitalisation, rien d'autre. Aucune donnée externe, aucun conseil.
@@ -4191,7 +4253,7 @@ window._wlMenu=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.fin
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><div><h3 style="font-size:16px;font-weight:700">${esc(w.ticker||sym)}</h3>${w.name?`<div style="font-size:11px;color:var(--mut);margin-top:2px">${esc(w.name)}</div>`:""}</div><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
    +it("Alerte de prix","Un seuil bas, un seuil haut, ou les deux",`setWatchTarget('${escAttr(sym)}')`)
    +it("Note","Écrire dans Ma boussole",`cm();openBoussole('${escAttr(w.ticker||sym)}')`)
-   +it("Plan d'achat","À quels prix tu comptes entrer",`cm();openAchat('${escAttr(w.ticker||sym)}')`)
+   +it("Plan d'achat","À quels prix tu comptes entrer",`cm();openAchat('${escAttr(w.ticker||sym)}',null,'')`)
    +it("Ranger","Déplacer vers une autre liste",`moveWatch('${escAttr(sym)}')`)
    +it("Retirer","Enlever de ta liste de suivi",`askDelWatch('${escAttr(sym)}')`));};
 window.moveWatch=(sym)=>{const w=D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;const lists=(D.prefs.watchLists||[]);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Déplacer ${esc(w.ticker)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div>`+lists.map(l=>`<button class="btn" style="width:100%;margin-bottom:6px;text-align:left;${w.listId===l.id?"border-color:var(--acc);color:var(--acc)":""}" onclick="setWatchList('${escAttr(w.sym)}','${escAttr(l.id)}')">${esc(l.name)}</button>`).join("")+`<button class="btn" style="width:100%;margin-bottom:6px;text-align:left;${!w.listId?"border-color:var(--acc);color:var(--acc)":""}" onclick="setWatchList('${escAttr(w.sym)}','')">Non classées</button>`);};
@@ -4206,7 +4268,7 @@ window._gsPick=(i)=>{const m=window._gsRes&&window._gsRes[i];if(!m)return;
  // Créer un plan d'achat sur un titre cherché : même mécanique que partout ailleurs, la
  // liste de suivi restera proposée (et facultative) au moment d'enregistrer.
  if(window._searchMode==="achat"){const _sy=m.symbol;const _tk=(_sy.includes(".")?_sy.split(".")[0]:_sy).toUpperCase();
-   cm();openAchat(_tk,{sym:_sy,name:m.longname||m.shortname||_sy,cur:_devise(m.currency,_sy,m.exchange)||"EUR",cours:null});return;}
+   cm();openAchat(_tk,{sym:_sy,name:m.longname||m.shortname||_sy,cur:_devise(m.currency,_sy,m.exchange)||"EUR",cours:null},"");return;}
  if(window._searchMode==="add"){addWatch(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",window._searchTargetList);cm();toast("Ajouté");R();}else{cm();aOpen(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",null,window._gsIsin||null);}};
 function explorerHtml(){const fxR=(D.prefs&&D.prefs.fxRates)||{};const curList=[...new Set(["EUR","USD","GBP","CHF","JPY","CAD","AUD"].concat(Object.keys(fxR)))];const opt=(selc)=>curList.map(c=>`<option value="${c}" ${c===selc?"selected":""}>${curSym(c)} ${c}</option>`).join("");const cf=convFrom||"USD",ct=convTo||"EUR",ca=(convAmt!=null?convAmt:100);const convResVal=ca*toEur(cf)/toEur(ct);const oneRate=toEur(cf)/toEur(ct);let s=`<div class="fade">`;s+=`<div class="card"><div class="section">Convertisseur</div><input id="convAmt" inputmode="decimal" value="${ca}" oninput="_convCalc()" style="width:100%;margin-bottom:8px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;color:var(--txt);font-family:inherit;font-size:15px;padding:10px 12px;outline:none"><div style="display:flex;align-items:center;gap:8px"><select id="convFrom" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit">${opt(cf)}</select><button onclick="convSwap()" style="background:none;border:1px solid var(--bdr);border-radius:8px;padding:8px 11px;color:var(--acc);cursor:pointer;font-size:15px">↔</button><select id="convTo" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit">${opt(ct)}</select></div><div style="text-align:center;margin-top:12px"><div class="mono" id="convRes" style="font-size:24px;font-weight:700;color:var(--acc)">${fmt2_(convResVal)} ${curSym(ct)}</div><div id="convRate" style="font-size:10px;color:var(--mut);margin-top:2px">1 ${cf} = ${oneRate.toFixed(4)} ${ct}</div></div></div>`;s+=`</div>`;return s;}
 window._convCalc=()=>{const a=pn((document.getElementById("convAmt")||{}).value);const f=(document.getElementById("convFrom")||{}).value||"EUR";const t=(document.getElementById("convTo")||{}).value||"EUR";convAmt=a;convFrom=f;convTo=t;const res=a*toEur(f)/toEur(t);const el=document.getElementById("convRes");const rt=document.getElementById("convRate");if(el)el.textContent=fmt2_(res)+" "+curSym(t);if(rt)rt.textContent="1 "+f+" = "+(toEur(f)/toEur(t)).toFixed(4)+" "+t;};
@@ -4253,7 +4315,7 @@ const higherBetter={"PER":false,"Marge nette":true,"Croissance CA":true,"Dividen
 h+=`<div class="card" style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><thead><tr><td></td>${cmpList.map((c,i)=>`<td style="padding:6px 8px;font-weight:700;color:${COLS[i%COLS.length]};text-align:right">${esc(c.sym)}</td>`).join("")}</tr></thead><tbody>${rows.map(r=>{const vals=cmpList.map(c=>r[1](c));const nums=vals.map(v=>{const n=parseFloat(String(v).replace("%","").replace(",","."));return isNaN(n)?null:n;});let bestIdx=-1;if(nums.some(n=>n!=null)){const dir=higherBetter[r[0]];let best=null;nums.forEach((n,i)=>{if(n==null)return;if(best==null||(dir?n>best:n<best)){best=n;bestIdx=i;}});}return `<tr style="border-top:1px solid var(--sep)"><td style="padding:6px 8px;color:var(--dim)">${r[0]}</td>${vals.map((v,i)=>`<td style="padding:6px 8px;text-align:right;font-family:monospace;${i===bestIdx?"color:var(--grn);font-weight:700":""}">${v}</td>`).join("")}</tr>`;}).join("")}</tbody></table></div>`;
 h+=`</div>`;return h;}
 window.addWatch=(sym,name,cur,listId)=>{if(!D.prefs)D.prefs={};if(!D.prefs.watchlist)D.prefs.watchlist=[];const existing=D.prefs.watchlist.find(x=>x.sym===sym);if(existing){if(listId!==undefined)existing.listId=listId||null;save();return;}const tk=sym.includes(".")?sym.split(".")[0]:sym;D.prefs.watchlist.push({sym,ticker:tk,name:name||tk,cur:cur||"USD",listId:listId||null});save();};
-window._askDelWatchPlan=(sym,tk)=>{const n=_achatRows(tk).length;
+window._askDelWatchPlan=(sym,tk)=>{const n=_achatRows("",tk).length;
   const it=(lib,sous,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1"><div style="font-size:13px;color:var(--txt)">${lib}</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">${sous}</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`;
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Retirer ${esc(tk)} du suivi</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
    +`<div style="font-size:11.5px;color:var(--mut);line-height:1.55">Ce titre a un plan d'achat (${n} palier${n>1?"s":""}). Que veux-tu en faire ?</div>`
@@ -4262,24 +4324,24 @@ window._askDelWatchPlan=(sym,tk)=>{const n=_achatRows(tk).length;
 window._delWatchGarde=(sym)=>{const w=(D.prefs.watchlist||[]).find(x=>x.sym===sym);
   if(w){_achatIdentiteDepuis(w);}
   delWatch(sym);cm();};
-window._delWatchTout=(sym,tk)=>{_setAchat(tk,null);
+window._delWatchTout=(sym,tk)=>{_setAchat("",tk,null);
   if(D.prefs&&D.prefs.achatSync){delete D.prefs.achatSync[tk];delete D.prefs.achatSync["wl:"+tk];}
   delWatch(sym);cm();};
 // Avant de perdre la ligne de suivi, le plan récupère ce qu'elle savait du titre.
-function _achatIdentiteDepuis(w){const o=_achat(w.ticker);if(!o)return;
+function _achatIdentiteDepuis(w){const o=_achat("",w.ticker);if(!o)return;
   if(!o.sym)o.sym=w.sym;if(!o.name)o.name=w.name;if(!o.cur)o.cur=w.cur;
   if(o.lastCours==null&&w.lastCours!=null){o.lastCours=w.lastCours;o.lastUpd=w.lastUpd||Date.now();}}
 window.delWatch=(sym)=>{if(D.prefs&&D.prefs.watchlist){D.prefs.watchlist=D.prefs.watchlist.filter(x=>x.sym!==sym);save();}};
 window.askDelWatch=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;
   // Le plan d'achat ne dépend pas de la liste : on ne le supprime pas dans son dos.
-  if(_achatRows(w.ticker).length)return _askDelWatchPlan(sym,w.ticker);
+  if(_achatRows("",w.ticker).length)return _askDelWatchPlan(sym,w.ticker);
   sm(`<div style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Retirer du suivi ?</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:16px">Retirer <b>${esc(w.ticker||w.name||sym)}</b> de ta liste de suivi ?</p><button class="btn" style="width:100%;background:var(--red);color:#fff;border:none" onclick="delWatch('${escAttr(sym)}');cm();R();">Retirer</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);};
 window.setWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Alertes ${esc(w.ticker)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><p style="font-size:11px;color:var(--dim);margin-bottom:12px">Mets un seuil bas, un seuil haut, ou les deux (en ${esc(w.cur)}).</p><div class="row"><div class="field"><label>Alerte ↓ bas</label><input id="wtl" value="${w.target!=null?w.target:""}" inputmode="decimal" placeholder="ex: 5"></div><div class="field"><label>Alerte ↑ haut</label><input id="wth" value="${w.targetHigh!=null?w.targetHigh:""}" inputmode="decimal" placeholder="ex: 10"></div></div><div style="font-size:10px;color:var(--mut);margin:2px 0 12px">↓ alerte quand le cours descend dessous · ↑ quand il monte dessus</div><button class="btn btn-p" onclick="saveWatchTarget('${escAttr(sym)}')">Enregistrer</button>`);};
 window.saveWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;const loRaw=(document.getElementById("wtl")||{}).value||"";const hiRaw=(document.getElementById("wth")||{}).value||"";const lo=pn(loRaw),hi=pn(hiRaw);if(loRaw.trim()&&lo>0){w.target=lo;}else{delete w.target;delete w.notified;}if(hiRaw.trim()&&hi>0){w.targetHigh=hi;}else{delete w.targetHigh;delete w.notifiedHigh;}cm();save();};
 window.refreshWatch=async()=>{if(!D.prefs)return;
   // Un plan d'achat sans liste doit quand même voir son cours suivi, sinon il ne se
   // déclencherait jamais.
-  const plans=Object.keys(D.prefs.achat||{}).map(tk=>({tk:tk,o:D.prefs.achat[tk]}))
+  const plans=Object.keys(D.prefs.achat||{}).map(cle=>{const d=_achatCleSplit(cle);return {tk:d.tk,o:D.prefs.achat[cle]};})
     .filter(p=>p.o&&p.o.sym&&!((D.prefs.watchlist||[]).some(w=>w.ticker===p.tk))&&!(ga().ap||[]).some(y=>y.ticker===p.tk));
   for(const p of plans){try{const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(p.o.sym)}&range=5d&_t=${Date.now()}`);const j=await r.json();const res=j&&j.chart&&j.chart.result&&j.chart.result[0];const meta=res&&res.meta;const px=meta&&meta.regularMarketPrice;if(px!=null){p.o.lastCours=px;p.o.lastUpd=Date.now();}}catch(e){}}
   if(plans.length){_syncCibleAchat();save();}
