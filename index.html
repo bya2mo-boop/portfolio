@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "218";
+const APP_VERSION = "219";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -3169,6 +3169,52 @@ window._achEnregistrer=()=>{const o=_achatLireDOM(_achatObj());const tk=achatTk;
 // Le composant de paliers est écrit UNE fois et servi partout : page dédiée, parcours
 // « À compléter », accès depuis la fiche action. Un seul code, donc jamais deux versions
 // qui divergent. L'appelant pose convPlanTk avant d'appeler.
+// ── Calculateur de paliers ─────────────────────────────────────────────────
+// Un palier a toujours deux faces : un nombre d'actions et un montant. On affiche celle que
+// l'utilisateur n'a pas saisie, deduite du prix cible de la ligne.
+//   montant / prix = actions   ·   actions x prix = montant   ·   % x position = actions
+// Une ligne incomplete ne produit rien : mieux vaut aucun chiffre qu'un zero trompeur.
+function _palFaces(unit,q,px,base){
+  const p=Number(px)||0,n=Number(q)||0;
+  if(!(p>0)||!(n>0))return null;
+  if(unit==="amount")return {act:n/p,mnt:n};
+  if(unit==="pct"){const b=Number(base)||0;if(!(b>0))return null;const a=b*n/100;return {act:a,mnt:a*p};}
+  return {act:n,mnt:n*p};
+}
+// Sous une ligne : court, une seule information, jamais une phrase.
+function _palLigneTxt(unit,f,sym,sens){
+  if(!f)return "";
+  if(unit==="amount")return vg(f.act,2)+" actions";
+  if(unit==="pct")return vg(f.act,2)+" actions · "+fmt2_(f.mnt)+" "+sym;
+  return fmt2_(f.mnt)+" "+sym+(sens==="achat"?" à investir":" récupérés");
+}
+// Le total ne s'affiche qu'a partir de deux paliers calculables : avec un seul, il repeterait
+// la ligne juste au-dessus.
+function _palTotalTxt(unit,rows,sym,base){
+  let mnt=0,act=0,v=0;
+  (rows||[]).forEach(r=>{const f=_palFaces(unit,r&&r.q,r&&r.px,base);if(f){mnt+=f.mnt;act+=f.act;v++;}});
+  return v>=2?("En tout : "+fmt2_(mnt)+" "+sym+" · "+vg(act,2)+" actions"):"";
+}
+// Mise a jour a la frappe. On n'ecrit que dans les zones de calcul, via textContent : aucun
+// rendu n'est declenche, donc le champ en cours de saisie garde son focus. L'unite, la devise
+// et la base sont lues sur l'element de total, pose au rendu : pas de recalcul d'agregat ici.
+function _palPeindre(prefQ,prefP,prefCalc,idTotal){
+  const t=document.getElementById(idTotal);
+  if(!t)return;
+  const unit=t.dataset.unit||"", sym=t.dataset.sym||"", sens=t.dataset.sens||"", base=Number(t.dataset.base)||0;
+  let mnt=0,act=0,valides=0;
+  for(let i=0;;i++){
+    const ec=document.getElementById(prefCalc+i);
+    if(!ec)break;
+    const eq=document.getElementById(prefQ+i),ep=document.getElementById(prefP+i);
+    const f=(eq&&ep)?_palFaces(unit,pn(eq.value),pn(ep.value),base):null;
+    ec.textContent=_palLigneTxt(unit,f,sym,sens);
+    if(f){mnt+=f.mnt;act+=f.act;valides++;}
+  }
+  t.textContent=(valides>=2)?("En tout : "+fmt2_(mnt)+" "+sym+" · "+vg(act,2)+" actions"):"";
+}
+window._achCalc=()=>_palPeindre("acq","acp","acCalc","acTotal");
+window._planCalc=()=>_palPeindre("plq","plp","plCalc","plTotal");
 function _planEditorHtml(x,fill){
   const sym=curSym(curOf(x));
   const o=_paliers(x.poche,x.ticker)||{unit:((_planUnitPend&&_planUnitPend.tk===x.ticker&&_planUnitPend.poche===x.poche)?_planUnitPend.unit:"pct"),base:x.qty||0,rows:[]};
@@ -3184,7 +3230,24 @@ function _planEditorHtml(x,fill){
   // discrètes, sous un filet séparateur.
   const bascule=`<div style="margin-bottom:16px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Unité</div><div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden">${[["pct","%"],["qty","actions"]].map(u=>`<span onclick="_planUnite('${u[0]}')" style="padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div></div>`;
   const lignesLabel=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tes paliers</div>`;
-  const lignes=rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input id="plq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="pct"?"50":"20"}" onchange="_planSet(${i},'q',this.value)" style="width:74px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut);width:44px">${o.unit==="pct"?"%":"actions"}</span><span style="font-size:11px;color:var(--mut)">à</span><input id="plp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="300" onchange="_planSet(${i},'px',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut)">${esc(sym)}</span><span onclick="_planDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`).join("");
+  // Deux champs de nature differente : chacun porte son libelle, on ne laisse jamais deux
+  // symboles de devise identiques se faire face sans repere.
+  const labQ=o.unit==="pct"?"% de la ligne":"actions à vendre";
+  const labP=`prix cible en ${esc(sym)}`;
+  const styleLab=`font-size:9px;color:var(--mut);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`;
+  const styleIn=`width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px`;
+  const lignes=rows.map((r,i)=>`<div style="margin-bottom:10px"><div style="display:flex;align-items:flex-end;gap:8px">`
+    +`<div style="width:104px;flex-shrink:0"><div style="${styleLab}">${labQ}</div><input id="plq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="pct"?"50":"20"}" oninput="_planCalc()" onchange="_planSet(${i},'q',this.value)" style="${styleIn}"></div>`
+    +`<span style="font-size:11px;color:var(--mut);padding-bottom:10px">à</span>`
+    +`<div style="flex:1;min-width:0"><div style="${styleLab}">${labP}</div><input id="plp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="300" oninput="_planCalc()" onchange="_planSet(${i},'px',this.value)" style="${styleIn}"></div>`
+    +`<span onclick="_planDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px 9px">✕</span></div>`
+    +`<div id="plCalc${i}" style="font-size:10.5px;color:var(--mut);margin-top:4px;min-height:13px">${esc(_palLigneTxt(o.unit,_palFaces(o.unit,r.q,r.px,qt),sym,"sortie"))}</div></div>`).join("");
+  const total=`<div id="plTotal" data-unit="${escAttr(o.unit)}" data-sym="${escAttr(sym)}" data-sens="sortie" data-base="${escAttr(String(qt))}" style="font-size:11.5px;color:var(--dim);font-weight:600;margin:2px 0 6px">${esc(_palTotalTxt(o.unit,rows,sym,qt))}</div>`;
+  // Une seule note, la ou la derivation n'est pas evidente : en %, le nombre d'actions depend
+  // de la taille de la position. En mode actions, le libelle de la ligne suffit.
+  const note=o.unit==="pct"
+    ? `<div style="font-size:10px;color:var(--mut);margin-bottom:10px;line-height:1.4">Le nombre d'actions et le montant se déduisent de ta part et du prix cible.</div>`
+    : "";
   const trop=(o.unit==="pct"&&somme>100)?`<div style="font-size:11px;color:var(--amb);margin-top:2px;margin-bottom:4px">Tes paliers totalisent ${vg(somme,0)} % de la position — plus que ce que tu détiens.</div>`:"";
   const ajout=`<div onclick="_planAdd()" style="display:inline-block;margin-top:4px;margin-bottom:22px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`;
   // Rien ne s'enregistre en silence : un bouton, et une confirmation qui reste affichée
@@ -3193,7 +3256,7 @@ function _planEditorHtml(x,fill){
   const btn=`<div style="display:flex;align-items:center;margin-bottom:16px"><button class="btn btn-p" style="padding:12px 22px;font-size:13.5px;font-weight:700" onclick="_planEnregistrer()">${fill?"Enregistrer et continuer":"Enregistrer"}</button>${flash}</div>`;
   const avert=(perime&&!o.hidWarn)?`<div style="display:flex;gap:8px;align-items:flex-start;background:var(--inp);border-radius:10px;padding:10px;margin-bottom:8px"><div style="flex:1;font-size:10.5px;color:var(--mut);line-height:1.5">Ces paliers sont en actions, et ta position a changé depuis : elle est passée de ${vg(perime.avant,0)} à ${vg(perime.apres,0)} actions. Un palier de ${rows[0]&&rows[0].q?vg(rows[0].q,0):"—"} actions vise maintenant ${rows[0]&&rows[0].q&&perime.apres?vg(rows[0].q/perime.apres*100,0):"—"} % de la ligne au lieu de ${rows[0]&&rows[0].q&&perime.avant?vg(rows[0].q/perime.avant*100,0):"—"} %.</div><span onclick="_planHidWarn()" style="color:var(--mut);font-size:14px;cursor:pointer">✕</span></div>`:"";
   const secondaire=avert?`<div style="border-top:1px solid var(--sep);padding-top:10px">${avert}</div>`:"";
-  return repere+bascule+lignesLabel+lignes+trop+ajout+btn+secondaire;
+  return repere+bascule+lignesLabel+lignes+trop+total+note+ajout+btn+secondaire;
 }
 function _planLireDOM(o){const rows=[];
   for(let i=0;i<o.rows.length;i++){const q=document.getElementById("plq"+i),px=document.getElementById("plp"+i);
@@ -3212,9 +3275,23 @@ function _achatEditorHtml(poche,tk){
   const qt=q?(q.qty||0):0;
   const repere=`<div style="font-size:11.5px;color:var(--dim);line-height:1.6;margin-bottom:12px">${c!=null?`cours ${vg(c,2)} ${esc(sym)}`:"Cours inconnu pour ce titre — il s'affichera dès qu'il aura été récupéré."}${q?`<br>PRU ${vg(q.pru,2)} ${esc(sym)} · ${vg(qt,qt%1?2:0)} action${qt>1?"s":""} déjà détenue${qt>1?"s":""}`:""}</div>`;
   const bascule=`<div style="margin-bottom:16px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Unité</div><div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden">${[["qty","actions"],["amount","montant"]].map(u=>`<span onclick="_achUnite('${u[0]}')" style="padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;background:${o.unit===u[0]?"var(--acc)":"transparent"};color:${o.unit===u[0]?"#fff":"var(--dim)"}">${u[1]}</span>`).join("")}</div></div>`;
-  const unite=o.unit==="amount"?esc(sym):"actions";
+  const labQ=o.unit==="amount"?`montant en ${esc(sym)}`:"actions à acheter";
+  const labP=`prix cible en ${esc(sym)}`;
+  const styleLab=`font-size:9px;color:var(--mut);margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis`;
+  const styleIn=`width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px`;
   const lignesLabel=`<div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Tes paliers</div>`;
-  const lignes=rows.map((r,i)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><input id="acq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="amount"?"500":"10"}" onchange="_achSet(${i},'q',this.value)" style="width:74px;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut);width:44px">${unite}</span><span style="font-size:11px;color:var(--mut)">à</span><input id="acp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="120" onchange="_achSet(${i},'px',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px"><span style="font-size:11px;color:var(--mut)">${esc(sym)}</span><span onclick="_achDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px">✕</span></div>`).join("");
+  const lignes=rows.map((r,i)=>`<div style="margin-bottom:10px"><div style="display:flex;align-items:flex-end;gap:8px">`
+    +`<div style="width:104px;flex-shrink:0"><div style="${styleLab}">${labQ}</div><input id="acq${i}" inputmode="decimal" value="${r.q!=null?r.q:""}" placeholder="${o.unit==="amount"?"500":"10"}" oninput="_achCalc()" onchange="_achSet(${i},'q',this.value)" style="${styleIn}"></div>`
+    +`<span style="font-size:11px;color:var(--mut);padding-bottom:10px">à</span>`
+    +`<div style="flex:1;min-width:0"><div style="${styleLab}">${labP}</div><input id="acp${i}" inputmode="decimal" value="${r.px!=null?r.px:""}" placeholder="120" oninput="_achCalc()" onchange="_achSet(${i},'px',this.value)" style="${styleIn}"></div>`
+    +`<span onclick="_achDel(${i})" style="color:var(--mut);font-size:15px;cursor:pointer;padding:0 2px 9px">✕</span></div>`
+    +`<div id="acCalc${i}" style="font-size:10.5px;color:var(--mut);margin-top:4px;min-height:13px">${esc(_palLigneTxt(o.unit,_palFaces(o.unit,r.q,r.px,0),sym,"achat"))}</div></div>`).join("");
+  const total=`<div id="acTotal" data-unit="${escAttr(o.unit)}" data-sym="${escAttr(sym)}" data-sens="achat" data-base="0" style="font-size:11.5px;color:var(--dim);font-weight:600;margin:2px 0 6px">${esc(_palTotalTxt(o.unit,rows,sym,0))}</div>`;
+  // Une seule note, uniquement la ou la derivation n'est pas evidente.
+  // Nom distinct : `note` est deja pris plus bas par l'avertissement de divergence d'alerte.
+  const noteCalc=o.unit==="amount"
+    ? `<div style="font-size:10px;color:var(--mut);margin-bottom:10px;line-height:1.4">Le nombre d'actions se déduit du montant divisé par le prix cible.</div>`
+    : "";
   const ajout=`<div onclick="_achAdd()" style="display:inline-block;margin-top:4px;margin-bottom:22px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Ajouter un palier</div>`;
   const flash=(_achatFlash&&achatTk===tk&&achatPoche===poche)?`<span style="font-size:11.5px;color:var(--dim);margin-left:12px">Enregistré ✓</span>`:"";
   const btn=`<div style="display:flex;align-items:center;margin-bottom:16px"><button class="btn btn-p" style="padding:12px 22px;font-size:13.5px;font-weight:700" onclick="_achEnregistrer()">Enregistrer</button>${flash}</div>`;
@@ -3222,7 +3299,7 @@ function _achatEditorHtml(poche,tk){
   const note=div?`<div style="font-size:10.5px;color:var(--amb);line-height:1.55;margin-bottom:8px">Ton alerte de baisse est réglée sur ${vg(div.seuil,2)} ${esc(sym)}, alors que ton prochain palier d'achat est à ${vg(div.plan,2)} ${esc(sym)}. Elle a été modifiée à la main : le plan ne l'écrase pas.</div>`:"";
   const rappel=`<div style="font-size:10.5px;color:var(--mut);line-height:1.55">Le palier le plus proche sous le cours alimente ton alerte de baisse : tu es prévenu quand le prix y arrive.</div>`;
   const secondaire=`<div style="border-top:1px solid var(--sep);padding-top:10px">${note}${rappel}</div>`;
-  return repere+bascule+lignesLabel+lignes+ajout+btn+secondaire;
+  return repere+bascule+lignesLabel+lignes+total+noteCalc+ajout+btn+secondaire;
 }
 function _convDormante(tk){
   const ts=_convTs(tk);
