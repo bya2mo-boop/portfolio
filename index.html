@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "219";
+const APP_VERSION = "221";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -115,7 +115,20 @@ function showUpdateBanner(v){
   document.getElementById("updReload").onclick = () => { location.href = location.pathname + "?v=" + v; };
   document.getElementById("updClose").onclick = () => { _updDismissed = true; b.remove(); };
 }
-document.addEventListener("visibilitychange", () => { if(!document.hidden) checkForUpdate(); });
+let _dernierRetourPremierPlan = 0;
+document.addEventListener("visibilitychange", () => {
+  if(document.hidden) return;
+  checkForUpdate();
+  // Garde-fou : un aller-retour rapide entre applications ne doit pas déclencher une rafale
+  // de requêtes. Deux minutes entre deux rafraîchissements d'ouverture suffisent.
+  if(Date.now() - _dernierRetourPremierPlan < 120000) return;
+  _dernierRetourPremierPlan = Date.now();
+  try{
+    if(typeof D!=="undefined" && D && typeof currentUser!=="undefined" && currentUser && typeof window.refreshPrices==="function"){
+      window.refreshPrices();
+    }
+  }catch(e){}
+});
 function applyTheme(){try{const t=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";document.documentElement.classList.toggle("light",t==="light");}catch(e){}}
 window.toggleTheme=()=>{try{const cur=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";const nx=cur==="light"?"dark":"light";try{localStorage.setItem("cvTheme",nx)}catch(e){}if(window.D&&D){D.prefs=D.prefs||{};D.prefs.theme=nx;}applyTheme();R();if(window.D&&D&&typeof saveLocal==="function")saveLocal();if(window.D&&D&&typeof pushToSupabase==="function"&&currentUser)setTimeout(pushToSupabase,50);}catch(e){}};
 applyTheme();
@@ -3408,12 +3421,20 @@ async function fundFetchHoldings(sym){
 function _ySym(x){if(!x)return null;if(x.avSymbol)return x.avSymbol;if(typeof KNOWN_EU!=="undefined"&&KNOWN_EU[x.ticker])return KNOWN_EU[x.ticker];return x.ticker;}
 function _fCacheGet(k,ttl){try{const o=JSON.parse(localStorage.getItem(k)||"null");if(o&&Date.now()-o.t<ttl)return o.d;}catch(e){}return null;}
 function _fCacheSet(k,d){try{localStorage.setItem(k,JSON.stringify({t:Date.now(),d:d}));}catch(e){}}
-async function fundFetch(kind,sym,extra){const k="cvF4:"+kind+":"+sym+(extra||"");const ttl=kind==="fund"?86400e3:(kind==="ohlc"?900e3:(kind==="holdings"?2592000e3:21600e3));let c=_fCacheGet(k,ttl);if(c){if(kind==="summary"&&!c.desc&&c.per==null&&c.cap==null&&!c.secteur&&c.fcf==null&&c.target==null){c=null;}else{return c;}}const _cb=Date.now();let d=null;try{const r=await fetchT(`${FUND_URL}/?${kind}=${encodeURIComponent(sym)}${extra||""}&_cb=${_cb}`,{cache:"no-store"},15000);d=await r.json();}catch(e){d=null;}if(d&&!d.error){_fCacheSet(k,d);return d;}const stale=_fCacheGet(k,ttl*4);return stale||d;}
+// Une bougie de 5 minutes n'a pas la même durée de vie qu'une bougie journalière : le cache
+// client doit distinguer les deux, sinon la vue du jour reste figée un quart d'heure.
+function _estIntraday(kind,extra){return kind==="ohlc"&&/range=(1d|5d)(&|$)/.test(extra||"");}
+async function fundFetch(kind,sym,extra){const k="cvF4:"+kind+":"+sym+(extra||"");const intra=_estIntraday(kind,extra);const ttl=kind==="fund"?86400e3:(intra?60e3:(kind==="ohlc"?900e3:(kind==="holdings"?2592000e3:21600e3)));let c=_fCacheGet(k,ttl);if(c){if(kind==="summary"&&!c.desc&&c.per==null&&c.cap==null&&!c.secteur&&c.fcf==null&&c.target==null){c=null;}else{return c;}}
+  // Sur l'intraday, l'URL doit être identique d'un utilisateur à l'autre pour que le cache
+  // partagé du worker serve tout le monde ; ailleurs on garde le cache-buster d'origine.
+  const suffixe=intra?"":`&_cb=${Date.now()}`;
+  let d=null;try{const r=await fetchT(`${FUND_URL}/?${kind}=${encodeURIComponent(sym)}${extra||""}${suffixe}`,{cache:"no-store"},15000);d=await r.json();}catch(e){d=null;}if(d&&!d.error){_fCacheSet(k,d);return d;}const stale=_fCacheGet(k,ttl*4);return stale||d;}
 const _fmtPct=v=>v==null?"—":((v*100).toFixed(1).replace(".",",")+" %");
 const _fmtBig=v=>{if(v==null)return "—";const a=Math.abs(v);if(a>=1e12)return (v/1e12).toFixed(2)+" T";if(a>=1e9)return (v/1e9).toFixed(1)+" Md";if(a>=1e6)return (v/1e6).toFixed(0)+" M";return Math.round(v).toLocaleString("fr-FR");};
 
 function _findHolding(sym,tkGuess){if(!D||!D.poches)return null;const res=[];Object.entries(D.poches).forEach(([n,pk])=>{(pk.positions||[]).forEach(x=>{if(_ySym(x)===sym||(tkGuess&&x.ticker===tkGuess)){res.push({poche:n,x});}});});return res.length?res:null;}
 
+window._horsSeanceInfo=()=>{sm(`<div style="margin-bottom:12px"><h3 style="font-size:17px;font-weight:700">Prix hors séance</h3></div><p style="font-size:13px;color:var(--txt);line-height:1.55;margin:0">C'est le prix échangé <b>en dehors des heures de bourse</b>, sur un marché très peu actif. Quelques ordres suffisent à le faire bouger : il donne une indication, pas une valeur.</p><p style="font-size:12px;color:var(--mut);line-height:1.5;margin:10px 0 0">👉 Il n'entre <b>jamais</b> dans ton patrimoine, ni dans tes alertes de prix. Ceux-ci utilisent le cours de clôture de la séance.</p><button class="btn" style="width:100%;margin-top:14px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Compris</button>`);};
 window.aClose=()=>{_resetTools();_navBack();};
 // Ouvre la fiche d'un titre depuis n'importe où. Ne fait rien si on y est déjà.
 window.openTitre=(tk)=>{
@@ -3434,10 +3455,48 @@ window.setATab=t=>{aTab=t;R();if(t==="desc")loadDesc();};
 window.aOpenFund=(sym,name,cur,isin)=>{aOpen(sym,name,cur,null,isin);aTab="fund";R();};
 window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();};
 window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);};
-window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();_aDeviseReelle(sym);};
+window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();_aCotation(sym);};
 // La devise déduite du suffixe n'est qu'une hypothèse. La source la donne : on la confirme
 // dès l'ouverture de la fiche, et on rectifie l'affichage si l'hypothèse était fausse.
-async function _aDeviseReelle(sym){const d=await _coursEtDevise(sym);if(!d||!d.cur)return;if(aSym!==sym)return;if(d.cur!==aCur){aCur=d.cur;R();}}
+// Le même appel rapporte le cours du moment et la clôture de la veille : le prix affiché et
+// le pourcentage du jour sortent ainsi du même relevé, jamais de deux sources différentes.
+async function _aCotation(sym){
+  if(typeof CG!=="undefined"&&CG[sym])return;
+  const d=await _coursEtDevise(sym);
+  if(!d||aSym!==sym)return;
+  aData.q={px:d.px,pc:d.pc,at:Date.now()};
+  if(d.cur&&d.cur!==aCur)aCur=d.cur;
+  R();
+  _aHorsSeance(sym);
+}
+// Hors séance : lecture seule, éphémère, cantonnée à la fiche ouverte.
+// Tant que le worker n'expose pas ces champs, la réponse ne contient rien et l'affichage
+// reste simplement absent — aucun repli, aucune valeur inventée.
+async function _aHorsSeance(sym){
+  try{
+    const r=await fetchT(`${FUND_URL}/?quotefull=${encodeURIComponent(sym)}&_cb=${Date.now()}`,{cache:"no-store"},12000);
+    const j=await r.json();
+    const q=j&&j[sym];
+    if(!q||aSym!==sym)return;
+    const etat=q.ms||"";
+    let libelle=null,px=null,pct=null;
+    if(etat==="PRE"&&q.preP>0){libelle="pré-ouverture";px=q.preP;pct=q.prePct;}
+    else if((etat==="POST"||etat==="POSTPOST")&&q.postP>0){libelle="after-market";px=q.postP;pct=q.postPct;}
+    if(px==null)return;
+    aData.hs={libelle:libelle,px:px,pct:(pct==null?null:pct)};
+    R();
+  }catch(e){}
+}
+function _vueIntradayOuverte(){
+  return tab==="bourse" && !cmpOpen && !!aSym
+      && aTab==="chart" && aPeriod==="1d"
+      && !document.hidden
+      && !(typeof CG!=="undefined"&&CG[aSym]);
+}
+// 120 s : les bougies font 5 minutes, donc échantillonner deux fois plus vite suffit à ne
+// jamais en manquer une. Plus court ne montrerait rien de neuf et solliciterait la source
+// pour rien.
+let _intradayTimer=setInterval(()=>{try{if(_vueIntradayOuverte())loadAChart();}catch(e){}},120000);
 async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
 async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
 try{
@@ -3468,6 +3527,19 @@ async function _translate(text,to){to=to||"fr";
 window.trDesc=async()=>{const t=aData.sum&&aData.sum.desc;if(!t)return;const btn=document.getElementById("trBtn");if(btn)btn.textContent="Traduction…";const out=await _translate(t,"fr");if(out){aData.descFr=out;R();}else if(btn)btn.textContent="Traduction indisponible";};
 
 let _aHoverIdx=null;
+// Étiquette de l'axe horizontal. Quand tout le graphique tient dans une journée, la date ne
+// dit rien (elle serait répétée quatre fois) : c'est l'heure qui porte l'information.
+// La vue 1 semaine a elle aussi plusieurs barres par jour, mais couvre plusieurs jours —
+// l'heure seule y serait illisible, d'où le seuil sur l'étendue et non sur la seule présence
+// de barres intrajournalières.
+function _etiqAxe(d,etendueSec,hasIntraday){
+  const uneSeance=hasIntraday&&etendueSec>0&&etendueSec<=36*3600;
+  if(!uneSeance)return d.getDate()+"/"+(d.getMonth()+1);
+  // Une séance à peine commencée tient dans quelques dizaines de minutes : sans les minutes,
+  // les quatre étiquettes afficheraient la même heure.
+  const minutes=etendueSec<3*3600;
+  return d.getHours()+"h"+(minutes?String(d.getMinutes()).padStart(2,"0"):"");
+}
 function drawAChart(){
   const cv=document.getElementById("aCanvas");if(!cv)return;
   const go=()=>{
@@ -3495,12 +3567,13 @@ function drawAChart(){
       ctx.setLineDash([]);ctx.globalAlpha=1;
       ctx.fillStyle=mut;ctx.textAlign="left";ctx.fillText(v.toFixed(v>=1000?0:v>=100?1:2), W-PR+FS*0.5, y+FS*0.35);
     }
+    const _etendue=(bars.length>1&&bars[0].t&&bars[bars.length-1].t)?(bars[bars.length-1].t-bars[0].t):0;
     const nlab=Math.min(4,bars.length);
     ctx.textAlign="center";ctx.fillStyle=mut;
     for(let li=0;li<nlab;li++){
       const idx=Math.round(li*(bars.length-1)/(nlab-1||1));
       const d=new Date(bars[idx].t*1000);
-      ctx.fillText(d.getDate()+"/"+(d.getMonth()+1), Math.max(PL+FS,Math.min(W-PR-FS,xf(idx))), H-FS*0.7);
+      ctx.fillText(_etiqAxe(d,_etendue,_hasIntraday), Math.max(PL+FS,Math.min(W-PR-FS,xf(idx))), H-FS*0.7);
     }
     const baseline=bars[0].c;
     if(aChartType==="line"){
@@ -3844,13 +3917,34 @@ window.aAddTo=(poche)=>{const tk=(aSym.includes(".")?aSym.split(".")[0]:aSym);co
 // Répartition des avis analystes (achat fort → vente forte) : barre empilée + compteurs.
 // N'affiche rien si la donnée n'est pas là (worker pas encore à jour) → aucune régression.
 function _analystSpread(rt){if(!rt)return"";const segs=[["Achat fort",rt.strongBuy||0,"#0e8f60"],["Achat",rt.buy||0,"#34d399"],["Conserver",rt.hold||0,"#fbbf24"],["Vente",rt.sell||0,"#f87171"],["Vente forte",rt.strongSell||0,"#b91c1c"]];const tot=segs.reduce((a,s)=>a+s[1],0);if(tot<=0)return"";const bar=`<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:10px 0 8px;background:var(--card)">`+segs.filter(s=>s[1]>0).map(s=>`<div style="width:${vg(s[1]/tot*100,1)}%;background:${s[2]}"></div>`).join("")+`</div>`;const rows=segs.map(s=>`<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;margin-bottom:2px;${s[1]===0?"opacity:.35":""}"><span style="width:9px;height:9px;border-radius:2px;background:${s[2]};flex-shrink:0"></span><span style="flex:1;color:var(--dim)">${s[0]}</span><span class="mono" style="font-weight:700">${s[1]}</span></div>`).join("");return `<div style="border-top:1px solid var(--sep);margin-top:8px;padding-top:8px">${bar}${rows}</div>`;}
-function actionPageHtml(){const bars=aData.ohlc||[];let cours=null,dp=null;if(bars.length){cours=bars[bars.length-1].c;const first=bars[0].c;if(first)dp=(cours-first)/first*100;}const _hp=_findHolding(aSym,aData.tkGuess);if(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0){cours=_hp[0].x.cours;}const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
+function actionPageHtml(){const bars=aData.ohlc||[];
+const _q=aData.q||null;
+const _crypto=(typeof CG!=="undefined"&&CG[aSym]);
+const _hp=_findHolding(aSym,aData.tkGuess);
+// Ordre de confiance pour le prix : la cotation du moment, puis la position détenue,
+// puis la dernière barre du graphique.
+let cours=(_q&&_q.px!=null)?_q.px:null;
+if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
+if(cours==null&&bars.length)cours=bars[bars.length-1].c;
+// La base du pourcentage dépend de la période : sur un jour c'est la clôture de la veille
+// (la variation du jour au sens usuel, celle qu'affichent les autres services), sur les
+// périodes longues c'est le début de la période.
+// Le 24 h/24 (crypto) n'a pas de clôture : sa première barre EST le début de journée.
+let base=null;
+if(aPeriod==="1d"&&!_crypto){ if(_q&&_q.pc>0)base=_q.pc; }
+else if(bars.length){ base=bars[0].c; }
+// Pas de base fiable, pas de pourcentage : un chiffre faux serait pire que pas de chiffre.
+let dp=(base>0&&cours!=null)?((cours-base)/base*100):null;
+const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
 if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="undefined"&&CG[aSym])){aData._isinTried=true;tickerToIsin(aSym).then(is=>{if(is){aData.isin=is;R();}});}
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
 let h=`<div class="fade">`;
 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
 if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
-  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;font-weight:600;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % (${esc(aPeriod)})</span>`:""}</div>`;
+  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;font-weight:600;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % ${aPeriod==="1d"?"auj.":"("+esc(aPeriod)+")"}</span>`:""}</div>`;
+// Une ligne discrète, nommée, qui ne peut pas se confondre avec le cours de séance.
+if(aData.hs&&aData.hs.px!=null){const _hs=aData.hs;const _hp2=_hs.pct;
+  h+=`<div style="display:flex;align-items:baseline;gap:7px;margin:-6px 0 12px;font-size:11px;color:var(--mut)"><span>${esc(_hs.libelle)}</span><span class="mono" style="font-weight:600">${fmt2_(_hs.px)} ${curSym(aCur)}</span>${_hp2!=null?`<span class="mono">${_hp2>=0?"+":""}${vg(_hp2,2)} %</span>`:""}<span onclick="_horsSeanceInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;background:var(--bdr);color:var(--dim);font-size:8px;font-weight:700;cursor:pointer">?</span></div>`;}
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["actu","Actu"],["portf","Mon portefeuille"]];
 h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-bottom:12px;overflow-x:auto">`+tabs.map(t=>`<span onclick="setATab('${t[0]}')" style="font-size:13px;padding-bottom:8px;white-space:nowrap;cursor:pointer;${aTab===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
 if(aTab==="chart"){
@@ -4457,7 +4551,9 @@ async function _coursEtDevise(sym){
     const res=j&&j.chart&&j.chart.result&&j.chart.result[0];
     const meta=res&&res.meta;
     if(!meta)return null;
-    return {px:(meta.regularMarketPrice!=null?meta.regularMarketPrice:null),cur:meta.currency||null};
+    return {px:(meta.regularMarketPrice!=null?meta.regularMarketPrice:null),
+            cur:meta.currency||null,
+            pc:(meta.chartPreviousClose!=null?meta.chartPreviousClose:null)};
   }catch(e){return null;}
 }
 // Par petits paquets : assez parallèle pour aboutir, assez modeste pour ne pas saturer la source.
