@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "221";
+const APP_VERSION = "222";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -3454,7 +3454,8 @@ window.setATab=t=>{aTab=t;R();if(t==="desc")loadDesc();};
 // Ouvre une fiche directement sur l'onglet Fondamentaux (utilisé par la grille Qualité).
 window.aOpenFund=(sym,name,cur,isin)=>{aOpen(sym,name,cur,null,isin);aTab="fund";R();};
 window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();};
-window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);};
+window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);
+  if(pp==="1d"&&aSym)try{_aCotation(aSym);}catch(e){}};
 window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();_aCotation(sym);};
 // La devise déduite du suffixe n'est qu'une hypothèse. La source la donne : on la confirme
 // dès l'ouverture de la fiche, et on rectifie l'affichage si l'hypothèse était fausse.
@@ -3496,7 +3497,7 @@ function _vueIntradayOuverte(){
 // 120 s : les bougies font 5 minutes, donc échantillonner deux fois plus vite suffit à ne
 // jamais en manquer une. Plus court ne montrerait rien de neuf et solliciterait la source
 // pour rien.
-let _intradayTimer=setInterval(()=>{try{if(_vueIntradayOuverte())loadAChart();}catch(e){}},120000);
+let _intradayTimer=setInterval(()=>{try{if(!_vueIntradayOuverte())return;loadAChart();_aCotation(aSym);}catch(e){}},120000);
 async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
 async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
 try{
@@ -3921,20 +3922,27 @@ function actionPageHtml(){const bars=aData.ohlc||[];
 const _q=aData.q||null;
 const _crypto=(typeof CG!=="undefined"&&CG[aSym]);
 const _hp=_findHolding(aSym,aData.tkGuess);
-// Ordre de confiance pour le prix : la cotation du moment, puis la position détenue,
-// puis la dernière barre du graphique.
-let cours=(_q&&_q.px!=null)?_q.px:null;
-if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
+// Un relevé de cotation vieux de plus d'un quart d'heure ne dit plus de quelle séance il
+// parle. Passé ce délai on ne s'en sert plus comme référence : le graphique, lui, continue
+// de se rafraîchir, et l'écart entre les deux est exactement ce qui produisait un faux
+// pourcentage.
+const _qFrais=!!(_q&&_q.at&&(Date.now()-_q.at)<15*60000);
+// Ordre de confiance pour le prix : la cotation du moment, puis la dernière barre du
+// graphique, puis la position détenue.
+let cours=(_qFrais&&_q.px!=null)?_q.px:null;
 if(cours==null&&bars.length)cours=bars[bars.length-1].c;
-// La base du pourcentage dépend de la période : sur un jour c'est la clôture de la veille
-// (la variation du jour au sens usuel, celle qu'affichent les autres services), sur les
-// périodes longues c'est le début de la période.
+if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
+// Le pourcentage se calcule sur un COUPLE prix/référence issu du même ensemble de données —
+// jamais un prix d'une source et une base d'une autre.
+//   1 jour  : clôture de la veille (la variation du jour au sens usuel) + prix du moment.
+//   sinon   : début et fin de la période affichée, tous deux pris dans les barres.
 // Le 24 h/24 (crypto) n'a pas de clôture : sa première barre EST le début de journée.
-let base=null;
-if(aPeriod==="1d"&&!_crypto){ if(_q&&_q.pc>0)base=_q.pc; }
-else if(bars.length){ base=bars[0].c; }
-// Pas de base fiable, pas de pourcentage : un chiffre faux serait pire que pas de chiffre.
-let dp=(base>0&&cours!=null)?((cours-base)/base*100):null;
+let base=null,coursCalc=null;
+if(aPeriod==="1d"&&!_crypto){
+  if(_qFrais&&_q.pc>0&&cours!=null){ base=_q.pc; coursCalc=cours; }
+}else if(bars.length&&cours!=null){ base=bars[0].c; coursCalc=cours; }
+// Pas de couple fiable, pas de pourcentage : un chiffre faux serait pire que pas de chiffre.
+let dp=(base>0&&coursCalc!=null)?((coursCalc-base)/base*100):null;
 const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
 if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="undefined"&&CG[aSym])){aData._isinTried=true;tickerToIsin(aSym).then(is=>{if(is){aData.isin=is;R();}});}
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
@@ -3950,7 +3958,7 @@ h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-
 if(aTab==="chart"){
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="display:flex;border:1px solid var(--bdr);border-radius:8px;overflow:hidden">${[["line","Ligne"],["candle","Bougies"]].map(t=>`<span onclick="setAType('${t[0]}')" style="font-size:11px;padding:6px 12px;cursor:pointer;${aChartType===t[0]?"background:var(--acc);color:#fff;font-weight:700":"color:var(--dim)"}">${t[1]}</span>`).join("")}</div></div>`;
 h+=`<canvas id="aCanvas" style="width:100%;height:210px;display:block;background:var(--inp);border-radius:10px"></canvas>`;
-if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));const o0=bars[0].o,cN=bars[bars.length-1].c;const perf=o0?((cN-o0)/o0*100):0;h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)],["Bas",fmt2_(lo2)],["Perf",`<span style="color:${perf>=0?"var(--grn)":"var(--red)"}">${perf>=0?"+":""}${vg(perf,1)} %</span>`]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:12px;font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
+if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)],["Bas",fmt2_(lo2)],[(aPeriod==="1d"?"Var. jour":"Perf"),(dp==null?`<span style="color:var(--mut)">—</span>`:`<span style="color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} %</span>`)]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:12px;font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
 h+=`<div style="display:flex;justify-content:space-between;margin-top:10px">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<span onclick="setAPeriod('${pp[0]}')" style="font-size:11px;padding:5px 9px;cursor:pointer;border-radius:8px;${aPeriod===pp[0]?"background:#6c8cff22;color:var(--acc);font-weight:700":"color:var(--dim)"}">${pp[1]}</span>`).join("")+`</div>`;
 }
 if(aTab==="fund")h+=aFundHtml();
