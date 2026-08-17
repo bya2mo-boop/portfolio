@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "223";
+const APP_VERSION = "224";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -115,6 +115,7 @@ function showUpdateBanner(v){
   document.getElementById("updReload").onclick = () => { location.href = location.pathname + "?v=" + v; };
   document.getElementById("updClose").onclick = () => { _updDismissed = true; b.remove(); };
 }
+let themeOpen=null,_themeDraft={liens:[]},_themeExp={};
 let _dernierRetourPremierPlan = 0;
 document.addEventListener("visibilitychange", () => {
   if(document.hidden) return;
@@ -987,7 +988,7 @@ function _convVuePage(vue,ctx){
     const tot=d.ap.filter(x=>!x.noPerf).reduce((s2,x)=>s2+(x.valeur||0),0)||1;
     const lst=d.ap.filter(x=>!x.noPerf&&!x.manual&&x.poche===convEnv).sort((a,b)=>(b.valeur||0)-(a.valeur||0));
     const notes=(D.prefs&&D.prefs.notes)||{};
-    const modes=[["conv","Convictions"],["these","Thèses"],["plan","Plans de sortie"]];
+    const modes=[["conv","Convictions"],["these","Thèses"],["plan","Plans de sortie"],["themes","Thèmes"]];
     const coupe=(t,n)=>{const v=String(t||"").replace(/\s+/g," ").trim();return v.length>n?v.slice(0,n-1)+"…":v;};
     // La liste ne change pas d'un mode à l'autre : même ordre, même filtre. Seule la colonne
     // de droite change, pour qu'on garde ses repères en basculant.
@@ -1010,11 +1011,60 @@ function _convVuePage(vue,ctx){
     const selMode=`<div style="display:inline-flex;border:1px solid var(--bdr);border-radius:999px;overflow:hidden;margin-bottom:12px">${modes.map(m=>`<span onclick="setConvMode('${m[0]}')" style="padding:6px 13px;font-size:11.5px;font-weight:600;cursor:pointer;background:${convMode===m[0]?"var(--acc)":"transparent"};color:${convMode===m[0]?"#fff":"var(--dim)"}">${m[1]}</span>`).join("")}</div>`;
     const sous={conv:"Ajuste tes notes. Le poids sous chaque ligne te rappelle ce qu'elle représente déjà.",
                 these:"Pourquoi tu détiens chaque ligne. Touche une ligne pour écrire ou relire.",
-                plan:"À quels prix tu comptes vendre. Touche une ligne pour définir ou modifier."}[convMode];
+                plan:"À quels prix tu comptes vendre. Touche une ligne pour définir ou modifier.",
+                themes:"Regroupe plusieurs titres sous une même grande idée."}[convMode];
+    // Le mode Thèmes montre des CARTES DE THÈME, pas la liste des positions : ni le filtre
+    // par enveloppe ni les lignes ne s'y appliquent — il a donc son propre corps.
+    const corps=(convMode==="themes")?_themesModeHtml()
+      :((envs.length>1?`<div style="margin-bottom:12px">${segHtml(envs.map(n=>[n,n]),convEnv,"setConvEnv")}</div>`:"")
+        +`<div class="card">${rows||`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune position ici.</div>`}</div>`);
     return _convRetour()+_convEntete("Mes convictions",sous,"dorm")
       +selMode
-      +(envs.length>1?`<div style="margin-bottom:12px">${segHtml(envs.map(n=>[n,n]),convEnv,"setConvEnv")}</div>`:"")
-      +`<div class="card">${rows||`<div style="color:var(--mut);font-size:12px;text-align:center;padding:16px">Aucune position ici.</div>`}</div>`;
+      +corps;
+  }
+  if(vue==="themePage"){
+    const t=_theme(themeOpen);
+    if(!t)return _convRetour()+`<div class="card">Thème introuvable — il a peut-être été supprimé.</div>`;
+    const st=_themeStats(t.id);
+    const theseKey="th_"+t.id, theseTxt=(t.these||"").trim(), theseLongue=theseTxt.length>220;
+    const theseAff=(!theseLongue||_themeExp[theseKey])?theseTxt:theseTxt.slice(0,220)+"…";
+    const header=`<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px"><div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:9px;height:9px;border-radius:50%;background:${_themeCouleur(t)};flex-shrink:0"></span><h2 style="font-size:19px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</h2></div><span onclick="_themeMenu('${escAttr(t.id)}')" style="color:var(--mut);font-size:19px;cursor:pointer;padding:4px 8px;flex-shrink:0">⋯</span></div>`;
+    const sousLigne=`<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:11.5px;color:var(--dim);margin-bottom:14px"><span>${vg(st.poids,1)} % du portefeuille</span><span onclick="_themePoidsInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:50%;background:var(--acc);color:#fff;font-size:8px;font-weight:700;cursor:pointer">?</span><span>·</span><span>conviction ${st.conv==null?"non notée":vg(st.conv,0)}</span></div>`;
+    const theseBloc=`<div class="card" style="background:var(--inp);border-color:var(--bdr);margin-bottom:16px"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px">La thèse du thème</div><span onclick="_themeTheseEditer('${escAttr(t.id)}')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer;white-space:nowrap;flex-shrink:0">✎ Modifier</span></div>`
+      +(theseTxt?`<div style="font-size:12.5px;color:var(--dim);line-height:1.6;white-space:pre-wrap">${esc(theseAff)}${theseLongue?` <span onclick="_themeToggle('${theseKey}')" style="color:var(--acc);cursor:pointer;font-weight:600;font-size:11px;white-space:nowrap">${_themeExp[theseKey]?"voir moins":"voir plus"}</span>`:""}</div>`
+        :`<div onclick="_themeTheseEditer('${escAttr(t.id)}')" style="font-size:12px;color:var(--mut);font-style:italic;cursor:pointer">Pas encore écrite — <span style="color:var(--acc);font-weight:600;font-style:normal">✎ écrire la thèse</span></div>`)
+      +`</div>`;
+    const ligneTitre=(tk,vendu)=>{const conv=cv[tk];
+      const lien=_themeLien(t,tk);const note=(lien&&lien.note||"").trim();
+      const noteKey="note_"+t.id+"_"+tk, noteLongue=note.length>90;
+      const noteAff=(!noteLongue||_themeExp[noteKey])?note:note.slice(0,90)+"…";
+      return `<div style="padding:12px 0;border-bottom:1px solid var(--sep);${vendu?"opacity:.55":""}">`
+        +`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">`
+        +`<div style="min-width:0">${_lienTitre(tk,`<span style="font-size:13px;font-weight:700">${esc(_tkNom(tk))}</span>`)}${vendu?`<span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px;margin-left:6px">vendu</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)}</div></div>`
+        +(!vendu&&typeof conv==="number"?`<span class="mono" style="font-size:13px;font-weight:800;color:${_convColor(conv)};flex-shrink:0">${conv}</span>`:"")
+        +`<span onclick="_themeDetacherConfirm('${escAttr(t.id)}','${escAttr(tk)}')" style="color:var(--mut);font-size:14px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</span>`
+        +`</div>`
+        +`<div onclick="_themeNoteEditer('${escAttr(t.id)}','${escAttr(tk)}')" style="font-size:11.5px;color:${note?"var(--dim)":"var(--mut)"};font-style:italic;margin-top:5px;cursor:pointer;line-height:1.5">`
+        +(note?esc(noteAff)+(noteLongue?` <span onclick="event.stopPropagation();_themeToggle('${noteKey}')" style="color:var(--acc);font-weight:600;font-style:normal;font-size:10.5px">${_themeExp[noteKey]?"voir moins":"voir plus"}</span>`:""):`✎ Ajouter pourquoi ce titre ici`)
+        +`</div></div>`;};
+    const listeActifs=st.actifs.length?`<div class="card">${st.actifs.map(tk=>ligneTitre(tk,false)).join("")}</div>`:`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:20px">Aucun titre rattaché pour l'instant.</div>`;
+    const listeHisto=st.histo.length?`<div style="margin-top:16px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 8px">Vendus — historique</div><div class="card">${st.histo.map(tk=>ligneTitre(tk,true)).join("")}</div></div>`:"";
+    const btnAjouter=`<div onclick="_themeAjouterModal('${escAttr(t.id)}')" style="display:inline-block;margin:14px 0;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Rattacher un titre</div>`;
+    return _convRetour()+header+sousLigne+theseBloc+btnAjouter+listeActifs+listeHisto;
+  }
+  if(vue==="themeNew"){
+    return _convRetour()+_convEntete("Nouveau thème","Regroupe plusieurs titres sous une même grande idée.")
+      +`<div class="card">`
+      +`<div class="field"><label>Nom du thème</label><input id="thNom" placeholder="ex : Eau"></div>`
+      +`<div class="field"><label>Icône — facultatif</label><input id="thIcone" placeholder="💧" maxlength="4" style="width:100px"></div>`
+      +`<div class="field"><label>Thèse du thème — facultatif, tu peux l'écrire plus tard</label><textarea id="thThese" rows="4" placeholder="Ex : l'eau est une ressource finie…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical"></textarea></div>`
+      +`</div>`
+      +`<div class="card" style="margin-top:10px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Rattacher des titres — facultatif</div>`
+      +_themeRattacherHtml("draft")
+      +`<div id="thChips">${_themeChipsHtml()}</div>`
+      +`<div style="font-size:10.5px;color:var(--mut);margin-top:10px;line-height:1.5">Un titre peut appartenir à plusieurs thèmes. Tu pourras écrire pour chacun « pourquoi ce titre ici » ensuite, depuis la page du thème.</div>`
+      +`</div>`
+      +`<button class="btn btn-p" style="width:100%;margin-top:14px" onclick="_themeCreerValider()">Créer le thème</button>`;
   }
   if(vue==="regler"){
     const envs=[...new Set(d.ap.filter(x=>!x.noPerf&&!x.manual).map(x=>x.poche))];
@@ -2235,14 +2285,14 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  convPlanTk:convPlanTk,achatTk:achatTk,boussoleTk:boussoleTk,boussoleFiltre:boussoleFiltre,
  boussoleOrdre:boussoleOrdre,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,agendaOpen:agendaOpen,
  agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
- aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz};}
+ aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
  convFill=m.convFill||null;if(m.convEnv!=null)convEnv=m.convEnv;
  convPlanTk=m.convPlanTk||null;achatTk=m.achatTk||null;boussoleTk=m.boussoleTk||null;
  if(m.boussoleFiltre)boussoleFiltre=m.boussoleFiltre;if(m.boussoleOrdre)boussoleOrdre=m.boussoleOrdre;
- pfPoche=m.pfPoche||null;pfTk=m.pfTk||null;alertsSub=m.alertsSub||null;
+ pfPoche=m.pfPoche||null;pfTk=m.pfTk||null;alertsSub=m.alertsSub||null;themeOpen=m.themeOpen||null;
  agendaOpen=!!m.agendaOpen;agendaSub=m.agendaSub||null;resDetail=m.resDetail||null;
  aSym=m.aSym||null;aName=m.aName||null;aCur=m.aCur||null;aTab=m.aTab||"chart";
  if(m.aPeriod)aPeriod=m.aPeriod;if(m.aChartType)aChartType=m.aChartType;
@@ -2253,7 +2303,7 @@ function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
  convView=null;convFill=null;boussoleTk=null;anaView=null;agendaOpen=false;agendaSub=null;
- resDetail=null;pfTk=null;pfPoche=null;}
+ resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2278,6 +2328,8 @@ function _navLbl(){const m=_nav[_nav.length-1];
    return "Bourse";}
  if(m.tab==="analyse"){
    if(m.convView==="convictions")return "Mes convictions";
+   if(m.convView==="themePage"){const t=_theme(m.themeOpen);return (t&&t.nom)||"Thème";}
+   if(m.convView==="themeNew")return "Nouveau thème";
    if(m.convView==="boussole")return m.boussoleTk?"Ma boussole":"Conviction";
    if(m.convView==="completer")return "À compléter";
    if(m.convView)return "Conviction";
@@ -3093,6 +3145,149 @@ function _themesTitresAArbitrer(){const out=[];const vus=new Set();
     if(!l||!l.tk||l.vendu||vus.has(l.tk))return;
     if(!_tkDetenu(l.tk)){vus.add(l.tk);out.push(l.tk);}}));
   return out;}
+// ── ÉCRAN C : le mode « Thèmes » de Mes convictions ─────────────────────────
+function _themesModeHtml(){
+  const themes=_themes();
+  const arbitrer=_themesTitresAArbitrer();
+  // Une vente n'efface rien toute seule : ce bandeau est la seule façon dont l'app signale
+  // qu'une décision reste à prendre — elle ne la prend jamais à la place de l'utilisateur.
+  const banniere=arbitrer.length?`<div onclick="_themeArbitrerModal()" class="card card-tap" style="background:#fbbf2418;border-color:#fbbf2444;display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;padding:12px 14px"><div><div style="font-size:12.5px;font-weight:600;color:var(--txt)">${arbitrer.length} titre${arbitrer.length>1?"s":""} vendu${arbitrer.length>1?"s":""}, encore dans un thème</div><div style="font-size:10.5px;color:var(--mut);margin-top:2px">Garder en historique, ou retirer ?</div></div><span style="color:var(--mut);font-size:14px">›</span></div>`:"";
+  const carte=(t)=>{const st=_themeStats(t.id);
+    const apercu=st.tickers.slice(0,5).map(tk=>`<span style="font-size:10px;background:var(--inp);border:1px solid var(--bdr);border-radius:999px;padding:2px 7px">${esc(tk)}</span>`).join("");
+    const reste=st.tickers.length>5?`<span style="font-size:10px;color:var(--mut)">+${st.tickers.length-5}</span>`:"";
+    return `<div onclick="openTheme('${escAttr(t.id)}')" class="card card-tap" style="margin-bottom:8px;padding:14px">`
+      +`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="width:8px;height:8px;border-radius:50%;background:${_themeCouleur(t)};flex-shrink:0"></span><div style="font-size:14px;font-weight:700;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</div><span style="color:var(--mut);font-size:14px">›</span></div>`
+      +`<div style="font-size:10.5px;color:var(--mut);margin-bottom:8px">${st.nbActifs} titre${st.nbActifs>1?"s":""} · ${vg(st.poids,1)} % · conviction ${st.conv==null?"non notée":vg(st.conv,0)}</div>`
+      +(apercu?`<div style="display:flex;gap:5px;flex-wrap:wrap">${apercu}${reste}</div>`:"")
+      +`</div>`;};
+  const cartes=themes.length?themes.map(carte).join(""):`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Aucun thème pour l'instant.<br>Regroupe plusieurs titres sous une même grande idée.</div>`;
+  const btnNouveau=`<div onclick="themeNouveau()" style="display:inline-block;margin-bottom:14px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Nouveau thème</div>`;
+  const sansTheme=_titresSansTheme();
+  const nonRattaches=sansTheme.length?`<div style="margin-top:18px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 8px">Non rattachés (${sansTheme.length})</div><div class="card" style="padding:2px 14px">${sansTheme.map(tk=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sep)">${_lienTitre(tk,`<span style="font-size:12.5px">${esc(_tkNom(tk))}</span>`)}<span style="font-size:10.5px;color:var(--mut)">${esc(tk)}</span></div>`).join("")}</div></div>`:"";
+  return banniere+btnNouveau+cartes+nonRattaches;
+}
+window.openTheme=(id)=>{_navPush();themeOpen=id;convView="themePage";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+window.themeNouveau=()=>{_navPush();_themeDraft={liens:[]};convView="themeNew";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
+// Un titre vendu reste dans son thème jusqu'à ce que l'utilisateur tranche — jamais retiré
+// tout seul. On résout un titre à la fois, et on rouvre la même liste tant qu'il en reste.
+window._themeArbitrerModal=()=>{const list=_themesTitresAArbitrer();if(!list.length)return;
+  const row=(tk)=>`<div style="padding:12px 0;border-top:1px solid var(--sep)"><div style="font-size:13px;font-weight:600;margin-bottom:8px">${esc(_tkNom(tk))} <span style="color:var(--mut);font-size:10.5px;font-weight:400">${esc(tk)} · vendu</span></div><div style="display:flex;gap:8px"><button class="btn" style="flex:1;font-size:11px;padding:8px" onclick="_themeArbitrerUn('${escAttr(tk)}','garder')">Garder en historique</button><button class="btn" style="flex:1;font-size:11px;padding:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="_themeArbitrerUn('${escAttr(tk)}','retirer')">Retirer</button></div></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Titres vendus, encore dans un thème</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><p style="font-size:11px;color:var(--mut);line-height:1.5;margin-bottom:4px">Pour chacun : le garder en historique (visible, mais hors du poids et de la conviction), ou le retirer de ses thèmes.</p>${list.map(row).join("")}`);};
+window._themeArbitrerUn=(tk,choix)=>{
+  if(choix==="garder")_themeTitreVenduGarder(tk);else _themeTitreVenduRetirer(tk);
+  const reste=_themesTitresAArbitrer();
+  if(reste.length)_themeArbitrerModal();else{cm();R();}};
+// ── Écran A : actions sur un thème et ses rattachements ─────────────────────
+// « voir plus / voir moins » : purement visuel, un clic (jamais une frappe), donc un
+// re-rendu complet ici ne présente aucun risque pour le clavier.
+window._themeToggle=(k)=>{_themeExp[k]=!_themeExp[k];R();};
+window._themePoidsInfo=()=>{sm(`<div style="margin-bottom:12px"><h3 style="font-size:17px;font-weight:700">Le poids d'un thème</h3></div><p style="font-size:13px;color:var(--txt);line-height:1.55;margin:0">C'est la somme du poids de chaque titre rattaché, dans tout ton portefeuille (toutes tes enveloppes cumulées).</p><p style="font-size:12px;color:var(--mut);line-height:1.5;margin:10px 0 0">👉 Un même titre peut appartenir à plusieurs thèmes : il compte alors en entier dans chacun. La somme des poids de tous tes thèmes peut donc dépasser 100 % — ce n'est pas une erreur.</p><button class="btn" style="width:100%;margin-top:14px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Compris</button>`);};
+window._themeMenu=(id)=>{const t=_theme(id);if(!t)return;
+  const it=(lib,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1;font-size:13px;color:var(--txt)">${lib}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><h3 style="font-size:16px;font-weight:700">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+    +it("✎ Modifier le nom et l'icône","_themeIdentiteEditer('"+escAttr(id)+"')")
+    +it("✎ Modifier la thèse","_themeTheseEditer('"+escAttr(id)+"')")
+    +it("🗑 Supprimer ce thème","_themeSupprimerConfirm('"+escAttr(id)+"')"));};
+window._themeIdentiteEditer=(id)=>{const t=_theme(id);if(!t)return;
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Nom du thème</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="thEdNom" value="${escAttr(t.nom)}" placeholder="ex : Eau"></div><div class="field"><label>Icône — facultatif</label><input id="thEdIcone" value="${escAttr(t.icone||"")}" placeholder="💧" maxlength="4" style="width:100px"></div><button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_themeIdentiteSave('${escAttr(id)}')">Enregistrer</button>`);
+  setTimeout(()=>{const e=document.getElementById("thEdNom");if(e)e.focus();},30);};
+window._themeIdentiteSave=(id)=>{const nomEl=document.getElementById("thEdNom");const nom=(nomEl&&nomEl.value||"").trim();
+  if(!nom){if(nomEl){nomEl.style.borderColor="var(--red)";nomEl.focus();}toast("Le nom ne peut pas être vide.");return;}
+  const icone=(document.getElementById("thEdIcone")||{}).value||"";
+  cm();_themeMaj(id,{nom,icone});};
+// Modale texte, valeur relue au clic « Enregistrer » — jamais à la frappe : le clavier
+// reste ouvert quelle que soit la longueur de ce qui est tapé.
+window._themeTheseEditer=(id)=>{const t=_theme(id);if(!t)return;
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><h3 style="font-size:16px;font-weight:700">La thèse de ${esc(t.nom)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><p style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5">La grande idée qui réunit ces titres. Peut rester vide, peut être longue — elle se replie automatiquement sur la page.</p><textarea id="thEdThese" rows="6" placeholder="Ex : l'eau est une ressource finie, la demande dépasse déjà l'offre dans plusieurs régions…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical">${esc(t.these||"")}</textarea><button class="btn btn-p" style="width:100%;margin-top:10px" onclick="_themeTheseSave('${escAttr(id)}')">Enregistrer</button>`);
+  setTimeout(()=>{const e=document.getElementById("thEdThese");if(e){e.focus();e.setSelectionRange(e.value.length,e.value.length);}},30);};
+window._themeTheseSave=(id)=>{const el=document.getElementById("thEdThese");const v=el?el.value:"";cm();_themeMaj(id,{these:v});};
+window._themeNoteEditer=(id,tk)=>{const t=_theme(id);const l=t?_themeLien(t,tk):null;if(!l)return;
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><h3 style="font-size:16px;font-weight:700">Pourquoi ${esc(_tkNom(tk))} ici ?</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><p style="font-size:11px;color:var(--mut);margin-bottom:10px;line-height:1.5">Facultatif — juste pour te souvenir de ton raisonnement.</p><textarea id="thEdNote" rows="3" placeholder="Ex : acteur diversifié, exposé aux réseaux d'eau et à la dépollution" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical">${esc(l.note||"")}</textarea><button class="btn btn-p" style="width:100%;margin-top:10px" onclick="_themeNoteSave('${escAttr(id)}','${escAttr(tk)}')">Enregistrer</button>`);
+  setTimeout(()=>{const e=document.getElementById("thEdNote");if(e)e.focus();},30);};
+window._themeNoteSave=(id,tk)=>{const el=document.getElementById("thEdNote");const v=el?el.value:"";cm();_themeNote(id,tk,v);};
+window._themeDetacherConfirm=(id,tk)=>{const t=_theme(id);if(!t)return;
+  sm(`<div style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Retirer ${esc(_tkNom(tk))} du thème ?</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:16px">Ça retire l'étiquette « ${esc(t.nom)} » et sa note de rattachement. Sa thèse action, elle, reste inchangée.</p><button class="btn" style="width:100%;background:var(--red);color:#fff;border:none" onclick="cm();_themeDetacher('${escAttr(id)}','${escAttr(tk)}');">Retirer</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);};
+window._themeSupprimerConfirm=(id)=>{const t=_theme(id);if(!t)return;
+  const n=_themeLiens(t).length;
+  sm(`<div style="margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Supprimer « ${esc(t.nom)} » ?</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:16px">Ça retire le thème et ${n?("ses "+n+" rattachement"+(n>1?"s":"")):"ses rattachements"}. Les thèses de chaque titre restent inchangées — ce n'est que l'étiquette qui disparaît.</p><button class="btn" style="width:100%;background:var(--red);color:#fff;border:none" onclick="_themeSupprimerValider('${escAttr(id)}')">Supprimer</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);};
+window._themeSupprimerValider=(id)=>{cm();_themeSupprimer(id);_navBack();};
+
+// ── Rattacher un titre : recherche locale (positions + suivi), zéro appel réseau ────────
+// Écrit en pur DOM (innerHTML d'un sous-bloc) à chaque frappe, jamais R() : le clavier ne
+// se ferme jamais, quelle que soit la vitesse de frappe.
+function _themeUnivers(exclude){
+  const ex=new Set((exclude||[]).map(t=>String(t).toUpperCase()));
+  const out=[];const vus=new Set();
+  (ga().ap||[]).filter(x=>!x.noPerf).sort((a,b)=>(b.valeur||0)-(a.valeur||0)).forEach(x=>{
+    if(vus.has(x.ticker)||ex.has(x.ticker))return;vus.add(x.ticker);out.push({tk:x.ticker,nom:_nomAffiche(x,30),detenu:true});});
+  ((D.prefs&&D.prefs.watchlist)||[]).forEach(w=>{if(!w.ticker||vus.has(w.ticker)||ex.has(w.ticker))return;vus.add(w.ticker);out.push({tk:w.ticker,nom:w.name||w.ticker,detenu:false});});
+  return out;}
+function _themeRattacherHtml(mode){
+  return `<input id="thSearch" placeholder="Chercher un titre (nom ou ticker)" oninput="_themeChercher('${mode}',this.value)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-size:13px;margin-bottom:6px"><div id="thSugRes"></div><div style="display:flex;gap:6px;margin-top:8px"><input id="thLibre" placeholder="Ou un ticker que tu ne suis pas encore" oninput="this.value=this.value.toUpperCase()" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-size:12.5px"><button class="btn" style="font-size:11px;padding:8px 12px" onclick="_themeAjouterLibre('${mode}')">Ajouter</button></div>`;}
+window._themeChercher=(mode,q)=>{const b=document.getElementById("thSugRes");if(!b)return;
+  const query=(q||"").trim();if(query.length<1){b.innerHTML="";return;}
+  const exclude=mode==="draft"?_themeDraft.liens:_themeTickers(mode.slice(3));
+  const nq=_themeNorm(query),uq=query.toUpperCase();
+  const res=_themeUnivers(exclude).filter(o=>o.tk.toUpperCase().indexOf(uq)>=0||_themeNorm(o.nom).indexOf(nq)>=0).slice(0,8);
+  if(!res.length){b.innerHTML=`<div style="padding:8px 2px;font-size:11px;color:var(--mut)">Aucun résultat parmi tes titres.</div>`;return;}
+  b.innerHTML=res.map(o=>`<div onclick="_themePicker('${mode}','${escAttr(o.tk)}')" style="display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-top:1px solid var(--sep);cursor:pointer"><span style="font-size:12.5px">${esc(o.nom)} <span style="color:var(--mut);font-size:10.5px">${esc(o.tk)}</span></span>${o.detenu?"":`<span style="font-size:9px;color:var(--mut);border:1px solid var(--bdr);border-radius:4px;padding:1px 5px;flex-shrink:0">suivi</span>`}</div>`).join("");};
+window._themeAjouterLibre=(mode)=>{const el=document.getElementById("thLibre");const tk=((el&&el.value)||"").trim().toUpperCase();if(!tk)return;_themePicker(mode,tk);if(el)el.value="";};
+// Point d'entrée unique des deux écrans : "draft" (création, rien n'est encore écrit) ou
+// "th_<id>" (thème déjà existant, rattachement immédiat).
+window._themePicker=(mode,tk)=>{
+  if(mode==="draft"){
+    if(_themeDraft.liens.indexOf(tk)>=0)return;
+    _themeDraft.liens.push(tk);
+    const chipsEl=document.getElementById("thChips");if(chipsEl)chipsEl.innerHTML=_themeChipsHtml();
+    const searchEl=document.getElementById("thSearch");if(searchEl)searchEl.value="";
+    const resEl=document.getElementById("thSugRes");if(resEl)resEl.innerHTML="";
+    _themeSuggMontrer(tk,null);
+  }else{
+    const id=mode.slice(3);
+    if(_themeTickers(id).indexOf(tk)>=0){cm();toast("Déjà rattaché");return;}
+    cm();_themeRattacher(id,tk,"");
+    _themeSuggMontrer(tk,id);
+  }};
+function _themeChipsHtml(){
+  if(!_themeDraft.liens.length)return `<div style="font-size:11px;color:var(--mut);padding:6px 2px">Aucun titre pour l'instant — ajoute-en un ci-dessus (facultatif, tu pourras le faire plus tard).</div>`;
+  return `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">`+_themeDraft.liens.map(tk=>`<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 6px 5px 10px;border-radius:999px;background:var(--inp);border:1px solid var(--bdr);font-size:11.5px"><b>${esc(tk)}</b><span onclick="_themeDraftRetirer('${escAttr(tk)}')" style="cursor:pointer;color:var(--mut);font-size:13px;padding:0 2px">✕</span></span>`).join("")+`</div>`;}
+window._themeDraftRetirer=(tk)=>{const i=_themeDraft.liens.indexOf(tk);if(i>=0)_themeDraft.liens.splice(i,1);const el=document.getElementById("thChips");if(el)el.innerHTML=_themeChipsHtml();};
+window._themeAjouterModal=(id)=>{const t=_theme(id);if(!t)return;
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:10px"><h3 style="font-size:16px;font-weight:700">Rattacher à ${esc(t.nom)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`+_themeRattacherHtml("th_"+id));
+  setTimeout(()=>{const e=document.getElementById("thSearch");if(e)e.focus();},30);};
+// Rien n'est écrit tant que le nom n'est pas donné : le brouillon de rattachements n'existe
+// qu'en mémoire (ni prefs ni localStorage) jusqu'à ce clic.
+window._themeCreerValider=()=>{
+  const nomEl=document.getElementById("thNom");const nom=(nomEl&&nomEl.value||"").trim();
+  if(!nom){if(nomEl){nomEl.style.borderColor="var(--red)";nomEl.focus();}toast("Donne un nom à ton thème.");return;}
+  const these=(document.getElementById("thThese")||{}).value||"";
+  const icone=(document.getElementById("thIcone")||{}).value||"";
+  const t=_themeCreer(nom,these,icone);if(!t)return;
+  (_themeDraft.liens||[]).forEach(tk=>_themeRattacher(t.id,tk,""));
+  _themeDraft={liens:[]};
+  themeOpen=t.id;convView="themePage";tab="analyse";anaSub="conv";
+  R();scrollTo(0,0);toast("Thème créé");};
+
+// ── Suggestion pour un fonds/ETF : un confort, jamais une écriture automatique ──────────
+// N'utilise que ce qui est déjà en cache (nom, catégorie via prefs.etfHoldings, résumé déjà
+// consulté) — aucun nouvel appel réseau déclenché par cet écran.
+function _themeInfosFonds(tk){
+  const eh=(D.prefs&&D.prefs.etfHoldings&&D.prefs.etfHoldings[tk])||null;
+  if(!eh||!eh.isFund)return null;
+  const nom=_tkNom(tk)||tk;const cat=eh.category||"";let desc="";
+  try{const c=_fCacheGet("cvF4:summary:"+tk,9999999999999);if(c)desc=[c.secteur,c.industrie,c.desc].filter(Boolean).join(" ");}catch(e){}
+  return {nom,cat,desc};}
+window._themeSuggMontrer=(tk,themeActuelId)=>{
+  const info=_themeInfosFonds(tk);if(!info)return;
+  const sug=_themeSuggere(info.nom,info.cat,info.desc);if(!sug)return;
+  if(sug.themeId&&sug.themeId===themeActuelId)return;
+  if(!themeActuelId){const nb=(document.getElementById("thNom")||{}).value||"";if(_themeNorm(nb)===_themeNorm(sug.nom))return;}
+  const cible=sug.themeId?_theme(sug.themeId):null;
+  const titre=cible?("Rattacher aussi à ton thème « "+esc(cible.nom)+" » ?"):("Créer le thème « "+esc(sug.nom)+" » et y rattacher ce titre ?");
+  sm(`<div style="margin-bottom:12px"><h3 style="font-size:16px;font-weight:700">${titre}</h3></div><p style="font-size:12px;color:var(--dim);line-height:1.55;margin-bottom:16px">${esc(info.nom)} ressemble à un fonds « ${esc(sug.nom)} » (« ${esc(sug.mot)} » repéré dans son nom ou sa catégorie). Toi seul décides — ce n'est qu'une suggestion.</p><button class="btn btn-p" style="width:100%" onclick="_themeSuggAccepter('${escAttr(tk)}','${escAttr(sug.themeId||"")}','${escAttr(sug.nom)}','${escAttr(sug.icone||"")}')">${cible?"Rattacher":"Créer et rattacher"}</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Non merci</button>`);};
+window._themeSuggAccepter=(tk,themeId,nom,icone)=>{cm();let id=themeId;
+  if(!id){const t=_themeCreer(nom,"",icone);id=t&&t.id;}
+  if(id){_themeRattacher(id,tk,"");toast("Rattaché à "+nom);}};
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
 window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._bsFiltre=(v)=>{boussoleFiltre=v;R();};
