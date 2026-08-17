@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "222";
+const APP_VERSION = "223";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2937,6 +2937,162 @@ function _tkNom(tk){const q=(ga().ap||[]).find(y=>y.ticker===tk);if(q)return _no
   if(_achatCtx&&_achatCtx.tk===tk&&_achatCtx.name)return _achatCtx.name.length>28?_achatCtx.name.slice(0,27)+"…":_achatCtx.name;
   const a=(_achatToutes(tk).find(z=>z.o&&z.o.name)||{}).o;if(a&&a.name)return a.name.length>28?a.name.slice(0,27)+"…":a.name;
   return tk;}
+// ═══ THÈMES — regrouper plusieurs titres sous une même conviction ═══════════
+// Deux niveaux volontairement séparés :
+//   la THÈSE ACTION (prefs.notes[ticker]) dit pourquoi on détient CE titre — inchangée ici ;
+//   la THÈSE DU THÈME dit la grande idée qui réunit plusieurs titres.
+// Le lien entre les deux est une ÉTIQUETTE, pas un dossier : le titre reste unique et n'est
+// jamais recopié. C'est le thème qui porte la liste des tickers qu'il étiquette.
+//
+// Forme stockée dans prefs.themes :
+//   [{ id:"th…", nom:"Eau", icone:"💧", these:"…", cree:1786…,
+//      liens:[{tk:"VIE", note:"acteur diversifié", vendu:0}] }]
+//
+// Rien ici n'est jamais régénéré : cette donnée est entièrement saisie par l'utilisateur.
+// Aucune migration, aucune synchronisation, aucune écriture automatique — c'est la leçon du
+// « 500 fantôme », où des paliers indexés par ticker étaient rediffusés à chaque démarrage.
+// Ici la clé est l'identifiant du thème, jamais un ticker : rien ne peut être « re-déduit »
+// depuis le portefeuille.
+function _themes(){if(!D)return [];D.prefs=D.prefs||{};if(!Array.isArray(D.prefs.themes))D.prefs.themes=[];return D.prefs.themes;}
+function _theme(id){return _themes().find(t=>t&&t.id===id)||null;}
+function _themeLiens(t){if(!t)return [];if(!Array.isArray(t.liens))t.liens=[];return t.liens;}
+function _themeLien(t,tk){return _themeLiens(t).find(l=>l&&l.tk===tk)||null;}
+// Identifiant stable : posé une fois à la création, jamais recalculé. C'est lui qui garantit
+// qu'une couleur ou une référence reste la même dans le temps, même si le nom change.
+function _themeNouvelId(){const pris=new Set(_themes().map(t=>t&&t.id));let n=0,id;
+  do{id="th"+Date.now().toString(36)+(n?"_"+n:"");n++;}while(pris.has(id));
+  return id;}
+// Même principe de pastille déterministe que les listes de suivi : la couleur découle de
+// l'identifiant, donc elle ne bouge pas quand on renomme ou qu'on réordonne.
+function _themeCouleur(t){if(!t)return WL_PAL[0];if(t.color)return t.color;
+  const txt=String(t.id||t.nom||"");let h=0;
+  for(let i=0;i<txt.length;i++)h=(h*31+txt.charCodeAt(i))>>>0;
+  return WL_PAL[h%WL_PAL.length];}
+
+// ── Créer, modifier, supprimer un thème ──────────────────────────────────────
+function _themeCreer(nom,these,icone){const n=String(nom||"").trim();if(!n)return null;
+  const t={id:_themeNouvelId(),nom:n,icone:String(icone||"").trim(),these:String(these||""),liens:[],cree:Date.now()};
+  _themes().push(t);save();return t;}
+function _themeMaj(id,champs){const t=_theme(id);if(!t||!champs)return null;
+  if(champs.nom!=null){const n=String(champs.nom).trim();if(n)t.nom=n;}
+  if(champs.these!=null)t.these=String(champs.these);
+  if(champs.icone!=null)t.icone=String(champs.icone).trim();
+  save();return t;}
+// Supprimer un thème n'emporte QUE le thème et ses étiquettes. Les thèses action des titres
+// concernés vivent dans prefs.notes et n'y sont pas touchées.
+function _themeSupprimer(id){const L=_themes();const i=L.findIndex(t=>t&&t.id===id);
+  if(i<0)return false;L.splice(i,1);save();return true;}
+
+// ── Étiqueter, retirer l'étiquette, annoter ──────────────────────────────────
+// Rattacher n'ajoute PAS le titre au thème : ça ajoute le thème au titre. Le même ticker
+// peut donc figurer dans plusieurs thèmes sans exister en double nulle part.
+function _themeRattacher(id,tk,note){const t=_theme(id);const k=String(tk||"").trim().toUpperCase();
+  if(!t||!k)return null;
+  let l=_themeLien(t,k);
+  if(!l){l={tk:k,note:String(note||"")};_themeLiens(t).push(l);}
+  else if(note!=null)l.note=String(note);
+  save();return l;}
+function _themeDetacher(id,tk){const t=_theme(id);if(!t)return false;
+  const L=_themeLiens(t);const i=L.findIndex(l=>l&&l.tk===tk);
+  if(i<0)return false;L.splice(i,1);save();return true;}
+// La note de rattachement est facultative de bout en bout : la vider est une opération
+// normale, pas une suppression du lien.
+function _themeNote(id,tk,note){const t=_theme(id);const l=t?_themeLien(t,tk):null;
+  if(!l)return null;l.note=String(note||"");save();return l;}
+
+// ── Lectures ─────────────────────────────────────────────────────────────────
+function _themeTickers(id){const t=_theme(id);return _themeLiens(t).map(l=>l.tk);}
+function _themesDuTitre(tk){const k=String(tk||"").toUpperCase();
+  return _themes().filter(t=>_themeLiens(t).some(l=>l&&l.tk===k));}
+// Les titres détenus qu'aucun thème n'étiquette encore.
+function _titresSansTheme(){const dedans=new Set();
+  _themes().forEach(t=>_themeLiens(t).forEach(l=>{if(l&&l.tk)dedans.add(l.tk);}));
+  const vus=new Set();const out=[];
+  (ga().ap||[]).forEach(p=>{if(!p.ticker||vus.has(p.ticker))return;vus.add(p.ticker);
+    if(!dedans.has(p.ticker))out.push(p.ticker);});
+  return out;}
+
+// ── Poids et conviction ──────────────────────────────────────────────────────
+// Le poids d'un titre est celui de la fiche : sa valorisation cumulée sur TOUTES ses
+// enveloppes, rapportée au total boursier. Un même outil doit donner le même chiffre partout.
+function _poidsTicker(tk){const L=_bPos();if(!L.length)return 0;
+  const tot=L.reduce((a,r)=>a+r.v,0);if(!(tot>0))return 0;
+  const v=L.filter(r=>r.x&&r.x.ticker===tk).reduce((a,r)=>a+r.v,0);
+  return v/tot*100;}
+// Un lien marqué vendu, ou un titre qu'on ne détient plus, ne pèse rien : il reste visible
+// en historique mais ne gonfle ni le poids ni la conviction du thème.
+function _themeLienActif(l){return !!(l&&l.tk&&!l.vendu&&_tkDetenu(l.tk));}
+function _themeStats(id){const t=_theme(id);
+  const vide={nb:0,nbActifs:0,nbHisto:0,poids:0,conv:null,tickers:[],actifs:[],histo:[]};
+  if(!t)return vide;
+  const liens=_themeLiens(t);
+  const actifs=liens.filter(_themeLienActif).map(l=>l.tk);
+  const histo=liens.filter(l=>l&&l.tk&&!_themeLienActif(l)).map(l=>l.tk);
+  const poids=actifs.reduce((a,tk)=>a+_poidsTicker(tk),0);
+  const cv=(D.prefs&&D.prefs.conv)||{};
+  const notes=actifs.map(tk=>cv[tk]).filter(v=>typeof v==="number"&&v>0);
+  return {nb:liens.length,nbActifs:actifs.length,nbHisto:histo.length,
+    poids:poids,
+    conv:notes.length?(notes.reduce((a,v)=>a+v,0)/notes.length):null,
+    tickers:liens.map(l=>l.tk),actifs:actifs,histo:histo};}
+// Un titre présent dans plusieurs thèmes compte EN ENTIER dans chacun : on ne répartit pas
+// une conviction. La somme des poids peut donc dépasser 100 %, et c'est voulu — ces deux
+// mesures permettent de le dire à l'écran plutôt que de laisser croire à une erreur.
+function _themesPoidsCumule(){return _themes().reduce((a,t)=>a+_themeStats(t.id).poids,0);}
+function _themesTitresPartages(){const n={};
+  _themes().forEach(t=>_themeLiens(t).forEach(l=>{if(_themeLienActif(l))n[l.tk]=(n[l.tk]||0)+1;}));
+  return Object.keys(n).filter(k=>n[k]>1);}
+
+// ── Suggestion de thème pour un fonds ────────────────────────────────────────
+// Uniquement sur ce qu'on sait déjà lire d'un fonds : son nom, sa catégorie, sa description.
+// Volontairement indépendant de la composition détaillée, qui est un autre chantier.
+// C'est un confort : la fonction propose, l'utilisateur dispose. Elle n'écrit jamais rien.
+const THEME_MOTS=[
+ {nom:"Eau",icone:"💧",mots:["water","eau","aqua","hydro"]},
+ {nom:"Nucléaire",icone:"⚛️",mots:["uranium","nuclear","nucleaire"]},
+ {nom:"Semi-conducteurs",icone:"🔲",mots:["semiconductor","semi-conducteur","semicondu","chip"]},
+ {nom:"Défense",icone:"🛡️",mots:["defence","defense","aerospace & defense","armement"]},
+ {nom:"Spatial",icone:"🚀",mots:["space","spatial","satellite","aerospace"]},
+ {nom:"Intelligence artificielle",icone:"🤖",mots:["artificial intelligence","intelligence artificielle"," ai ","robotic"]},
+ {nom:"Énergies renouvelables",icone:"🌱",mots:["renewable","clean energy","solar","solaire","wind","eolien","éolien"]},
+ {nom:"Santé",icone:"🧬",mots:["health","sante","santé","biotech","pharma","medical"]},
+ {nom:"Cybersécurité",icone:"🔐",mots:["cyber","security","sécurité informatique"]},
+ {nom:"Or et métaux",icone:"🪙",mots:["gold","or physique","precious metal","mining","minier"]},
+ {nom:"Immobilier",icone:"🏠",mots:["real estate","reit","immobilier"]},
+ {nom:"Luxe",icone:"👜",mots:["luxury","luxe"]},
+ {nom:"Quantique",icone:"🌀",mots:["quantum","quantique"]}
+];
+function _themeNorm(t){try{return String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}catch(e){return String(t||"").toLowerCase();}}
+function _themeSuggere(){const txt=" "+_themeNorm(Array.prototype.slice.call(arguments).filter(Boolean).join(" "))+" ";
+  if(txt.trim().length<3)return null;
+  for(const c of THEME_MOTS){
+    const mot=c.mots.find(m=>txt.indexOf(_themeNorm(m))>=0);
+    if(!mot)continue;
+    const existant=_themes().find(t=>_themeNorm(t.nom)===_themeNorm(c.nom));
+    return {nom:c.nom,icone:c.icone,mot:mot.trim(),themeId:existant?existant.id:null};
+  }
+  return null;}
+
+// ── Titre entièrement vendu : les deux comportements, aucun par défaut ───────
+// L'app ne tranche pas à la place de l'utilisateur. Ces deux fonctions existent pour que
+// l'écran (à venir) puisse proposer le choix ; rien ne les appelle automatiquement.
+function _themeTitreVenduGarder(tk){const k=String(tk||"").toUpperCase();let n=0;
+  _themes().forEach(t=>_themeLiens(t).forEach(l=>{if(l&&l.tk===k&&!l.vendu){l.vendu=Date.now();n++;}}));
+  if(n)save();return n;}
+function _themeTitreVenduRetirer(tk){const k=String(tk||"").toUpperCase();let n=0;
+  _themes().forEach(t=>{const L=_themeLiens(t);for(let i=L.length-1;i>=0;i--){if(L[i]&&L[i].tk===k){L.splice(i,1);n++;}}});
+  if(n)save();return n;}
+// Un titre racheté redevient actif sans qu'on ait à le rattacher de nouveau.
+function _themeTitreRepris(tk){const k=String(tk||"").toUpperCase();let n=0;
+  _themes().forEach(t=>_themeLiens(t).forEach(l=>{if(l&&l.tk===k&&l.vendu){delete l.vendu;n++;}}));
+  if(n)save();return n;}
+// Les titres étiquetés quelque part que l'on ne détient plus, et qui n'ont pas encore été
+// tranchés. C'est à l'écran de poser la question — cette fonction ne fait que la lister.
+function _themesTitresAArbitrer(){const out=[];const vus=new Set();
+  _themes().forEach(t=>_themeLiens(t).forEach(l=>{
+    if(!l||!l.tk||l.vendu||vus.has(l.tk))return;
+    if(!_tkDetenu(l.tk)){vus.add(l.tk);out.push(l.tk);}}));
+  return out;}
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
 window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="analyse";anaSub="conv";R();scrollTo(0,0);};
 window._bsFiltre=(v)=>{boussoleFiltre=v;R();};
