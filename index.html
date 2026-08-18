@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "226";
+const APP_VERSION = "227";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2862,6 +2862,19 @@ window._envAppliquer=(portee)=>{const p=_envPending;if(!p)return cm();
 function _inBourse(n){const p=D.poches[n];if(!p)return false;const si=(D.prefs&&D.prefs.pocheShowIn&&D.prefs.pocheShowIn[n])||p.showIn;if(si==="bourse")return true;if(si==="hors")return false;return _famOf(n)==="cote";}
 function _bPos(){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
 function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
+// Variation du jour, source unique — appelée par la fiche action ET par la page d'une
+// position, pour qu'un même titre ne puisse pas afficher deux chiffres différents.
+//   ref : une clôture de veille relevée à l'instant (la fiche action dispose de
+//         chartPreviousClose) ; elle prime, car prix et référence sortent du même relevé.
+//   x   : la position détenue, dont dayPct/prevClose sont tenus à jour par refreshPrices.
+// Un actif en saisie manuelle ne cote pas : il n'a pas de variation du jour.
+function _memeJour(t){return !!(t&&new Date(t).toDateString()===new Date().toDateString());}
+function _varJour(x,ref){
+  if(ref&&ref.frais&&ref.pc>0&&ref.px!=null)return (ref.px-ref.pc)/ref.pc*100;
+  if(!x||x.manual)return null;
+  if(x.dayPct!=null&&_memeJour(x.dayPctAt))return x.dayPct;
+  if(x.prevClose>0&&x.cours>0&&_memeJour(x.lastUpd))return (x.cours-x.prevClose)/x.prevClose*100;
+  return null;}
 // Variation du jour "fiable" pour l'agrégat : seulement une vraie source intraday (crypto / clôture officielle US ou EU) horodatée aujourd'hui. Exclut manuels, fonds (VL) et livrets qui ne bougent pas en séance.
 function _dayLive(x){if(!x||x.manual)return null;if(!x.dayPctAt)return null;if(new Date(x.dayPctAt).toDateString()!==new Date().toDateString())return null;return _dayPctOf(x);}
 window.setConv=(tk,n)=>{D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};n=Math.max(0,Math.min(100,Math.round(Number(n)||0)));if(n<=0)delete D.prefs.conv[tk];else D.prefs.conv[tk]=n;save();};
@@ -3792,7 +3805,17 @@ window.posFiche=(poche,tk)=>{const P=D.poches[poche];const p=P&&P.positions.find
 window.pfClose=()=>{_navBack();};
 // Prochaine date de résultats FIABLE d'une position : ne renvoie qu'une date future,
 // en préférant calendarEvents (earnHist.nextEarnTs) au earningsTimestamp de quotefull (souvent périmé).
-function _nextEarn(x){if(!x)return null;const now=Date.now()/1000;const c=[];const eh=D&&D.prefs&&D.prefs.earnHist&&D.prefs.earnHist[x.ticker];if(eh&&eh.nextEarnTs)c.push(eh.nextEarnTs);if(x.earnTs)c.push(x.earnTs);const fut=c.filter(t=>t&&t>now-86400);return fut.length?Math.min(...fut):null;}
+function _dateResultats(tk,extra){
+  const now=Date.now()/1000;const c=[];
+  const eh=D&&D.prefs&&D.prefs.earnHist&&D.prefs.earnHist[tk];
+  if(eh&&eh.nextEarnTs)c.push(eh.nextEarnTs);
+  // Le même titre peut être détenu dans plusieurs enveloppes : on prend ce que chacune sait.
+  try{Object.values((D&&D.poches)||{}).forEach(pk=>(pk.positions||[]).forEach(y=>{
+    if(y&&y.ticker===tk&&y.earnTs)c.push(y.earnTs);}));}catch(e){}
+  if(extra)c.push(extra);
+  const fut=c.filter(t=>t&&t>now-86400);
+  return fut.length?Math.min.apply(null,fut):null;}
+function _nextEarn(x){return x?_dateResultats(x.ticker,x.earnTs):null;}
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
 const cur=curOf(p),sym=curSym(cur);const v=(p.qty||0)*(p.cours||0);const vE=v*toEur(cur);const inv=(p.qty||0)*(p.pru||0);const pv=v-inv;const pvPct=inv>0?pv/inv*100:0;
 const bl=_bPos();const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;
@@ -3800,7 +3823,7 @@ const conv=(D.prefs&&D.prefs.conv&&D.prefs.conv[tk])||0;
 const these=(D.prefs&&D.prefs.notes&&D.prefs.notes[tk])||"";
 const plan=(D.prefs&&D.prefs.plan&&D.prefs.plan[tk])||null;
 const jr=(D.prefs&&D.prefs.journal&&D.prefs.journal[tk])||[];
-const dp=_dayPctOf(p);
+const dp=_varJour(p);
 const F0=x=>Math.round(x).toLocaleString("fr-FR");
 const _fSym=_ySym(p)||tk,_fName=p.titre||tk;
 let prog=null;const _obj=p.cibleHaut;if(_obj&&p.pru!=null&&_obj!==p.pru){prog=Math.max(0,Math.min(100,((p.cours-p.pru)/(_obj-p.pru))*100));}
@@ -4281,7 +4304,8 @@ else if(_showIsin){h+=`<div style="display:grid;grid-template-columns:1fr 1fr;ga
 if(aData.holdings&&aData.holdings.holdings&&aData.holdings.holdings.length){const hd=aData.holdings;h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Composition${hd.category?` · ${esc(hd.category)}`:""}</div>`+hd.holdings.map((hh,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i<hd.holdings.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="min-width:0"><div style="font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(hh.name||hh.symbol||"?")}</div>${hh.pays?`<div style="font-size:10px;color:var(--mut)">${esc(YAHOO_COUNTRY_TO_CODE[hh.pays]?_countryName(YAHOO_COUNTRY_TO_CODE[hh.pays]):hh.pays)}</div>`:(hh.pays===null?"":`<div style="font-size:10px;color:var(--mut)">…</div>`)}</div><span class="mono" style="font-size:11px;font-weight:700;flex-shrink:0;margin-left:8px">${hh.pct!=null?vg(hh.pct*100,1)+" %":"—"}</span></div>`).join("")+`</div>`;}
 else if(aData.holdings&&aData.holdings.sectors&&aData.holdings.sectors.length){const hd=aData.holdings;const sorted=hd.sectors.filter(s=>s.pct>0).sort((a,b)=>b.pct-a.pct);if(sorted.length){h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Secteurs${hd.category?` · ${esc(hd.category)}`:""}</div>`+sorted.map(s=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:3px"><span>${esc(SECTOR_FR[s.sector]||s.sector)}</span><span class="mono" style="color:var(--dim)">${vg(s.pct*100,1)} %</span></div><div style="height:5px;background:var(--card);border-radius:3px;overflow:hidden"><div style="height:100%;width:${vg(s.pct*100,0)}%;background:var(--acc)"></div></div></div>`).join("")+`<div style="font-size:10px;color:var(--mut);margin-top:4px">Composition ligne par ligne indisponible pour ce fonds chez Yahoo — répartition sectorielle à défaut.</div></div>`;}}
 if(sumOk&&f.target!=null){const cours=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;const pot=cours?((f.target-cours)/cours*100):null;const recoMap={strong_buy:"Achat fort",buy:"Achat",hold:"Conserver",underperform:"Sous-performance",sell:"Vente"};const recoTxt=f.reco?(recoMap[f.reco]||f.reco):null;const recoCol=/buy/.test(f.reco||"")?"var(--grn)":/sell|under/.test(f.reco||"")?"var(--red)":"var(--amb)";const recoColHex=/buy/.test(f.reco||"")?"#34d399":/sell|under/.test(f.reco||"")?"#f87171":"#fbbf24";h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:12px"><div style="font-size:10px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Avis des analystes</div><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Objectif moyen</span><span class="mono" style="font-size:15px;font-weight:700">${f.target.toFixed(2)} ${curSym(aCur)}</span></div>${pot!=null?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Potentiel</span><span class="mono" style="font-size:13px;font-weight:600;color:${pot>=0?"var(--grn)":"var(--red)"}">${pot>=0?"+":""}${vg(pot,1)} %</span></div>`:""}${recoTxt?`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:12px;color:var(--dim)">Recommandation</span><span style="font-size:11px;font-weight:700;padding:2px 10px;border-radius:99px;background:${recoColHex}22;color:${recoCol}">${esc(recoTxt)}</span></div>`:""}${_analystSpread(f.recTrend)}${f.nbAn?`<div style="font-size:10px;color:var(--mut);margin-top:2px">Basé sur ${f.nbAn} analystes</div>`:""}</div>`;}
-if(sumOk&&f.earnTs&&f.earnTs>Date.now()/1000-86400)h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--dim)">📅 Prochains résultats</span><span><b class="mono" style="font-size:13px;color:var(--txt)">${new Date(f.earnTs*1000).toLocaleDateString("fr-FR")}</b> <span style="font-size:9px;background:#6c8cff22;color:var(--acc);border-radius:99px;padding:1px 7px">auto</span></span></div>`;
+const _erTs=_dateResultats(aSym.includes(".")?aSym.split(".")[0]:aSym,sumOk?f.earnTs:null);
+if(_erTs)h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--dim)">📅 Prochains résultats</span><span><b class="mono" style="font-size:13px;color:var(--txt)">${new Date(_erTs*1000).toLocaleDateString("fr-FR")}</b> <span style="font-size:9px;background:#6c8cff22;color:var(--acc);border-radius:99px;padding:1px 7px">auto</span></span></div>`;
 if(fundOk){h+=fBars("Revenus",fd.revenue,"var(--acc)","rev");h+=fBars("Bénéfice net",fd.net,"var(--grn)","net");h+=fBars("Free cash-flow",fd.fcf,"var(--amb)","fcf");}
 if(!sumOk&&fundOk)h+=`<div style="font-size:10px;color:var(--mut);padding:8px 2px;line-height:1.4">Ratios (PER, marges, avis analystes…) indisponibles chez notre source pour cette valeur.</div>`;
 return h;}
@@ -4369,12 +4393,13 @@ if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
 //   1 jour  : clôture de la veille (la variation du jour au sens usuel) + prix du moment.
 //   sinon   : début et fin de la période affichée, tous deux pris dans les barres.
 // Le 24 h/24 (crypto) n'a pas de clôture : sa première barre EST le début de journée.
-let base=null,coursCalc=null;
-if(aPeriod==="1d"&&!_crypto){
-  if(_qFrais&&_q.pc>0&&cours!=null){ base=_q.pc; coursCalc=cours; }
-}else if(bars.length&&cours!=null){ base=bars[0].c; coursCalc=cours; }
 // Pas de couple fiable, pas de pourcentage : un chiffre faux serait pire que pas de chiffre.
-let dp=(base>0&&coursCalc!=null)?((coursCalc-base)/base*100):null;
+let dp=null;
+if(aPeriod==="1d"&&!_crypto){
+  dp=_varJour((_hp&&_hp[0])?_hp[0].x:null,{px:cours,pc:(_qFrais&&_q)?_q.pc:null,frais:_qFrais});
+}else if(bars.length&&cours!=null&&bars[0].c>0){
+  dp=(cours-bars[0].c)/bars[0].c*100;
+}
 const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_RE.test(aSym||"")?aSym:null);
 if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="undefined"&&CG[aSym])){aData._isinTried=true;tickerToIsin(aSym).then(is=>{if(is){aData.isin=is;R();}});}
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym||w.ticker===(aSym.includes(".")?aSym.split(".")[0]:aSym));
@@ -4404,7 +4429,7 @@ window._askWatchList=(sym,name,cur)=>{const lists=(D.prefs.watchLists||[]);sm(`<
 
 async function fetchEarnDay(){try{const bl=_bPos();const seen={};const syms=[];bl.forEach(r=>{const x=r.x;if(x.manual)return;if(String(r.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const y=_ySym(x);if(y&&!seen[y]){seen[y]=1;syms.push(y);}});if(!syms.length)return;
 const r=await fetchT(`${FUND_URL}/?quotefull=${encodeURIComponent(syms.join(","))}`,null,15000);const d=await r.json();if(!d||d.error)return;let ch=false;
-bl.forEach(rr=>{const x=rr.x;if(String(rr.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const q=d[_ySym(x)];if(!q)return;if(q.chgPct!=null){x.dayPct=q.chgPct;ch=true;}if(q.earnTs&&q.earnTs>Date.now()/1000){x.earnTs=q.earnTs;ch=true;}else if(q.earnTs&&x.earnTs&&x.earnTs<=Date.now()/1000){delete x.earnTs;ch=true;}});
+bl.forEach(rr=>{const x=rr.x;if(String(rr.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const q=d[_ySym(x)];if(!q)return;if(q.chgPct!=null){x.dayPct=q.chgPct;x.dayPctAt=Date.now();ch=true;}if(q.earnTs&&q.earnTs>Date.now()/1000){x.earnTs=q.earnTs;ch=true;}else if(q.earnTs&&x.earnTs&&x.earnTs<=Date.now()/1000){delete x.earnTs;ch=true;}});
 if(ch){saveLocal();R();}}catch(e){}}
 function _upcomingDivEvents(){const da=(D.prefs&&D.prefs.divAuto)||{};const _exTd=(D.prefs&&D.prefs.pocheExclTotal)||{};const posMap={};Object.entries(D.poches).forEach(([n,pp])=>{if(_exTd[n])return;pp.positions.forEach(x=>{posMap[x.ticker]={qty:x.qty,cur:curOf(x)};});});const now=new Date();const months=[];for(let i=0;i<12;i++){const dd=new Date(now.getFullYear(),now.getMonth()+i,1);months.push({y:dd.getFullYear(),m:dd.getMonth(),label:dd.toLocaleDateString("fr-FR",{month:"short"}),eur:0});}const upcoming=[];Object.keys(da).forEach(tk=>{const info=da[tk];const pos=posMap[tk];if(!pos||!info||!info.events)return;const te=toEur(pos.cur);const cut=Date.now()-366*86400000;info.events.filter(e=>e.t*1000>=cut).forEach(e=>{const ed=new Date(e.t*1000);const pm=ed.getMonth();let cand=new Date(now.getFullYear(),pm,Math.min(ed.getDate(),28));if(cand<now)cand=new Date(now.getFullYear()+1,pm,Math.min(ed.getDate(),28));const eur=e.amount*pos.qty*te;const mi=months.findIndex(mm=>mm.y===cand.getFullYear()&&mm.m===cand.getMonth());if(mi>=0)months[mi].eur+=eur;upcoming.push({tk,date:cand,eur});});});upcoming.sort((a,b)=>a.date-b.date);return{months,upcoming,now};}
 
