@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "225";
+const APP_VERSION = "226";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1057,7 +1057,7 @@ function _convVuePage(vue,ctx){
     return _convRetour()+_convEntete("Nouveau thème","Regroupe plusieurs titres sous une même grande idée.")
       +`<div class="card">`
       +`<div class="field"><label>Nom du thème</label><input id="thNom" placeholder="ex : Eau"></div>`
-      +`<div class="field"><label>Icône — facultatif</label><input id="thIcone" placeholder="💧" maxlength="4" style="width:100px"></div>`
+      +_themeIconeChamp("thIcone","")
       +`<div class="field"><label>Thèse du thème — facultatif, tu peux l'écrire plus tard</label><textarea id="thThese" rows="4" placeholder="Ex : l'eau est une ressource finie…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical"></textarea></div>`
       +`</div>`
       +`<div class="card" style="margin-top:10px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Rattacher des titres — facultatif</div>`
@@ -1103,6 +1103,27 @@ function _convVuePage(vue,ctx){
   }
   return _convRetour()+`<div class="card">Page inconnue.</div>`;
 }
+// ── Le champ icône d'un thème, écrit une fois et servi aux deux écrans ──────
+// Aucun emoji n'est imposé : le champ part vide, et un thème sans emoji reste parfaitement
+// lisible grâce à sa pastille de couleur.
+const THEME_EMOJIS=["\u{1F4A7}","\u{269B}\u{FE0F}","\u{1F532}","\u{1F6E1}\u{FE0F}","\u{1F680}","\u{1F916}","\u{1F331}","\u{1F9EC}","\u{1F510}","\u{1FA99}","\u{1F3E0}","\u{1F45C}"];
+function _themeIconeChamp(id,valeur){
+  // Un input texte court : le toucher ouvre le clavier du téléphone, d'où l'on bascule sur
+  // les emojis. La palette au-dessous évite d'avoir à le faire pour les cas courants.
+  return `<div class="field"><label>Icône — facultatif</label>`
+    +`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">`
+    +THEME_EMOJIS.map(e=>`<span onclick="_themeIconeChoisir('${escAttr(id)}','${escAttr(e)}')" style="display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:10px;border:1px solid var(--bdr);background:var(--inp);font-size:19px;cursor:pointer;line-height:1">${e}</span>`).join("")
+    +`</div>`
+    +`<input id="${escAttr(id)}" value="${escAttr(valeur||"")}" placeholder="aucune" maxlength="8" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false" style="width:120px;font-size:18px;text-align:center">`
+    +`<div style="font-size:10.5px;color:var(--mut);margin-top:5px;line-height:1.45">Touche une icône ci-dessus, ou tape la tienne — le clavier du téléphone s'ouvre, bascule sur la touche emoji.</div>`
+    +`</div>`;}
+// Écrit directement dans le champ : aucun rendu global, donc rien qui puisse fermer le clavier.
+window._themeIconeChoisir=(id,e)=>{const el=document.getElementById(id);if(!el)return;
+  el.value=(el.value===e)?"":e;};
+// Un thème sans emoji n'est pas un thème sans identité : sa pastille de couleur, déterministe
+// et déjà utilisée partout, tient lieu de marque neutre.
+function _themePastille(t,px){const d=px||9;
+  return `<span style="width:${d}px;height:${d}px;border-radius:50%;background:${_themeCouleur(t)};flex-shrink:0;display:inline-block"></span>`;}
 // ── FILTRE UNIFIÉ DU NUAGE ──────────────────────────────────────────────────
 // Un angle à la fois, jamais deux : choisir un angle remplace le précédent. Combiner
 // enveloppe ET thème ET horizon produirait des nuages vides sans qu'on comprenne pourquoi.
@@ -1143,7 +1164,7 @@ window._convFiltreMenu=()=>{
   h+=`<div onclick="_convFiltreTout()" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1;font-size:13px;color:${f.angle==="tout"?"var(--acc)":"var(--txt)"};font-weight:${f.angle==="tout"?"700":"400"}">Tout afficher</div>${f.angle==="tout"?`<span style="color:var(--acc);font-size:13px">✓</span>`:""}</div>`;
   if(envs.length){h+=titre("Par enveloppe");h+=envs.map(n=>ligne(esc(n),"env",n,"")).join("");}
   if(themes.length){h+=titre("Par thème");h+=themes.map(t=>{const st=_themeStats(t.id);
-    return ligne((t.icone?esc(t.icone)+" ":"")+esc(t.nom),"theme",t.id,st.nbActifs+" titre"+(st.nbActifs>1?"s":""));}).join("");}
+    return ligne(_themePastille(t,8)+" "+(t.icone?esc(t.icone)+" ":"")+esc(t.nom),"theme",t.id,st.nbActifs+" titre"+(st.nbActifs>1?"s":""));}).join("");}
   else{h+=titre("Par thème");h+=`<div style="font-size:11.5px;color:var(--mut);padding:11px 0;border-top:1px solid var(--sep);line-height:1.5">Aucun thème pour l'instant. Tu peux en créer depuis Mes convictions.</div>`;}
   h+=titre("Par horizon");
   h+=HORIZONS.map(o=>ligne(esc(o.l),"hz",o.k,o.d?esc(o.d):"")).join("");
@@ -1178,7 +1199,7 @@ const hzOpts=[["tout","Tous"]].concat(HORIZONS.map(h=>[h.k,h.l]));
 // 267 px et le faisaient dépasser de l'écran ; l'objectif est qu'il tienne en entier sur un iPhone.
 const _filtreLbl=_convFiltreLibelle();
 const hzFiltre=`<div style="margin-top:8px">${_filtreLbl
-  ?`<span onclick="_convFiltreMenu()" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer">Filtrer : ${esc(_filtreLbl)} ▾<span onclick="event.stopPropagation();_convFiltreTout()" style="cursor:pointer;opacity:.85;font-size:12px">✕</span></span>`
+  ?`<span onclick="_convFiltreMenu()" style="display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer">Filtrer : ${esc(_filtreLbl)} ▾<span onclick="event.stopPropagation();_convFiltreTout()" title="Lever le filtre" style="cursor:pointer;opacity:.85;font-size:13px;line-height:1;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;margin:-14px -12px -14px -6px;flex-shrink:0">✕</span></span>`
   :`<span onclick="_convFiltreMenu()" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:600;border:1px solid var(--bdr);color:var(--dim);cursor:pointer">Filtrer ▾</span>`}</div>`;
 const legende=`<span style="display:inline-flex;flex-wrap:wrap;gap:9px;align-items:center">${envNames.map(n=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:var(--mut)"><span style="width:7px;height:7px;border-radius:50%;background:${_pocheColor(n)}"></span>${esc(n)}</span>`).join("")}</span>`;
 const envSelectHtml=hzFiltre;
@@ -3244,12 +3265,12 @@ window._themeToggle=(k)=>{_themeExp[k]=!_themeExp[k];R();};
 window._themePoidsInfo=()=>{sm(`<div style="margin-bottom:12px"><h3 style="font-size:17px;font-weight:700">Le poids d'un thème</h3></div><p style="font-size:13px;color:var(--txt);line-height:1.55;margin:0">C'est la somme du poids de chaque titre rattaché, dans tout ton portefeuille (toutes tes enveloppes cumulées).</p><p style="font-size:12px;color:var(--mut);line-height:1.5;margin:10px 0 0">👉 Un même titre peut appartenir à plusieurs thèmes : il compte alors en entier dans chacun. La somme des poids de tous tes thèmes peut donc dépasser 100 % — ce n'est pas une erreur.</p><button class="btn" style="width:100%;margin-top:14px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Compris</button>`);};
 window._themeMenu=(id)=>{const t=_theme(id);if(!t)return;
   const it=(lib,act)=>`<div onclick="${act}" style="display:flex;align-items:center;gap:10px;padding:13px 0;border-top:1px solid var(--sep);cursor:pointer"><div style="flex:1;font-size:13px;color:var(--txt)">${lib}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
-  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><h3 style="font-size:16px;font-weight:700">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
+  sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px"><h3 style="font-size:16px;font-weight:700;display:flex;align-items:center;gap:7px">${_themePastille(t,9)}<span>${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</span></h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>`
     +it("✎ Modifier le nom et l'icône","_themeIdentiteEditer('"+escAttr(id)+"')")
     +it("✎ Modifier la thèse","_themeTheseEditer('"+escAttr(id)+"')")
     +it("🗑 Supprimer ce thème","_themeSupprimerConfirm('"+escAttr(id)+"')"));};
 window._themeIdentiteEditer=(id)=>{const t=_theme(id);if(!t)return;
-  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Nom du thème</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="thEdNom" value="${escAttr(t.nom)}" placeholder="ex : Eau"></div><div class="field"><label>Icône — facultatif</label><input id="thEdIcone" value="${escAttr(t.icone||"")}" placeholder="💧" maxlength="4" style="width:100px"></div><button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_themeIdentiteSave('${escAttr(id)}')">Enregistrer</button>`);
+  sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700">Nom du thème</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div class="field"><label>Nom</label><input id="thEdNom" value="${escAttr(t.nom)}" placeholder="ex : Eau"></div>${_themeIconeChamp("thEdIcone",t.icone||"")}<button class="btn btn-p" style="width:100%;margin-top:6px" onclick="_themeIdentiteSave('${escAttr(id)}')">Enregistrer</button>`);
   setTimeout(()=>{const e=document.getElementById("thEdNom");if(e)e.focus();},30);};
 window._themeIdentiteSave=(id)=>{const nomEl=document.getElementById("thEdNom");const nom=(nomEl&&nomEl.value||"").trim();
   if(!nom){if(nomEl){nomEl.style.borderColor="var(--red)";nomEl.focus();}toast("Le nom ne peut pas être vide.");return;}
