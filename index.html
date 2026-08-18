@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "227";
+const APP_VERSION = "228";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -5011,7 +5011,12 @@ window.saveWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watch
 // La devise renvoyée par la source fait autorité : elle prime sur toute déduction par suffixe.
 async function _coursEtDevise(sym){
   try{
-    const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(sym)}&range=5d&_t=${Date.now()}`,{},12000);
+    // range=1d, et pas davantage : chartPreviousClose est la clôture qui PRÉCÈDE la fenêtre
+    // demandée. Sur 5 jours il renvoyait donc la clôture d'il y a cinq séances, et la
+    // « variation du jour » de la fiche action se calculait contre elle (NBIS : +46 %
+    // affiché pour −0,07 % réel). Le prix, lui, est un champ de meta indépendant de la
+    // fenêtre : il reste disponible en 1d, y compris sur les fonds peu liquides.
+    const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(sym)}&range=1d&_t=${Date.now()}`,{},12000);
     const j=await r.json();
     const res=j&&j.chart&&j.chart.result&&j.chart.result[0];
     const meta=res&&res.meta;
