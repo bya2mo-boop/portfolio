@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "230";
+const APP_VERSION = "231";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2546,8 +2546,7 @@ window._fillSkip=tk=>{_convSkip.push(tk);R();scrollTo(0,0);};
 window._fillThese=tk=>{const el=document.getElementById("fillTh");const v=el?el.value.trim():"";
   if(!v)return toast("Écris quelques mots, ou passe cette ligne.");
   D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[tk]=v;_setTheseTs(tk);save();scrollTo(0,0);};
-window._convSet=(tk,v)=>{const n=Math.round(Number(v)||0);D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};
-  if(n>0){D.prefs.conv[tk]=n;_setConvTs(tk);}else delete D.prefs.conv[tk];save();};
+window._convSet=(tk,v)=>{_convWrite(tk,v);save();};
 // Les textes vivent dans convTabHtml (au plus près de ce qu'ils décrivent) ; on les relit ici au clic.
 window._convAide=(k)=>{const TITRES={diag:'La ligne de cohérence',dorm:'Les contours en pointillés',poids:'Le calcul des poids',horizon:'Le filtre par horizon',surveiller:'À surveiller',derive:'La dérive',marche:'Mes convictions face au marché'};const t={
  diag:"La diagonale : conviction et poids alignés. Un point AU-DESSUS = tu y crois plus que tu n'y as mis (à renforcer). EN DESSOUS = tu y as mis plus que tu n'y crois (à alléger). C'est une convention de lecture, pas un conseil.",
@@ -2877,7 +2876,7 @@ function _varJour(x,ref){
   return null;}
 // Variation du jour "fiable" pour l'agrégat : seulement une vraie source intraday (crypto / clôture officielle US ou EU) horodatée aujourd'hui. Exclut manuels, fonds (VL) et livrets qui ne bougent pas en séance.
 function _dayLive(x){if(!x||x.manual)return null;if(!x.dayPctAt)return null;if(new Date(x.dayPctAt).toDateString()!==new Date().toDateString())return null;return _dayPctOf(x);}
-window.setConv=(tk,n)=>{D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};n=Math.max(0,Math.min(100,Math.round(Number(n)||0)));if(n<=0)delete D.prefs.conv[tk];else D.prefs.conv[tk]=n;save();};
+window.setConv=(tk,n)=>{_convWrite(tk,n);save();};
 // Prompt optionnel juste après un achat : conviction + thèse + objectif de vente.
 window.promptThesis=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const cv=(D.prefs&&D.prefs.conv&&D.prefs.conv[tk])||0;const th=(D.prefs&&D.prefs.notes&&D.prefs.notes[tk])||"";const sym=curSym(curOf(p));sm(`<div style="text-align:center;margin-bottom:4px"><div style="font-size:28px">🔥</div><h3 style="font-size:17px;font-weight:700;margin-top:2px">Pourquoi cet achat ?</h3><div style="font-size:11px;color:var(--mut);margin-top:2px">Optionnel — mais c'est l'ADN de Convicto</div></div><div style="display:flex;justify-content:space-between;align-items:center;margin:16px 0 6px"><span style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px">Conviction</span><span class="mono" id="ptcv" style="font-size:16px;font-weight:800;color:${_convColor(cv)}">${cv}</span></div><input type="range" min="0" max="100" step="1" value="${cv}" id="ptSlider" oninput="document.getElementById('ptcv').textContent=this.value;document.getElementById('ptcv').style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" style="width:100%;accent-color:var(--acc)"><div style="margin-top:16px"><div style="font-size:10px;color:var(--mut);margin-bottom:6px">Pour combien de temps ?</div>${_hzChips(_horizonOf(tk))}<div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">C'est une intention, pas un engagement — tu pourras la changer quand tu veux.</div></div><div style="margin-top:14px"><div style="font-size:10px;color:var(--mut);margin-bottom:5px">Ta thèse — pourquoi tu achètes</div><textarea id="ptTh" rows="3" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-family:inherit;font-size:13px;resize:vertical" placeholder="Ex : leader du secteur, marge en hausse, je garde tant que…">${esc(th)}</textarea></div><div style="margin-top:10px"><div style="font-size:10px;color:var(--mut);margin-bottom:5px">Objectif de vente — optionnel (${sym})</div><input id="ptCH" inputmode="decimal" value="${p.cibleHaut||""}" placeholder="ex: prix cible" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px"></div><div style="display:flex;gap:8px;margin-top:18px"><button class="btn" style="flex:1;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Passer</button><button class="btn btn-p" style="flex:2" onclick="savePromptThesis('${escAttr(poche)}','${escAttr(tk)}')">Enregistrer</button></div>`);
 // On amorce la sélection avec l'horizon déjà connu : sans ça, rouvrir la fenêtre et enregistrer
@@ -2951,6 +2950,8 @@ function _snapPoids(){
 // et un plafond de 2 ans car même une conviction à 10 ans mérite d'être revue de temps en temps.
 function _convTs(tk){return (D.prefs&&D.prefs.convTs&&D.prefs.convTs[tk])||null;}
 function _setConvTs(tk){D.prefs=D.prefs||{};D.prefs.convTs=D.prefs.convTs||{};D.prefs.convTs[tk]=Date.now();}
+function _convWrite(tk,v){D.prefs=D.prefs||{};D.prefs.conv=D.prefs.conv||{};const n=Math.max(0,Math.min(100,Math.round(Number(v)||0)));
+  if(n>0){D.prefs.conv[tk]=n;_setConvTs(tk);}else delete D.prefs.conv[tk];}
 // Un fonds affiché « 0P0000M6PZ » ne dit rien à personne alors que son vrai nom est disponible dans
 // le champ titre. Les ACTIONS gardent leur ticker : c'est ainsi qu'on les reconnaît.
 function _estFondsPos(x){
