@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "228";
+const APP_VERSION = "229";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -3920,7 +3920,7 @@ async function _aCotation(sym){
   if(typeof CG!=="undefined"&&CG[sym])return;
   const d=await _coursEtDevise(sym);
   if(!d||aSym!==sym)return;
-  aData.q={px:d.px,pc:d.pc,at:Date.now()};
+  aData.q={px:d.px,pc:d.pc,t:d.t,at:Date.now()};
   if(d.cur&&d.cur!==aCur)aCur=d.cur;
   R();
   _aHorsSeance(sym);
@@ -4374,15 +4374,40 @@ window.aAddTo=(poche)=>{const tk=(aSym.includes(".")?aSym.split(".")[0]:aSym);co
 // Répartition des avis analystes (achat fort → vente forte) : barre empilée + compteurs.
 // N'affiche rien si la donnée n'est pas là (worker pas encore à jour) → aucune régression.
 function _analystSpread(rt){if(!rt)return"";const segs=[["Achat fort",rt.strongBuy||0,"#0e8f60"],["Achat",rt.buy||0,"#34d399"],["Conserver",rt.hold||0,"#fbbf24"],["Vente",rt.sell||0,"#f87171"],["Vente forte",rt.strongSell||0,"#b91c1c"]];const tot=segs.reduce((a,s)=>a+s[1],0);if(tot<=0)return"";const bar=`<div style="display:flex;height:8px;border-radius:4px;overflow:hidden;margin:10px 0 8px;background:var(--card)">`+segs.filter(s=>s[1]>0).map(s=>`<div style="width:${vg(s[1]/tot*100,1)}%;background:${s[2]}"></div>`).join("")+`</div>`;const rows=segs.map(s=>`<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;margin-bottom:2px;${s[1]===0?"opacity:.35":""}"><span style="width:9px;height:9px;border-radius:2px;background:${s[2]};flex-shrink:0"></span><span style="flex:1;color:var(--dim)">${s[0]}</span><span class="mono" style="font-weight:700">${s[1]}</span></div>`).join("");return `<div style="border-top:1px solid var(--sep);margin-top:8px;padding-top:8px">${bar}${rows}</div>`;}
+// ── La cotation est-elle vraiment la donnée la plus fraîche dont on dispose ? ──
+// L'ancienne garde comparait Date.now() à l'heure de la REQUÊTE : une réponse sortie d'un
+// cache pouvait contenir un prix vieux d'une heure et passer pour instantanée.
+//
+// On ne peut pas non plus la remplacer par un simple « moins de 15 minutes », parce que
+// l'âge normal d'une cotation dépend entièrement de l'instrument (mesuré le 19/08) :
+//   Euronext ~15 min (différé de la source) · Séoul fermé 59 min
+//   marché US fermé 689 min · fonds à VL quotidienne 2129 min
+// Un seuil absolu rejetterait donc Euronext en permanence et tous les marchés fermés.
+//
+// La bonne question n'est pas « quel âge a cette cotation » mais « est-elle au moins aussi
+// récente que le graphique ? ». Cette comparaison s'étalonne d'elle-même : elle suit le
+// différé de chaque place, tolère les marchés fermés, et écarte précisément le cas qui
+// posait problème — un relevé capté il y a plusieurs séances pendant que le graphique,
+// lui, continue de se rafraîchir toutes les deux minutes.
+function _cotationFiable(q,bars){
+  // On juge la FRAÎCHEUR du relevé, pas sa complétude : un relevé sans prix mais avec une
+  // clôture de veille reste une référence valable, la dernière barre fournissant le prix
+  // (comportement acquis en v222). C'est l'appelant qui décide quoi faire d'un px absent.
+  if(!q)return false;
+  const tq=Number(q.t)||0;
+  // Sans horodatage, on ne peut rien garantir : on laisse la main au graphique.
+  if(!(tq>0))return false;
+  const der=(bars&&bars.length)?Number(bars[bars.length-1].t)||0:0;
+  // Une barre couvre un intervalle : la cotation peut la précéder de quelques secondes.
+  if(der>0)return tq>=der-60;
+  // Aucune barre pour se comparer : garde absolue, large mais qui écarte les vieux relevés.
+  return (Date.now()/1000-tq)<4*86400;
+}
 function actionPageHtml(){const bars=aData.ohlc||[];
 const _q=aData.q||null;
 const _crypto=(typeof CG!=="undefined"&&CG[aSym]);
 const _hp=_findHolding(aSym,aData.tkGuess);
-// Un relevé de cotation vieux de plus d'un quart d'heure ne dit plus de quelle séance il
-// parle. Passé ce délai on ne s'en sert plus comme référence : le graphique, lui, continue
-// de se rafraîchir, et l'écart entre les deux est exactement ce qui produisait un faux
-// pourcentage.
-const _qFrais=!!(_q&&_q.at&&(Date.now()-_q.at)<15*60000);
+const _qFrais=_cotationFiable(_q,bars);
 // Ordre de confiance pour le prix : la cotation du moment, puis la dernière barre du
 // graphique, puis la position détenue.
 let cours=(_qFrais&&_q.px!=null)?_q.px:null;
@@ -5023,7 +5048,10 @@ async function _coursEtDevise(sym){
     if(!meta)return null;
     return {px:(meta.regularMarketPrice!=null?meta.regularMarketPrice:null),
             cur:meta.currency||null,
-            pc:(meta.chartPreviousClose!=null?meta.chartPreviousClose:null)};
+            pc:(meta.chartPreviousClose!=null?meta.chartPreviousClose:null),
+            // L'heure à laquelle la COTATION a été produite (secondes), à ne pas confondre
+            // avec l'heure à laquelle on l'a reçue : entre les deux il y a les caches.
+            t:(meta.regularMarketTime!=null?meta.regularMarketTime:null)};
   }catch(e){return null;}
 }
 // Par petits paquets : assez parallèle pour aboutir, assez modeste pour ne pas saturer la source.
