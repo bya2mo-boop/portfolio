@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "229";
+const APP_VERSION = "230";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -3953,7 +3953,59 @@ function _vueIntradayOuverte(){
 // jamais en manquer une. Plus court ne montrerait rien de neuf et solliciterait la source
 // pour rien.
 let _intradayTimer=setInterval(()=>{try{if(!_vueIntradayOuverte())return;loadAChart();_aCotation(aSym);}catch(e){}},120000);
-async function loadAChart(){const rng=aPeriod;const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");try{const d=await fundFetch("ohlc",aSym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];}catch(e){aData.ohlc=[];}if(aSym)R();}
+// ── Les barres d'une crypto viennent de CoinGecko, jamais du worker ──────────
+// Le worker résout « BTC » vers un ETF coté à New York (Grayscale Bitcoin Mini Trust, ~28 $)
+// au lieu de Bitcoin : la fiche affichait donc un tout autre actif que la page position.
+// La détection réutilise la table CG, celle qui sert déjà à fetchCrypto et loadASummary —
+// une seule liste d'identifiants, qui ne peut pas diverger.
+//
+// Correspondance des périodes (mesurée le 19/08 sur l'API gratuite) :
+//   1J → days=1   (points de 5 min)      1S → days=7   (1 h)
+//   1M → days=30  (1 h)                  3M → days=90  (1 h)
+//   1A → days=365 (1 jour)               5A → days=365 également : au-delà, l'API gratuite
+//   refuse (error_code 10012, « exceeds the allowed time range »). On prend donc le plus
+//   proche disponible et on le DIT à l'écran plutôt que d'étiqueter « 5A » une année.
+const CG_JOURS={"1d":1,"5d":7,"1mo":30,"3mo":90,"1y":365,"5y":365};
+const CG_PLAFOND_JOURS=365;
+async function _cryptoBars(sym,per){
+  const id=(typeof CG!=="undefined")?CG[sym]:null;
+  if(!id)return null;
+  const jours=CG_JOURS[per]||30;
+  const dev=String(aCur||"usd").toLowerCase();
+  // Même cache que le reste des graphiques : l'API gratuite de CoinGecko limite le débit,
+  // et le rafraîchissement intraday de 120 s taperait sinon à chaque battement.
+  const cle="cvCG1:"+id+":"+dev+":"+jours;
+  const ttl=(per==="1d"||per==="5d")?60e3:900e3;
+  const cache=_fCacheGet(cle,ttl);
+  if(cache)return cache;
+  try{
+    const r=await fetchT(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(id)}/market_chart?vs_currency=${encodeURIComponent(dev)}&days=${jours}`,{},12000);
+    const j=await r.json();
+    const px=j&&j.prices;
+    if(!px||!px.length)return null;
+    // market_chart ne donne que des prix, pas de vraies bougies : o/h/l valent donc le prix
+    // relevé à cet instant. C'est la seule valeur connue pour ce point — on ne fabrique
+    // aucune amplitude. En mode Ligne (celui par défaut) l'affichage est exact.
+    const bars=px.map(p=>{const v=Number(p[1]);return {t:Math.round(Number(p[0])/1000),o:v,h:v,l:v,c:v};})
+                 .filter(b=>b.t>0&&isFinite(b.c));
+    if(!bars.length)return null;
+    _fCacheSet(cle,bars);
+    return bars;
+  }catch(e){return null;}
+}
+async function loadAChart(){const rng=aPeriod;const sym=aSym;
+  if(typeof CG!=="undefined"&&CG[sym]){
+    const bars=await _cryptoBars(sym,rng);
+    if(aSym!==sym)return;
+    aData.ohlc=bars||[];
+    // Distinguer « pas encore chargé » de « la source n'a pas répondu » : sans ça le
+    // graphique reste sur « Chargement… » indéfiniment et on ne sait pas pourquoi.
+    aData.ohlcErr=bars?0:1;
+    R();return;
+  }
+  const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");
+  try{const d=await fundFetch("ohlc",sym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];aData.ohlcErr=0;}catch(e){aData.ohlc=[];aData.ohlcErr=1;}
+  if(aSym)R();}
 async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
 try{
   const h=await fundFetchHoldings(aSym);
@@ -4408,6 +4460,10 @@ const _q=aData.q||null;
 const _crypto=(typeof CG!=="undefined"&&CG[aSym]);
 const _hp=_findHolding(aSym,aData.tkGuess);
 const _qFrais=_cotationFiable(_q,bars);
+// La période réellement couverte par les données, qui n'est pas toujours celle demandée :
+// l'historique crypto de la source s'arrête à un an, et un « (5y) » posé sur un chiffre
+// d'un an serait un chiffre faux.
+const _perAff=(_crypto&&aPeriod==="5y")?"1y":aPeriod;
 // Ordre de confiance pour le prix : la cotation du moment, puis la dernière barre du
 // graphique, puis la position détenue.
 let cours=(_qFrais&&_q.px!=null)?_q.px:null;
@@ -4431,7 +4487,7 @@ const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist
 let h=`<div class="fade">`;
 h+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span onclick="aClose()" style="font-size:20px;color:var(--mut);cursor:pointer">‹</span><div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:10px;color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn" style="font-size:11px;padding:5px 10px" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
 if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:24px;font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
-  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;font-weight:600;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % ${aPeriod==="1d"?"auj.":"("+esc(aPeriod)+")"}</span>`:""}</div>`;
+  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:10.5px;padding:3px 9px;border-radius:99px;cursor:pointer;font-weight:600;background:${haut?"#34d39918":"#f8717118"};color:${haut?"var(--grn)":"var(--red)"}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?`<span class="mono" style="font-size:12px;padding:2px 8px;border-radius:99px;background:${dp>=0?"#34d39918":"#f8717118"};color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} % ${aPeriod==="1d"?"auj.":"("+esc(_perAff)+")"}</span>`:""}</div>`;
 // Une ligne discrète, nommée, qui ne peut pas se confondre avec le cours de séance.
 if(aData.hs&&aData.hs.px!=null){const _hs=aData.hs;const _hp2=_hs.pct;
   h+=`<div style="display:flex;align-items:baseline;gap:7px;margin:-6px 0 12px;font-size:11px;color:var(--mut)"><span>${esc(_hs.libelle)}</span><span class="mono" style="font-weight:600">${fmt2_(_hs.px)} ${curSym(aCur)}</span>${_hp2!=null?`<span class="mono">${_hp2>=0?"+":""}${vg(_hp2,2)} %</span>`:""}<span onclick="_horsSeanceInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:50%;background:var(--bdr);color:var(--dim);font-size:8px;font-weight:700;cursor:pointer">?</span></div>`;}
@@ -4439,9 +4495,12 @@ const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"]
 h+=`<div style="display:flex;gap:16px;border-bottom:1px solid var(--bdr);margin-bottom:12px;overflow-x:auto">`+tabs.map(t=>`<span onclick="setATab('${t[0]}')" style="font-size:13px;padding-bottom:8px;white-space:nowrap;cursor:pointer;${aTab===t[0]?"color:var(--acc);font-weight:700;border-bottom:2px solid var(--acc)":"color:var(--dim)"}">${t[1]}</span>`).join("")+`</div>`;
 if(aTab==="chart"){
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="display:flex;border:1px solid var(--bdr);border-radius:8px;overflow:hidden">${[["line","Ligne"],["candle","Bougies"]].map(t=>`<span onclick="setAType('${t[0]}')" style="font-size:11px;padding:6px 12px;cursor:pointer;${aChartType===t[0]?"background:var(--acc);color:#fff;font-weight:700":"color:var(--dim)"}">${t[1]}</span>`).join("")}</div></div>`;
-h+=`<canvas id="aCanvas" style="width:100%;height:210px;display:block;background:var(--inp);border-radius:10px"></canvas>`;
+h+=(aData.ohlcErr&&!bars.length)
+  ? `<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:26px 14px;text-align:center"><div style="font-size:12.5px;color:var(--dim);line-height:1.6">Graphique momentanément indisponible.</div><div style="font-size:10.5px;color:var(--mut);margin-top:6px">La source de cours n'a pas répondu — réessaie dans un instant.</div></div>`
+  : `<canvas id="aCanvas" style="width:100%;height:210px;display:block;background:var(--inp);border-radius:10px"></canvas>`;
 if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)],["Bas",fmt2_(lo2)],[(aPeriod==="1d"?"Var. jour":"Perf"),(dp==null?`<span style="color:var(--mut)">—</span>`:`<span style="color:${dp>=0?"var(--grn)":"var(--red)"}">${dp>=0?"+":""}${vg(dp,1)} %</span>`)]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:7px 9px"><div style="font-size:9px;color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:12px;font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
 h+=`<div style="display:flex;justify-content:space-between;margin-top:10px">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<span onclick="setAPeriod('${pp[0]}')" style="font-size:11px;padding:5px 9px;cursor:pointer;border-radius:8px;${aPeriod===pp[0]?"background:#6c8cff22;color:var(--acc);font-weight:700":"color:var(--dim)"}">${pp[1]}</span>`).join("")+`</div>`;
+if(_crypto&&aPeriod==="5y"&&bars.length)h+=`<div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">Historique limité à 1 an sur les cryptos — c'est ce que fournit la source.</div>`;
 }
 if(aTab==="fund")h+=aFundHtml();
 if(aTab==="desc")h+=aDescHtml();
