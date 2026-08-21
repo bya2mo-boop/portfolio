@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "234";
+const APP_VERSION = "235";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -458,7 +458,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null,_themesOuverteTk=null,_themesTitreStage=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2354,7 +2354,7 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
  aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre,
  _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn,_theseOuverteTk:_theseOuverteTk,
- _notesOuverteTk:_notesOuverteTk,_horizonOuverteTk:_horizonOuverteTk};}
+ _notesOuverteTk:_notesOuverteTk,_horizonOuverteTk:_horizonOuverteTk,_themesOuverteTk:_themesOuverteTk};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
@@ -2369,14 +2369,14 @@ function _navApply(m){if(!m)return;
  if(m.convHz)convHz=m.convHz;
  if(m.convFiltre)convFiltre=m.convFiltre;
  _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;_theseOuverteTk=m._theseOuverteTk||null;
- _notesOuverteTk=m._notesOuverteTk||null;_horizonOuverteTk=m._horizonOuverteTk||null;}
+ _notesOuverteTk=m._notesOuverteTk||null;_horizonOuverteTk=m._horizonOuverteTk||null;_themesOuverteTk=m._themesOuverteTk||null;}
 function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
  convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;anaView=null;agendaOpen=false;agendaSub=null;
  resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;
- _notesOuverteTk=null;_horizonOuverteTk=null;}
+ _notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2462,8 +2462,9 @@ h+=`<div class="card" style="background:#f8717118;border-color:#f8717144;display
 if(_theseOuverteTk){h+=theseHtml();}
 else if(_notesOuverteTk){h+=notesHtml();}
 else if(_horizonOuverteTk){h+=horizonHtml();}
+else if(_themesOuverteTk){h+=themesTitreHtml();}
 else if(_socleDemoOn){h+=socleDemoHtml();}
-else if(convView==="boussole"||convView==="plan"||convView==="achat"){h+=`<div class="fade">${convTabHtml()}</div>`;}
+else if(convView==="boussole"||convView==="plan"||convView==="achat"||convView==="themePage"||convView==="themeNew"){h+=`<div class="fade">${convTabHtml()}</div>`;}
 else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
 else{
 if(tab==="home"){
@@ -2752,13 +2753,13 @@ window.addEventListener('popstate', (event) => { _resetTools();
   cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; pfTk=null; pfPoche=null;
   if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; }
   R(); });
-window.gt=id=>{ aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_ficheEdit=false;_socleDemoOn=false; if(id==="bourse"){watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convFill=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.gt=id=>{ aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null; if(id==="bourse"){watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convFill=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.goAlertes=()=>{_resetTools();_nav=[];pfTk=null;pfPoche=null;
   agendaOpen=false;agendaSub=null;resDetail=null;anaView=null;
   tab="analyse";anaSub="alerts";
   history.pushState({tab:"analyse"},"","#analyse");R();scrollTo(0,0);};
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
-window.goHome=()=>{ oWidget=null; aSym=null; cmpOpen=false; convView=null; boussoleTk=null; convPlanTk=null; achatTk=null; _ficheEdit=false; _socleDemoOn=false; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
+window.goHome=()=>{ oWidget=null; aSym=null; cmpOpen=false; convView=null; boussoleTk=null; convPlanTk=null; achatTk=null; _ficheEdit=false; _socleDemoOn=false; _theseOuverteTk=null; _notesOuverteTk=null; _horizonOuverteTk=null; _themesOuverteTk=null; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
 window.oP=n=>{ _navPush(); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 const PFAMC={cote:"#6c8cff",nc:"#f472b6",immo:"#5eead4"};
 function _famColor(id){if(PFAMC[id])return PFAMC[id];const fams=_families();const customIds=fams.map(f=>f.id).filter(fid=>!PFAMC[fid]);const idx=customIds.indexOf(id);return DCOL[(idx>=0?idx:0)%DCOL.length];}
@@ -3278,8 +3279,8 @@ function _themesModeHtml(){
   const nonRattaches=sansTheme.length?`<div style="margin-top:18px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 8px">Non rattachés (${sansTheme.length})</div><div class="card" style="padding:2px 14px">${sansTheme.map(tk=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sep)">${_lienTitre(tk,`<span style="font-size:12.5px">${esc(_tkNom(tk))}</span>`)}<span style="font-size:10.5px;color:var(--mut)">${esc(tk)}</span></div>`).join("")}</div></div>`:"";
   return banniere+btnNouveau+cartes+nonRattaches;
 }
-window.openTheme=(id)=>{_navPush();themeOpen=id;convView="themePage";tab="conv";R();scrollTo(0,0);};
-window.themeNouveau=()=>{_navPush();_themeDraft={liens:[]};convView="themeNew";tab="conv";R();scrollTo(0,0);};
+window.openTheme=(id)=>{_navPush();_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;themeOpen=id;convView="themePage";R();scrollTo(0,0);};
+window.themeNouveau=()=>{_navPush();_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_themeDraft={liens:[]};convView="themeNew";R();scrollTo(0,0);};
 // Un titre vendu reste dans son thème jusqu'à ce que l'utilisateur tranche — jamais retiré
 // tout seul. On résout un titre à la fois, et on rouvre la même liste tant qu'il en reste.
 window._themeArbitrerModal=()=>{const list=_themesTitresAArbitrer();if(!list.length)return;
@@ -3542,6 +3543,47 @@ function horizonHtml(){
     "_horizonEnregistrer('"+escAttr(tk)+"')",cur?"Modifier":"Définir");}
 window._horizonEnregistrer=(tk)=>{const r=document.getElementById("modal-root");
   _setHorizon(tk,r?(r.dataset.hz||""):"");_ficheEdit=false;save();R();};
+
+// ══ MES THÈMES — étape 3 du chantier titre : la seule page vraiment nouvelle ═══════════════════
+// Lecture via _themesDuTitre (existant, inchangé). Rattachement/détachement via _themeRattacher/
+// _themeDetacher (existants, les mêmes que la gestion des thèmes) — rien de réécrit. Pas de
+// création de thème ici (décidé) : sans thème existant, renvoi vers themeNouveau(), le parcours
+// déjà en place.
+window.openThemesTitre=(tk)=>{cm();_navPush();_ficheEdit=false;_themesOuverteTk=tk;
+  _themesTitreStage=new Set(_themesDuTitre(tk).map(t=>t.id));
+  R();scrollTo(0,0);};
+function themesTitreHtml(){
+  const tk=_themesOuverteTk;
+  const rattaches=_themesDuTitre(tk);
+  const ligne=(t)=>`<div onclick="openTheme('${escAttr(t.id)}')" class="card card-tap" style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding:12px 14px"><span style="width:8px;height:8px;border-radius:50%;background:${_themeCouleur(t)};flex-shrink:0"></span><div style="flex:1;min-width:0;font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</div><span style="color:var(--mut);font-size:14px">›</span></div>`;
+  const lecture=rattaches.length
+    ?rattaches.map(ligne).join("")
+    :`<div style="text-align:center;padding:24px 10px;color:var(--mut)"><div style="font-size:26px;margin-bottom:10px">🏷️</div><div style="font-size:13.5px;line-height:1.6">Ce titre n'est rattaché à aucun thème.<br>Relie-le à une de tes grandes idées d'investissement.</div></div>`;
+  const tousLesThemes=_themes();
+  const ecriture=!tousLesThemes.length
+    ?`<div style="text-align:center;padding:20px 10px;color:var(--mut)"><div style="font-size:13.5px;line-height:1.6;margin-bottom:12px">Tu n'as encore créé aucun thème.</div><button class="btn btn-p" onclick="themeNouveau()">+ Créer un thème</button></div>`
+    :`<div style="display:flex;flex-direction:column">`+tousLesThemes.map(t=>{
+        const on=_themesTitreStage&&_themesTitreStage.has(t.id);
+        return `<div data-th-id="${escAttr(t.id)}" onclick="_themeTitreToggle('${escAttr(t.id)}')" style="display:flex;align-items:center;gap:10px;padding:12px 4px;border-bottom:1px solid var(--sep);cursor:pointer"><span class="chk" style="font-size:16px;width:20px;flex-shrink:0">${on?"☑":"☐"}</span><span style="width:8px;height:8px;border-radius:50%;background:${_themeCouleur(t)};flex-shrink:0"></span><div style="flex:1;min-width:0;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.icone?esc(t.icone)+" ":""}${esc(t.nom)}</div></div>`;
+      }).join("")+`</div>`;
+  return _soclePage(_tkNom(tk),"Mes thèmes — les grandes idées auxquelles ce titre est rattaché",lecture,ecriture,
+    "_themesTitreEnregistrer('"+escAttr(tk)+"')");}
+window._themeTitreToggle=(id)=>{if(!_themesTitreStage)_themesTitreStage=new Set();
+  if(_themesTitreStage.has(id))_themesTitreStage.delete(id);else _themesTitreStage.add(id);
+  const el=document.querySelector('[data-th-id="'+id+'"] .chk');
+  if(el)el.textContent=_themesTitreStage.has(id)?"☑":"☐";};
+// Case à cocher multiple (pas un texte, pas un choix unique) : on applique tout au clic sur
+// Enregistrer plutôt qu'au tap de chaque case, pour rester cohérent avec le reste du socle — rien
+// ne s'écrit avant ce clic explicite. Chaque changement passe par _themeRattacher/_themeDetacher.
+window._themesTitreEnregistrer=(tk)=>{
+  const avant=new Set(_themesDuTitre(tk).map(t=>t.id));
+  const apres=_themesTitreStage||new Set();
+  _themes().forEach(t=>{
+    const etait=avant.has(t.id),doit=apres.has(t.id);
+    if(doit&&!etait)_themeRattacher(t.id,tk,"");
+    else if(!doit&&etait)_themeDetacher(t.id,tk);
+  });
+  _ficheEdit=false;R();};
 
 // ══ PLAN D'ACHAT ═════════════════════════════════════════════════════════════════════════════
 // Même mécanique que les paliers de sortie, côté entrée. Vit dans prefs (colonne JSON) : aucune
@@ -3935,7 +3977,7 @@ window.openSocleDemo=()=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=true;R()
 function socleDemoHtml(){
   const lecture=`<div style="font-size:14px;line-height:1.6;white-space:pre-wrap">${_socleDemoTxt?esc(_socleDemoTxt):'<span style="color:var(--mut)">Vide.</span>'}</div>`;
   const ecriture=`<textarea id="socleDemoTa" rows="6" placeholder="Écris quelque chose…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(_socleDemoTxt)}</textarea>`;
-  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étapes 1-2 — tester les vraies pages</div><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase;margin-bottom:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openNotes(t);">Mes notes ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openHorizon(t);">Mon horizon ›</button></div></div>`;
+  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étapes 1-3 — tester les vraies pages</div><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase;margin-bottom:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openNotes(t);">Mes notes ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openHorizon(t);">Mon horizon ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThemesTitre(t);">Mes thèmes ›</button></div></div>`;
   return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()")+testeur;}
 window._socleDemoSave=()=>{const v=((document.getElementById("socleDemoTa")||{}).value||"");_socleDemoTxt=v;_ficheEdit=false;R();};
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
