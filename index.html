@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "233";
+const APP_VERSION = "234";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -458,7 +458,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2353,7 +2353,8 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  boussoleOrdre:boussoleOrdre,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,agendaOpen:agendaOpen,
  agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
  aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre,
- _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn,_theseOuverteTk:_theseOuverteTk};}
+ _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn,_theseOuverteTk:_theseOuverteTk,
+ _notesOuverteTk:_notesOuverteTk,_horizonOuverteTk:_horizonOuverteTk};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
@@ -2367,13 +2368,15 @@ function _navApply(m){if(!m)return;
  aData=m.aData||{};cmpOpen=!!m.cmpOpen;cmpList=m.cmpList||[];oWidget=m.oWidget||null;
  if(m.convHz)convHz=m.convHz;
  if(m.convFiltre)convFiltre=m.convFiltre;
- _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;_theseOuverteTk=m._theseOuverteTk||null;}
+ _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;_theseOuverteTk=m._theseOuverteTk||null;
+ _notesOuverteTk=m._notesOuverteTk||null;_horizonOuverteTk=m._horizonOuverteTk||null;}
 function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
  convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;anaView=null;agendaOpen=false;agendaSub=null;
- resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;}
+ resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;
+ _notesOuverteTk=null;_horizonOuverteTk=null;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2457,6 +2460,8 @@ h+=`<div class="card" style="background:#f8717118;border-color:#f8717144;display
 // un autre onglet (boussole/plan/achat) se superposent donc à l'onglet courant au lieu de forcer
 // tab="bourse"/"conv" — tab n'est JAMAIS modifié par ces ouvertures, seul le contenu affiché change.
 if(_theseOuverteTk){h+=theseHtml();}
+else if(_notesOuverteTk){h+=notesHtml();}
+else if(_horizonOuverteTk){h+=horizonHtml();}
 else if(_socleDemoOn){h+=socleDemoHtml();}
 else if(convView==="boussole"||convView==="plan"||convView==="achat"){h+=`<div class="fade">${convTabHtml()}</div>`;}
 else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
@@ -3421,7 +3426,7 @@ window._bsNoteSave=(tk)=>{const v=((document.getElementById("bsTxt")||{}).value|
   if(!v)return toast("Écris quelques mots.");
   D.prefs=D.prefs||{};D.prefs.journal=D.prefs.journal||{};
   (D.prefs.journal[tk]=D.prefs.journal[tk]||[]).unshift({d:Date.now(),t:v});
-  cm();save();R();toast("Note enregistrée");};
+  _ficheEdit=false;cm();save();R();toast("Note enregistrée");};
 // Une thèse existe déjà : on demande ce qu'on veut en faire, plutôt que d'exposer deux boutons
 // dont l'un est presque toujours le mauvais.
 window._bsTheseMenu=(tk)=>{
@@ -3494,6 +3499,49 @@ function theseHtml(){
 // donc tout changement de texte déclenche la question remplacer/ranger si une thèse existait déjà
 // — exactement le comportement de _bsTheseSave(tk,"nouvelle"), inchangé.
 window._theseEnregistrer=(tk)=>{_bsTheseSave(tk,"nouvelle");};
+
+// ══ MES NOTES — étape 2 du chantier titre, sur le même patron que Ma thèse ═════════════════════
+// Même flux que Ma boussole (_boussoleFlux, filtré type==="note"), même écriture (_bsNoteSave),
+// même suppression (_bsDelNote) — rien de réécrit. Le geste principal du socle sert à AJOUTER une
+// note (on empile, on ne réécrit jamais une note passée) ; la suppression, ponctuelle et déjà sans
+// confirmation ailleurs dans l'app (Ma boussole), reste un ✕ directement en lecture — pas besoin
+// du mode écriture pour un geste aussi simple et déjà réversible en pratique (on ne supprime que
+// ce qu'on vient de voir).
+window.openNotes=(tk)=>{cm();_navPush();_ficheEdit=false;_notesOuverteTk=tk;R();scrollTo(0,0);};
+function notesHtml(){
+  const tk=_notesOuverteTk;
+  const notes=_boussoleFlux(tk).filter(e=>e.type==="note").sort((a,b)=>(b.d||0)-(a.d||0));
+  const lecture=notes.length
+    ?notes.map(e=>`<div style="border-left:2px solid var(--bdr);padding:1px 0 1px 11px;margin-bottom:16px"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:10.5px;color:var(--mut)">${_relTime(e.d)}</span><span style="flex:1"></span><span onclick="_bsDelNote('${escAttr(tk)}',${e.i})" title="Supprimer" style="color:var(--mut);font-size:13px;cursor:pointer;padding:4px 4px">✕</span></div><div style="font-size:13.5px;color:var(--txt);line-height:1.6;margin-top:3px;white-space:pre-wrap">${esc(e.t)}</div></div>`).join("")
+    :`<div style="text-align:center;padding:24px 10px;color:var(--mut)"><div style="font-size:26px;margin-bottom:10px">📝</div><div style="font-size:13.5px;line-height:1.6">Aucune note pour l'instant.<br>Note ce qui bouge : un renforcement, un doute, un résultat.</div></div>`;
+  const ecriture=`<textarea id="bsTxt" rows="5" placeholder="Ce que tu observes aujourd'hui…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical"></textarea>`;
+  return _soclePage(_tkNom(tk),"Mes notes — ce que tu as observé au fil du temps",lecture,ecriture,
+    "_noteEnregistrer('"+escAttr(tk)+"')","+ Ajouter");}
+window._noteEnregistrer=(tk)=>{_bsNoteSave(tk);};
+
+// ══ MON HORIZON — étape 2 du chantier titre, sur le même patron ════════════════════════════════
+// Meme logique que le reglage existant (_horizonOf/_setHorizon/_hzChips) : rien de reecrit. C'est
+// un CHOIX, pas du texte : on reprend le patron deja utilise par _convHzModal, qui fait tenir la
+// selection en cours sur le dataset de #modal-root (present en permanence dans la page, modale ou
+// non) via le _hzPick existant — direct au DOM, sans R(), donc sans jamais fermer un clavier ici
+// puisqu'il n'y en a pas. Un tap choisit, "Enregistrer" applique : reste cohérent avec le reste du
+// socle (rien ne s'ecrit avant le clic explicite), plutot qu'un tap qui appliquerait seul.
+window.openHorizon=(tk)=>{cm();_navPush();_ficheEdit=false;convFill=null;_horizonOuverteTk=tk;
+  const r=document.getElementById("modal-root");if(r)r.dataset.hz=_horizonOf(tk)||"";
+  R();scrollTo(0,0);};
+function horizonHtml(){
+  const tk=_horizonOuverteTk;
+  const cur=_horizonOf(tk);
+  const r=document.getElementById("modal-root");
+  const lecture=cur
+    ?`<div style="font-size:18px;font-weight:700">${esc(_horizonTxt(cur))}</div>`
+    :`<div style="text-align:center;padding:24px 10px;color:var(--mut)"><div style="font-size:26px;margin-bottom:10px">⏳</div><div style="font-size:13.5px;line-height:1.6">Définis ton horizon — ça t'aide à ne pas vendre sur un coup de tête.</div></div>`;
+  const ecriture=_hzChips(r?(r.dataset.hz||""):"")
+    +`<div style="font-size:10px;color:var(--mut);margin-top:10px;line-height:1.4">Une intention, pas un engagement — modifiable à tout moment.</div>`;
+  return _soclePage(_tkNom(tk),"Mon horizon — combien de temps tu comptes le garder",lecture,ecriture,
+    "_horizonEnregistrer('"+escAttr(tk)+"')",cur?"Modifier":"Définir");}
+window._horizonEnregistrer=(tk)=>{const r=document.getElementById("modal-root");
+  _setHorizon(tk,r?(r.dataset.hz||""):"");_ficheEdit=false;save();R();};
 
 // ══ PLAN D'ACHAT ═════════════════════════════════════════════════════════════════════════════
 // Même mécanique que les paliers de sortie, côté entrée. Vit dans prefs (colonne JSON) : aucune
@@ -3887,7 +3935,7 @@ window.openSocleDemo=()=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=true;R()
 function socleDemoHtml(){
   const lecture=`<div style="font-size:14px;line-height:1.6;white-space:pre-wrap">${_socleDemoTxt?esc(_socleDemoTxt):'<span style="color:var(--mut)">Vide.</span>'}</div>`;
   const ecriture=`<textarea id="socleDemoTa" rows="6" placeholder="Écris quelque chose…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(_socleDemoTxt)}</textarea>`;
-  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étape 1 — tester une vraie page</div><div style="display:flex;gap:8px"><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase"><button class="btn btn-p" style="font-size:13px" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button></div></div>`;
+  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étapes 1-2 — tester les vraies pages</div><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase;margin-bottom:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openNotes(t);">Mes notes ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openHorizon(t);">Mon horizon ›</button></div></div>`;
   return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()")+testeur;}
 window._socleDemoSave=()=>{const v=((document.getElementById("socleDemoTa")||{}).value||"");_socleDemoTxt=v;_ficheEdit=false;R();};
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
