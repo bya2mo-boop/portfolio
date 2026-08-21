@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "235";
+const APP_VERSION = "236";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -3378,7 +3378,7 @@ window._themeCreerValider=()=>{
   const t=_themeCreer(nom,these,icone);if(!t)return;
   (_themeDraft.liens||[]).forEach(tk=>_themeRattacher(t.id,tk,""));
   _themeDraft={liens:[]};
-  themeOpen=t.id;convView="themePage";tab="conv";
+  themeOpen=t.id;convView="themePage";_ficheEdit=false;
   R();scrollTo(0,0);toast("Thème créé");};
 
 // ── Suggestion pour un fonds/ETF : un confort, jamais une écriture automatique ──────────
@@ -3477,7 +3477,7 @@ window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.no
 // Aucune logique de données réécrite : lecture (_theseTxt/_theseTs/_theseVersionSuivante) et
 // écriture (_bsTheseSave, le choix remplacer/ranger via _bsTheseQuestion) sont les mêmes
 // fonctions que la modale « Ma boussole ». Seul l'habillage change (page au lieu de modale).
-window.openThese=(tk)=>{cm();_navPush();_ficheEdit=false;_theseOuverteTk=tk;R();scrollTo(0,0);};
+window.openThese=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=tk;R();scrollTo(0,0);};
 function theseHtml(){
   const tk=_theseOuverteTk;
   const cur=_theseTxt(tk);
@@ -3508,7 +3508,7 @@ window._theseEnregistrer=(tk)=>{_bsTheseSave(tk,"nouvelle");};
 // confirmation ailleurs dans l'app (Ma boussole), reste un ✕ directement en lecture — pas besoin
 // du mode écriture pour un geste aussi simple et déjà réversible en pratique (on ne supprime que
 // ce qu'on vient de voir).
-window.openNotes=(tk)=>{cm();_navPush();_ficheEdit=false;_notesOuverteTk=tk;R();scrollTo(0,0);};
+window.openNotes=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_notesOuverteTk=tk;R();scrollTo(0,0);};
 function notesHtml(){
   const tk=_notesOuverteTk;
   const notes=_boussoleFlux(tk).filter(e=>e.type==="note").sort((a,b)=>(b.d||0)-(a.d||0));
@@ -3527,7 +3527,7 @@ window._noteEnregistrer=(tk)=>{_bsNoteSave(tk);};
 // non) via le _hzPick existant — direct au DOM, sans R(), donc sans jamais fermer un clavier ici
 // puisqu'il n'y en a pas. Un tap choisit, "Enregistrer" applique : reste cohérent avec le reste du
 // socle (rien ne s'ecrit avant le clic explicite), plutot qu'un tap qui appliquerait seul.
-window.openHorizon=(tk)=>{cm();_navPush();_ficheEdit=false;convFill=null;_horizonOuverteTk=tk;
+window.openHorizon=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;convFill=null;_horizonOuverteTk=tk;
   const r=document.getElementById("modal-root");if(r)r.dataset.hz=_horizonOf(tk)||"";
   R();scrollTo(0,0);};
 function horizonHtml(){
@@ -3549,7 +3549,7 @@ window._horizonEnregistrer=(tk)=>{const r=document.getElementById("modal-root");
 // _themeDetacher (existants, les mêmes que la gestion des thèmes) — rien de réécrit. Pas de
 // création de thème ici (décidé) : sans thème existant, renvoi vers themeNouveau(), le parcours
 // déjà en place.
-window.openThemesTitre=(tk)=>{cm();_navPush();_ficheEdit=false;_themesOuverteTk=tk;
+window.openThemesTitre=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_themesOuverteTk=tk;
   _themesTitreStage=new Set(_themesDuTitre(tk).map(t=>t.id));
   R();scrollTo(0,0);};
 function themesTitreHtml(){
