@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "231";
+const APP_VERSION = "232";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -458,7 +458,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.";
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2197,7 +2197,7 @@ window.dismissAllAlerts=()=>{const d=ga();D.prefs=D.prefs||{};D.prefs.dismissedA
 window.choosePoche=()=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Choisir l'enveloppe</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="display:flex;flex-direction:column;gap:8px">${poches.map(p=>`<div class="card card-tap" onclick="cm();aPos('${escAttr(p)}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="width:4px;height:28px;border-radius:2px;background:${_pocheColor(p)}"></div><span style="font-size:14px;font-weight:600">${esc(p)}</span></div>`).join('')}</div>`)};
 // Supprimer une enveloppe vide
 window.dEnv=(name)=>{if(!D.poches[name])return;if(D.poches[name].positions.length>0)return toast("Supprime d'abord les positions de cette enveloppe.");if(!confirm("Supprimer l'enveloppe "+name+" ?"))return;delete D.poches[name];sel=null;tab="home";save()};
-window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p" style="width:100%;font-size:13px" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn" style="width:100%;font-size:13px;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d" style="width:100%;font-size:13px" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:11px;color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
+window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:17px;font-weight:700">Paramètres</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:12px;margin-bottom:15px"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;margin-bottom:8px">Compte (Supabase)</div><div style="font-size:13px;margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin-bottom:6px;display:block">Exportation</label><button class="btn" style="width:100%;background:#e8e9ed;color:#0a0b0f;font-size:14px" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p" style="width:100%;font-size:13px" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:10px;color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn" style="width:100%;font-size:13px;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d" style="width:100%;font-size:13px" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><label style="font-size:10px;color:var(--dim);text-transform:uppercase;margin:16px 0 6px;display:block">Chantier en cours</label><button class="btn" style="width:100%;font-size:13px;background:#a78bfa18;border:1px solid #a78bfa44;color:#a78bfa" onclick="openSocleDemo()">🧪 Démo — patron lecture/écriture (temporaire)</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:11px;color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
 window.exportData=()=>{try{const data={app:"Convicto",exportedAt:new Date().toISOString(),user:(currentUser&&currentUser.email)||null,portfolio:D,history:H};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="portfolio-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast("Données exportées ✓");}catch(e){toast("Export impossible : "+e.message);}};
 window.confirmDeleteAccount=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:17px;font-weight:700;color:var(--red)">Supprimer mon compte</h3><button onclick="eSettings()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><div style="background:#f8717118;border:1px solid #f8717144;border-radius:10px;padding:12px;font-size:12px;color:var(--txt);line-height:1.5;margin-bottom:14px">Action <b>définitive</b>. Tout sera effacé : enveloppes, positions, immobilier, budget, historique et ton compte.<br><b>Pense à exporter tes données avant.</b></div><label style="font-size:11px;color:var(--dim);display:block;margin-bottom:6px">Tape <b>SUPPRIMER</b> pour confirmer</label><input id="delConfirm" autocomplete="off" placeholder="SUPPRIMER" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:10px;padding:11px;color:var(--txt);margin-bottom:14px"><button class="btn btn-d" style="width:100%" onclick="doDeleteAccount()">Supprimer définitivement</button>`);setTimeout(()=>{const e=document.getElementById("delConfirm");if(e)e.focus();},40);};
 window.doDeleteAccount=async()=>{const el=document.getElementById("delConfirm");const v=el?el.value:"";if((v||"").trim().toUpperCase()!=="SUPPRIMER")return toast("Tape SUPPRIMER pour confirmer");toast("Suppression en cours…");try{await sb.functions.invoke("delete-account");}catch(e){}try{if(window.currentPfId){await sb.from("positions").delete().eq("portfolio_id",window.currentPfId);await sb.from("cashflows").delete().eq("portfolio_id",window.currentPfId);}}catch(e){}try{if(currentUser)await sb.from("portfolios").delete().eq("user_id",currentUser.id);}catch(e){}try{if(currentUser){localStorage.removeItem("pf-data-"+currentUser.id);localStorage.removeItem("pf-hist-"+currentUser.id);localStorage.removeItem("sb-migrated-"+currentUser.id);}}catch(e){}try{await sb.auth.signOut();}catch(e){}toast("Compte supprimé.");setTimeout(()=>location.reload(),700);};
@@ -2352,7 +2352,8 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  convPlanTk:convPlanTk,achatTk:achatTk,boussoleTk:boussoleTk,boussoleFiltre:boussoleFiltre,
  boussoleOrdre:boussoleOrdre,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,agendaOpen:agendaOpen,
  agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
- aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre};}
+ aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre,
+ _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
@@ -2365,13 +2366,14 @@ function _navApply(m){if(!m)return;
  if(m.aPeriod)aPeriod=m.aPeriod;if(m.aChartType)aChartType=m.aChartType;
  aData=m.aData||{};cmpOpen=!!m.cmpOpen;cmpList=m.cmpList||[];oWidget=m.oWidget||null;
  if(m.convHz)convHz=m.convHz;
- if(m.convFiltre)convFiltre=m.convFiltre;}
+ if(m.convFiltre)convFiltre=m.convFiltre;
+ _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;}
 function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
- convView=null;convFill=null;boussoleTk=null;anaView=null;agendaOpen=false;agendaSub=null;
- resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;}
+ convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;anaView=null;agendaOpen=false;agendaSub=null;
+ resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2450,6 +2452,14 @@ if(st.ok===false && st.lastUp && _totPos>0 && !(st.loading && Date.now()-st.load
 h+=`<div class="card" style="background:#f8717118;border-color:#f8717144;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;margin-bottom:10px"><span style="font-size:12px;color:var(--red);font-weight:600;line-height:1.35">⚠️ Cours non actualisés — service de prix momentanément indisponible. Données possiblement périmées.</span><span onclick="toggleTheme()" style="cursor:pointer;font-size:14px;padding:4px 6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</span><button onclick="refreshPrices()" style="background:var(--red);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0">Réessayer</button></div>`;
 }
 
+// RÈGLE DE NAVIGATION (étape 0 du chantier titre) : la barre du bas ne doit jamais changer
+// d'onglet toute seule. La fiche action (aSym) et les sous-écrans de conviction ouverts depuis
+// un autre onglet (boussole/plan/achat) se superposent donc à l'onglet courant au lieu de forcer
+// tab="bourse"/"conv" — tab n'est JAMAIS modifié par ces ouvertures, seul le contenu affiché change.
+if(_socleDemoOn){h+=socleDemoHtml();}
+else if(convView==="boussole"||convView==="plan"||convView==="achat"){h+=`<div class="fade">${convTabHtml()}</div>`;}
+else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
+else{
 if(tab==="home"){
 const _np=Object.values(D.poches).reduce((s,p)=>s+p.positions.length,0);
 const _newU=_np===0&&D.cash===0&&(!D.immobilier||D.immobilier.valeurEstimee===0);
@@ -2529,7 +2539,7 @@ window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.pre
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
-window.openPlan=(tk,poche)=>{_navPush();convPlanTk=tk;convPlanPoche=poche||null;_planUnitPend=null;convView="plan";tab="conv";R();scrollTo(0,0);};
+window.openPlan=(tk,poche)=>{_navPush();convPlanTk=tk;convPlanPoche=poche||null;_planUnitPend=null;convView="plan";R();scrollTo(0,0);};
 window._planSet=(i,champ,val)=>{const o=_planObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_planFlash=0;_planSave(o);};
 window._planAdd=()=>{const o=_planLireDOM(_planObj());o.rows.push({q:"",px:""});_setPaliers(convPlanPoche,convPlanTk,o);_planFlash=0;R();};
@@ -2708,6 +2718,7 @@ if(tab==="news"){h+=`<div class="fade"><h2 style="font-size:18px;font-weight:700
 if(tab==="conv"){h+=`<div class="fade">${convView?"":`<h2 style="font-size:18px;font-weight:700;margin-bottom:14px">Conviction</h2>`}${convTabHtml()}</div>`;}
 
 if(tab==="bourse"){if(cmpOpen)h+=cmpHtml();else if(aSym)h+=actionPageHtml();else h+=bourseHtml();}
+}
 if($){
   // Un rendu ne doit jamais interrompre une saisie en cours.
   const _ae=document.activeElement;
@@ -2720,7 +2731,7 @@ if($){
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
 }
 try{_navSauve();}catch(e){}
-if(tab==="bourse"&&aSym&&!cmpOpen&&aTab==="chart")setTimeout(drawAChart,30);
+if(aSym&&!cmpOpen&&aTab==="chart")setTimeout(drawAChart,30);
 if(tab==="bourse"&&bSub==="resume"&&!cmpOpen&&!aSym)setTimeout(_paintWorldMap,0);
 if(tab==="news"&&newsKey!==_newsTickers().map(p=>p.tk).sort().join(",")&&!newsLoading)loadNews();
 const tabs=[["bourse","Bourse"],["analyse","Analyse"],["conv","Conviction"],["news","Actus"],["home","Patrimoine"]];
@@ -2735,13 +2746,13 @@ window.addEventListener('popstate', (event) => { _resetTools();
   cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; pfTk=null; pfPoche=null;
   if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; }
   R(); });
-window.gt=id=>{ if(id==="bourse"){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.gt=id=>{ aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_ficheEdit=false;_socleDemoOn=false; if(id==="bourse"){watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convFill=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.goAlertes=()=>{_resetTools();_nav=[];pfTk=null;pfPoche=null;
   agendaOpen=false;agendaSub=null;resDetail=null;anaView=null;
   tab="analyse";anaSub="alerts";
   history.pushState({tab:"analyse"},"","#analyse");R();scrollTo(0,0);};
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
-window.goHome=()=>{ oWidget=null; cmpOpen=false; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
+window.goHome=()=>{ oWidget=null; aSym=null; cmpOpen=false; convView=null; boussoleTk=null; convPlanTk=null; achatTk=null; _ficheEdit=false; _socleDemoOn=false; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
 window.oP=n=>{ _navPush(); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 const PFAMC={cote:"#6c8cff",nc:"#f472b6",immo:"#5eead4"};
 function _famColor(id){if(PFAMC[id])return PFAMC[id];const fams=_families();const customIds=fams.map(f=>f.id).filter(fid=>!PFAMC[fid]);const idx=customIds.indexOf(id);return DCOL[(idx>=0?idx:0)%DCOL.length];}
@@ -3384,7 +3395,7 @@ window._themeSuggAccepter=(tk,themeId,nom,icone)=>{cm();let id=themeId;
   if(!id){const t=_themeCreer(nom,"",icone);id=t&&t.id;}
   if(id){_themeRattacher(id,tk,"");toast("Rattaché à "+nom);}};
 function _tkDetenu(tk){return !!(ga().ap||[]).find(y=>y.ticker===tk);}
-window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";tab="conv";R();scrollTo(0,0);};
+window.openBoussole=(tk)=>{_navPush();boussoleTk=tk||null;boussoleFiltre="tout";convView="boussole";R();scrollTo(0,0);};
 window._bsFiltre=(v)=>{boussoleFiltre=v;R();};
 window._bsOrdre=()=>{boussoleOrdre=(boussoleOrdre==="recent"?"ancien":"recent");R();};
 // Sélecteur de titre : le champ « titre non détenu » est EN HAUT, c'est le cas qu'on vient
@@ -3542,7 +3553,7 @@ function _achatPhrase(poche,tk,r){
   return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))}${poche?" ("+esc(poche)+")":""} — ton plan prévoyait d'acheter ${_achatPart(poche,tk,r)}.`;}
 window.openAchat=(tk,ctx,poche)=>{_navPush();achatTk=tk;achatPoche=poche||"";_achatUnitPend=null;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
-  convView="achat";tab="conv";R();scrollTo(0,0);};
+  convView="achat";R();scrollTo(0,0);};
 // Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
 function _achatIdentite(poche,tk){const o=_achat(poche,tk);if(!o)return;
   const c=_achatCtx;if(c&&c.tk===tk){if(!o.sym)o.sym=c.sym;if(!o.name)o.name=c.name;if(!o.cur)o.cur=c.cur;
@@ -3802,7 +3813,7 @@ window.savePlanTargets=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].pos
   const cb=pn((document.getElementById("fCB")||{}).value);
   if(cb>0)p.cible=cb;else delete p.cible;
   save();R();toast("Alerte enregistrée");};
-window.posFiche=(poche,tk)=>{const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return;_navPush();pfPoche=poche;pfTk=tk;tab="posfiche";R();scrollTo(0,0);};
+window.posFiche=(poche,tk)=>{const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return;_navPush();aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;pfPoche=poche;pfTk=tk;tab="posfiche";R();scrollTo(0,0);};
 window.pfClose=()=>{_navBack();};
 // Prochaine date de résultats FIABLE d'une position : ne renvoie qu'une date future,
 // en préférant calendarEvents (earnHist.nextEarnTs) au earningsTimestamp de quotefull (souvent périmé).
@@ -3817,6 +3828,37 @@ function _dateResultats(tk,extra){
   const fut=c.filter(t=>t&&t>now-86400);
   return fut.length?Math.min.apply(null,fut):null;}
 function _nextEarn(x){return x?_dateResultats(x.ticker,x.earnTs):null;}
+
+// ══ SOCLE ÉTAPE 0 — patron générique lecture / écriture ═══════════════════════════════════════
+// Toute page de détail de la future page de titre (thèse, notes, horizon, thèmes, plans…) passe
+// par ici. Contrat : la page fournit son titre, son sous-titre, son HTML de lecture, son HTML
+// d'écriture, et le nom (string) de SA fonction d'enregistrement — le socle ne connaît rien du
+// contenu, seulement du mode (lecture/écriture). Un seul état partagé (_ficheEdit) suffit : une
+// seule page de détail est ouverte à la fois. Piège clavier : aucune de ces fonctions n'appelle
+// jamais save()/R() sur une frappe — seulement au clic Modifier/Annuler/Enregistrer.
+function _soclePage(titre,sousTitre,contenuLecture,contenuEcriture,onEnregistrer){
+  const e=!!_ficheEdit;
+  return `<div class="fade">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<span onclick="${e?"_socleAnnuler()":"_navBack()"}" style="color:var(--acc);font-size:14px;cursor:pointer;font-weight:600;padding:6px 2px">${e?"Annuler":"‹ Retour"}</span>
+<span onclick="${e?onEnregistrer:"_socleModifier()"}" style="color:var(--acc);font-size:14px;cursor:pointer;font-weight:700;padding:6px 2px">${e?"Enregistrer":"Modifier"}</span>
+</div>
+<div style="font-size:21px;font-weight:800;margin-top:4px">${esc(titre)}</div>
+${sousTitre?`<div style="font-size:11.5px;color:var(--mut);margin-top:2px">${esc(sousTitre)}</div>`:""}
+<div style="margin-top:14px;${e?"border:1.5px solid var(--acc);border-radius:12px;padding:12px;background:#6c8cff0d":""}">
+${e?contenuEcriture:contenuLecture}
+</div>
+</div>`;}
+window._socleModifier=()=>{_ficheEdit=true;R();};
+window._socleAnnuler=()=>{_ficheEdit=false;R();};
+
+// ── Écran de démonstration (temporaire — retiré à l'étape 6 ou 7) ──────────────────────────────
+window.openSocleDemo=()=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=true;R();scrollTo(0,0);};
+function socleDemoHtml(){
+  const lecture=`<div style="font-size:14px;line-height:1.6;white-space:pre-wrap">${_socleDemoTxt?esc(_socleDemoTxt):'<span style="color:var(--mut)">Vide.</span>'}</div>`;
+  const ecriture=`<textarea id="socleDemoTa" rows="6" placeholder="Écris quelque chose…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(_socleDemoTxt)}</textarea>`;
+  return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()");}
+window._socleDemoSave=()=>{const v=((document.getElementById("socleDemoTa")||{}).value||"");_socleDemoTxt=v;_ficheEdit=false;R();};
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
 const cur=curOf(p),sym=curSym(cur);const v=(p.qty||0)*(p.cours||0);const vE=v*toEur(cur);const inv=(p.qty||0)*(p.pru||0);const pv=v-inv;const pvPct=inv>0?pv/inv*100:0;
 const bl=_bPos();const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;
@@ -3912,7 +3954,7 @@ window.aOpenFund=(sym,name,cur,isin)=>{aOpen(sym,name,cur,null,isin);aTab="fund"
 window.setAType=t=>{aChartType=t;_aHoverIdx=null;R();};
 window.setAPeriod=pp=>{aPeriod=pp;aData.ohlc=null;_aHoverIdx=null;R();setTimeout(loadAChart,10);
   if(pp==="1d"&&aSym)try{_aCotation(aSym);}catch(e){}};
-window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};tab="bourse";R();loadAChart();loadASummary();_aCotation(sym);};
+window.aOpen=async(sym,name,cur,tkGuess,isin)=>{_navPush();cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_resetTools();_aHoverIdx=null;aSym=sym;aName=name||sym;aCur=_devise(cur,sym)||"USD";aTab="chart";aChartType="line";aPeriod="1y";aData={tkGuess:tkGuess||null,isin:isin||null};R();loadAChart();loadASummary();_aCotation(sym);};
 // La devise déduite du suffixe n'est qu'une hypothèse. La source la donne : on la confirme
 // dès l'ouverture de la fiche, et on rectifie l'affichage si l'hypothèse était fausse.
 // Le même appel rapporte le cours du moment et la clôture de la veille : le prix affiché et
@@ -3945,7 +3987,7 @@ async function _aHorsSeance(sym){
   }catch(e){}
 }
 function _vueIntradayOuverte(){
-  return tab==="bourse" && !cmpOpen && !!aSym
+  return !cmpOpen && !!aSym
       && aTab==="chart" && aPeriod==="1d"
       && !document.hidden
       && !(typeof CG!=="undefined"&&CG[aSym]);
