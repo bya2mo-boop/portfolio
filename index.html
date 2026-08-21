@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "232";
+const APP_VERSION = "233";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -458,7 +458,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.";
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2353,7 +2353,7 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  boussoleOrdre:boussoleOrdre,pfPoche:pfPoche,pfTk:pfTk,alertsSub:alertsSub,agendaOpen:agendaOpen,
  agendaSub:agendaSub,resDetail:resDetail,aSym:aSym,aName:aName,aCur:aCur,aTab:aTab,aPeriod:aPeriod,
  aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre,
- _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn};}
+ _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn,_theseOuverteTk:_theseOuverteTk};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
@@ -2367,13 +2367,13 @@ function _navApply(m){if(!m)return;
  aData=m.aData||{};cmpOpen=!!m.cmpOpen;cmpList=m.cmpList||[];oWidget=m.oWidget||null;
  if(m.convHz)convHz=m.convHz;
  if(m.convFiltre)convFiltre=m.convFiltre;
- _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;}
+ _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;_theseOuverteTk=m._theseOuverteTk||null;}
 function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
  convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;anaView=null;agendaOpen=false;agendaSub=null;
- resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;}
+ resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2456,7 +2456,8 @@ h+=`<div class="card" style="background:#f8717118;border-color:#f8717144;display
 // d'onglet toute seule. La fiche action (aSym) et les sous-écrans de conviction ouverts depuis
 // un autre onglet (boussole/plan/achat) se superposent donc à l'onglet courant au lieu de forcer
 // tab="bourse"/"conv" — tab n'est JAMAIS modifié par ces ouvertures, seul le contenu affiché change.
-if(_socleDemoOn){h+=socleDemoHtml();}
+if(_theseOuverteTk){h+=theseHtml();}
+else if(_socleDemoOn){h+=socleDemoHtml();}
 else if(convView==="boussole"||convView==="plan"||convView==="achat"){h+=`<div class="fade">${convTabHtml()}</div>`;}
 else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
 else{
@@ -3439,7 +3440,7 @@ window._bsTheseSave=(tk,mode)=>{const v=((document.getElementById("bsTxt")||{}).
   const cur=_theseTxt(tk);
   if(mode!=="corriger"&&cur&&cur!==v){_bsPending={tk:tk,txt:v};return _bsTheseQuestion(tk);}
   D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[tk]=v;_setTheseTs(tk);
-  cm();save();R();toast("Thèse enregistrée");};
+  _ficheEdit=false;cm();save();R();toast("Thèse enregistrée");};
 // Le seul moment où l'utilisateur peut perdre du texte : on le lui demande explicitement, et on
 // décrit ce que fait chaque choix. Aucune option n'est présentée comme la bonne.
 function _bsTheseQuestion(tk){const cur=_theseTxt(tk);
@@ -3451,7 +3452,7 @@ function _bsTheseQuestion(tk){const cur=_theseTxt(tk);
 window._bsAnnuler=()=>{_bsPending=null;cm();};
 window._bsTheseRemplacer=()=>{const p=_bsPending;if(!p)return cm();
   D.prefs=D.prefs||{};D.prefs.notes=D.prefs.notes||{};D.prefs.notes[p.tk]=p.txt;_setTheseTs(p.tk);
-  _bsPending=null;cm();save();R();toast("Thèse remplacée");};
+  _bsPending=null;_ficheEdit=false;cm();save();R();toast("Thèse remplacée");};
 window._bsTheseRanger=()=>{const p=_bsPending;if(!p)return cm();
   const anc=_theseTxt(p.tk);
   D.prefs=D.prefs||{};D.prefs.journal=D.prefs.journal||{};D.prefs.notes=D.prefs.notes||{};
@@ -3460,11 +3461,40 @@ window._bsTheseRanger=()=>{const p=_bsPending;if(!p)return cm();
   const w=_theseTs(p.tk);if(w)e.w=w;
   (D.prefs.journal[p.tk]=D.prefs.journal[p.tk]||[]).unshift(e);
   D.prefs.notes[p.tk]=p.txt;_setTheseTs(p.tk);
-  _bsPending=null;cm();save();R();toast("Thèse rangée dans le journal");};
+  _bsPending=null;_ficheEdit=false;cm();save();R();toast("Thèse rangée dans le journal");};
 window._bsDelNote=(tk,i)=>{const j=D.prefs&&D.prefs.journal&&D.prefs.journal[tk];if(!j||!j[i])return;
   j.splice(i,1);if(!j.length)delete D.prefs.journal[tk];save();R();};
 window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.notes[tk];
   if(D.prefs.notesTs)delete D.prefs.notesTs[tk];save();R();};
+
+// ══ MA THÈSE — étape 1 du chantier titre, bâtie sur le socle (_soclePage) ══════════════════════
+// Aucune logique de données réécrite : lecture (_theseTxt/_theseTs/_theseVersionSuivante) et
+// écriture (_bsTheseSave, le choix remplacer/ranger via _bsTheseQuestion) sont les mêmes
+// fonctions que la modale « Ma boussole ». Seul l'habillage change (page au lieu de modale).
+window.openThese=(tk)=>{cm();_navPush();_ficheEdit=false;_theseOuverteTk=tk;R();scrollTo(0,0);};
+function theseHtml(){
+  const tk=_theseOuverteTk;
+  const cur=_theseTxt(tk);
+  const ts=_theseTs(tk);
+  const archives=((D.prefs&&D.prefs.journal&&D.prefs.journal[tk])||[]).filter(e=>e&&e.k==="these");
+  const versionActuelle=archives.length?_theseVersionSuivante(tk):null;
+  const fmtDate=d=>new Date(d).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"});
+  const lecture=cur
+    ?`<div style="font-size:14.5px;line-height:1.65;white-space:pre-wrap">${esc(cur)}</div>`
+     +(ts?`<div style="font-size:11px;color:var(--mut);margin-top:12px">Écrite le ${fmtDate(ts)}${versionActuelle?" · version "+versionActuelle:""}</div>`:"")
+     +(archives.length?`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Versions précédentes</div>`
+       +archives.map(e=>`<div style="margin-bottom:14px;opacity:.7"><div style="font-size:10.5px;color:var(--mut);font-weight:600;margin-bottom:3px">Thèse v${e.v} · ${fmtDate(e.w||e.d)}</div><div style="font-size:13px;line-height:1.55;white-space:pre-wrap">${esc(e.t)}</div></div>`).join("")
+       +`</div>`:"")
+    :`<div style="text-align:center;padding:24px 10px;color:var(--mut)"><div style="font-size:26px;margin-bottom:10px">🧭</div><div style="font-size:13.5px;line-height:1.6">Pourquoi tu détiens ce titre ?<br>Écris-le maintenant — tu le reliras quand ça baissera.</div></div>`;
+  const ecriture=`<textarea id="bsTxt" rows="7" placeholder="Ex : leader sur un marché qui double tous les 3 ans, je garde tant que…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(cur)}</textarea>`;
+  return _soclePage(_tkNom(tk),"Ma thèse — pourquoi je détiens ce titre",lecture,ecriture,
+    "_theseEnregistrer('"+escAttr(tk)+"')",cur?"Modifier":"Écrire");}
+// Toujours le mode "nouvelle thèse" du flux existant : la page n'offre qu'une seule zone de
+// saisie (pas de choix préalable "corriger / nouvelle thèse" comme dans la modale d'origine),
+// donc tout changement de texte déclenche la question remplacer/ranger si une thèse existait déjà
+// — exactement le comportement de _bsTheseSave(tk,"nouvelle"), inchangé.
+window._theseEnregistrer=(tk)=>{_bsTheseSave(tk,"nouvelle");};
+
 // ══ PLAN D'ACHAT ═════════════════════════════════════════════════════════════════════════════
 // Même mécanique que les paliers de sortie, côté entrée. Vit dans prefs (colonne JSON) : aucune
 // colonne SQL à créer. Deux unités possibles, jamais mélangées : actions, ou montant dans la
@@ -3836,12 +3866,12 @@ function _nextEarn(x){return x?_dateResultats(x.ticker,x.earnTs):null;}
 // contenu, seulement du mode (lecture/écriture). Un seul état partagé (_ficheEdit) suffit : une
 // seule page de détail est ouverte à la fois. Piège clavier : aucune de ces fonctions n'appelle
 // jamais save()/R() sur une frappe — seulement au clic Modifier/Annuler/Enregistrer.
-function _soclePage(titre,sousTitre,contenuLecture,contenuEcriture,onEnregistrer){
+function _soclePage(titre,sousTitre,contenuLecture,contenuEcriture,onEnregistrer,libModifier){
   const e=!!_ficheEdit;
   return `<div class="fade">
 <div style="display:flex;justify-content:space-between;align-items:center">
 <span onclick="${e?"_socleAnnuler()":"_navBack()"}" style="color:var(--acc);font-size:14px;cursor:pointer;font-weight:600;padding:6px 2px">${e?"Annuler":"‹ Retour"}</span>
-<span onclick="${e?onEnregistrer:"_socleModifier()"}" style="color:var(--acc);font-size:14px;cursor:pointer;font-weight:700;padding:6px 2px">${e?"Enregistrer":"Modifier"}</span>
+<span onclick="${e?onEnregistrer:"_socleModifier()"}" style="color:var(--acc);font-size:14px;cursor:pointer;font-weight:700;padding:6px 2px">${e?"Enregistrer":(libModifier||"Modifier")}</span>
 </div>
 <div style="font-size:21px;font-weight:800;margin-top:4px">${esc(titre)}</div>
 ${sousTitre?`<div style="font-size:11.5px;color:var(--mut);margin-top:2px">${esc(sousTitre)}</div>`:""}
@@ -3857,7 +3887,8 @@ window.openSocleDemo=()=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=true;R()
 function socleDemoHtml(){
   const lecture=`<div style="font-size:14px;line-height:1.6;white-space:pre-wrap">${_socleDemoTxt?esc(_socleDemoTxt):'<span style="color:var(--mut)">Vide.</span>'}</div>`;
   const ecriture=`<textarea id="socleDemoTa" rows="6" placeholder="Écris quelque chose…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(_socleDemoTxt)}</textarea>`;
-  return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()");}
+  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étape 1 — tester une vraie page</div><div style="display:flex;gap:8px"><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase"><button class="btn btn-p" style="font-size:13px" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button></div></div>`;
+  return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()")+testeur;}
 window._socleDemoSave=()=>{const v=((document.getElementById("socleDemoTa")||{}).value||"");_socleDemoTxt=v;_ficheEdit=false;R();};
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
 const cur=curOf(p),sym=curSym(cur);const v=(p.qty||0)*(p.cours||0);const vE=v*toEur(cur);const inv=(p.qty||0)*(p.pru||0);const pv=v-inv;const pvPct=inv>0?pv/inv*100:0;
