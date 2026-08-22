@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "242";
+const APP_VERSION = "243";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2880,11 +2880,24 @@ window._envAppliquer=(portee)=>{const p=_envPending;if(!p)return cm();
     if(portee==="toutes")Object.keys(D.poches).forEach(n=>{D.prefs.envConv[n]=nv;});
     else D.prefs.envConv[p.env]=nv;}
   _envPending=null;save();R();_envReglages(p.env);};
+// ── Hors patrimoine : UN SEUL critère, partagé ────────────────────────────────────────────────
+// Il existe deux drapeaux distincts, posés à deux endroits différents de l'interface :
+//   • D.prefs.pocheExclTotal[poche] — au niveau ENVELOPPE, via Réglages de l'enveloppe →
+//     « Compter dans le patrimoine total » (c'est ainsi qu'une enveloppe famille est sortie) ;
+//   • position.noPerf — au niveau POSITION, via Modifier → « Exclure de l'analyse de performance ».
+// ga().ap écarte les DEUX. Tester un seul des deux (comme le faisait la tuile Poids bourse en
+// v242) laisse passer tout un pan du hors patrimoine. Ce prédicat les réunit une fois pour
+// toutes : tout ce qui décide « est-ce dans mon vrai patrimoine ? » doit passer par ici.
+function _horsPatrimoine(poche,x){
+  const exT=(D&&D.prefs&&D.prefs.pocheExclTotal)||{};
+  if(poche&&exT[poche])return true;
+  return !!(x&&x.noPerf);
+}
 function _inBourse(n){const p=D.poches[n];if(!p)return false;const si=(D.prefs&&D.prefs.pocheShowIn&&D.prefs.pocheShowIn[n])||p.showIn;if(si==="bourse")return true;if(si==="hors")return false;return _famOf(n)==="cote";}
 // sansHorsPatrimoine : écarte les positions marquées noPerf (gestion famille), pour rester
 // cohérent avec ga().ap. Par défaut FAUX — les appelants historiques (_patriInfo, _poidsTicker,
 // fetchEarnDay, _agendaLists, bourseHtml) gardent exactement leur comportement d'origine.
-function _bPos(sansHorsPatrimoine){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{if(sansHorsPatrimoine&&x.noPerf)return;const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
+function _bPos(sansHorsPatrimoine){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{if(sansHorsPatrimoine&&_horsPatrimoine(n,x))return;const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
 function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
 // Variation du jour, source unique — appelée par la fiche action ET par la page d'une
 // position, pour qu'un même titre ne puisse pas afficher deux chiffres différents.
@@ -3724,7 +3737,7 @@ function ficheHtml(){
     // Poids bourse : numérateur ET dénominateur sur le même périmètre, hors patrimoine exclu
     // des deux (cohérent avec ga().ap). Une position elle-même hors patrimoine n'entre pas dans
     // ce total : lui donner un pourcentage serait un chiffre faux, on l'annonce plutôt.
-    const horsPat=!!p.noPerf;
+    const horsPat=_horsPatrimoine(poche,p);
     const bl=_bPos(true);const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;
     const dp=_varJour(p);
     const F0=x=>Math.round(x).toLocaleString("fr-FR");
