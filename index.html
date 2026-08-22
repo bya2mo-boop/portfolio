@@ -89,7 +89,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "237";
+const APP_VERSION = "238";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -458,7 +458,7 @@ const DEF = {
 
 // ══════════════ STATE ══════════════
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
-let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null,_themesOuverteTk=null,_themesTitreStage=null,_convictionOuverteTk=null;
+let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",pfPoche=null,pfTk=null,_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_socleDemoOn=false,_socleDemoTxt="Note de démonstration — modifie-moi, puis Annuler ou Enregistre.",_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null,_themesOuverteTk=null,_themesTitreStage=null,_convictionOuverteTk=null,_objectifsOuvertPoche=null,_objectifsOuvertTk=null;
 let newsData=null,newsLoading=false,newsKey=null;
 const CMP_COLS=["#6c8cff","#f472b6","#facc15","#14b8a6"];
 let _pruVals={tot:"",pl:"",un:""};
@@ -2355,7 +2355,7 @@ function _navSnap(){return{tab:tab,sel:sel,bSub:bSub,bPage:bPage,bTool:bTool,wat
  aChartType:aChartType,aData:aData,cmpOpen:cmpOpen,cmpList:cmpList,oWidget:oWidget,convHz:convHz,themeOpen:themeOpen,convFiltre:convFiltre,
  _ficheEdit:_ficheEdit,_socleDemoOn:_socleDemoOn,_theseOuverteTk:_theseOuverteTk,
  _notesOuverteTk:_notesOuverteTk,_horizonOuverteTk:_horizonOuverteTk,_themesOuverteTk:_themesOuverteTk,
- _convictionOuverteTk:_convictionOuverteTk};}
+ _convictionOuverteTk:_convictionOuverteTk,_objectifsOuvertPoche:_objectifsOuvertPoche,_objectifsOuvertTk:_objectifsOuvertTk};}
 function _navApply(m){if(!m)return;
  tab=m.tab;sel=m.sel;bSub=m.bSub;bPage=m.bPage||null;bTool=m.bTool||null;watchListOpen=m.watchListOpen||null;
  anaSub=m.anaSub;anaView=m.anaView||null;convView=m.convView||null;convMode=m.convMode||"conv";
@@ -2371,14 +2371,14 @@ function _navApply(m){if(!m)return;
  if(m.convFiltre)convFiltre=m.convFiltre;
  _ficheEdit=!!m._ficheEdit;_socleDemoOn=!!m._socleDemoOn;_theseOuverteTk=m._theseOuverteTk||null;
  _notesOuverteTk=m._notesOuverteTk||null;_horizonOuverteTk=m._horizonOuverteTk||null;_themesOuverteTk=m._themesOuverteTk||null;
- _convictionOuverteTk=m._convictionOuverteTk||null;}
+ _convictionOuverteTk=m._convictionOuverteTk||null;_objectifsOuvertPoche=m._objectifsOuvertPoche||null;_objectifsOuvertTk=m._objectifsOuvertTk||null;}
 function _navPush(){_nav.push(_navSnap());if(_nav.length>40)_nav.shift();}
 // Rien à dépiler (app relancée, lien externe…) : on remonte d'un cran logique au lieu de
 // laisser l'utilisateur bloqué sur un écran sans sortie.
 function _navRacine(){aSym=null;cmpOpen=false;watchListOpen=null;bTool=null;bPage=null;
  convView=null;convFill=null;boussoleTk=null;convPlanTk=null;achatTk=null;anaView=null;agendaOpen=false;agendaSub=null;
  resDetail=null;pfTk=null;pfPoche=null;themeOpen=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;
- _notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;}
+ _notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;}
 window._navBack=()=>{const m=_nav.pop();
  if(m)_navApply(m);else _navRacine();
  R();scrollTo(0,0);};
@@ -2466,6 +2466,7 @@ else if(_notesOuverteTk){h+=notesHtml();}
 else if(_horizonOuverteTk){h+=horizonHtml();}
 else if(_themesOuverteTk){h+=themesTitreHtml();}
 else if(_convictionOuverteTk){h+=convictionSommaireHtml();}
+else if(_objectifsOuvertTk){h+=objectifsSommaireHtml();}
 else if(_socleDemoOn){h+=socleDemoHtml();}
 else if(convView==="boussole"||convView==="plan"||convView==="achat"||convView==="themePage"||convView==="themeNew"){h+=`<div class="fade">${convTabHtml()}</div>`;}
 else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
@@ -2549,7 +2550,7 @@ window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.pre
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
-window.openPlan=(tk,poche)=>{_navPush();convPlanTk=tk;convPlanPoche=poche||null;_planUnitPend=null;convView="plan";R();scrollTo(0,0);};
+window.openPlan=(tk,poche)=>{_navPush();_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;convPlanTk=tk;convPlanPoche=poche||null;_planUnitPend=null;convView="plan";R();scrollTo(0,0);};
 window._planSet=(i,champ,val)=>{const o=_planObj();o.rows[i]=o.rows[i]||{};
   o.rows[i][champ]=(val===""||val==null)?"":pn(val);_planFlash=0;_planSave(o);};
 window._planAdd=()=>{const o=_planLireDOM(_planObj());o.rows.push({q:"",px:""});_setPaliers(convPlanPoche,convPlanTk,o);_planFlash=0;R();};
@@ -2756,13 +2757,13 @@ window.addEventListener('popstate', (event) => { _resetTools();
   cmpOpen=false; agendaOpen=false; agendaSub=null; resDetail=null; watchListOpen=null; pfTk=null; pfPoche=null;
   if (event.state) { tab = event.state.tab; sel = event.state.sel; oWidget = event.state.ow||null; } else { tab = "bourse"; sel = null; oWidget=null; }
   R(); });
-window.gt=id=>{ aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null; if(id==="bourse"){watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convFill=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
+window.gt=id=>{ aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;_ficheEdit=false;_socleDemoOn=false;_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null; if(id==="bourse"){watchListOpen=null;bTool=null;bPage=null;} if(id==="home")sel=null; if(id==="analyse"){anaView=null;agendaOpen=false;agendaSub=null;resDetail=null;} if(id==="conv"){convFill=null;themeOpen=null;_convSkip=[];} if(tab!==id){_resetTools();} _nav=[]; pfTk=null; pfPoche=null; tab=id; history.pushState({tab: id, sel: sel}, "", `#${id}`); R(); scrollTo(0,0); };
 window.goAlertes=()=>{_resetTools();_nav=[];pfTk=null;pfPoche=null;
   agendaOpen=false;agendaSub=null;resDetail=null;anaView=null;
   tab="analyse";anaSub="alerts";
   history.pushState({tab:"analyse"},"","#analyse");R();scrollTo(0,0);};
 window.openWidget=(id)=>{ oWidget=id; tab="home"; sel=null; history.pushState({tab:"home",ow:id}, "", "#w-"+id); R(); scrollTo(0,0); };
-window.goHome=()=>{ oWidget=null; aSym=null; cmpOpen=false; convView=null; boussoleTk=null; convPlanTk=null; achatTk=null; _ficheEdit=false; _socleDemoOn=false; _theseOuverteTk=null; _notesOuverteTk=null; _horizonOuverteTk=null; _themesOuverteTk=null; _convictionOuverteTk=null; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
+window.goHome=()=>{ oWidget=null; aSym=null; cmpOpen=false; convView=null; boussoleTk=null; convPlanTk=null; achatTk=null; _ficheEdit=false; _socleDemoOn=false; _theseOuverteTk=null; _notesOuverteTk=null; _horizonOuverteTk=null; _themesOuverteTk=null; _convictionOuverteTk=null; _objectifsOuvertPoche=null; _objectifsOuvertTk=null; _resetTools(); _nav=[]; pfTk=null; pfPoche=null; tab="home"; sel=null; history.pushState({tab:"home"}, "", "#home"); R(); scrollTo(0,0); };
 window.oP=n=>{ _navPush(); cmpOpen=false;_resetTools(); sel=n; tab="detail"; history.pushState({tab: "detail", sel: n}, "", `#detail-${n}`); R(); scrollTo(0,0); };
 const PFAMC={cote:"#6c8cff",nc:"#f472b6",immo:"#5eead4"};
 function _famColor(id){if(PFAMC[id])return PFAMC[id];const fams=_families();const customIds=fams.map(f=>f.id).filter(fid=>!PFAMC[fid]);const idx=customIds.indexOf(id);return DCOL[(idx>=0?idx:0)%DCOL.length];}
@@ -3480,7 +3481,7 @@ window._bsDelThese=(tk)=>{D.prefs=D.prefs||{};if(D.prefs.notes)delete D.prefs.no
 // Aucune logique de données réécrite : lecture (_theseTxt/_theseTs/_theseVersionSuivante) et
 // écriture (_bsTheseSave, le choix remplacer/ranger via _bsTheseQuestion) sont les mêmes
 // fonctions que la modale « Ma boussole ». Seul l'habillage change (page au lieu de modale).
-window.openThese=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_theseOuverteTk=tk;R();scrollTo(0,0);};
+window.openThese=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;_theseOuverteTk=tk;R();scrollTo(0,0);};
 function theseHtml(){
   const tk=_theseOuverteTk;
   const cur=_theseTxt(tk);
@@ -3511,7 +3512,7 @@ window._theseEnregistrer=(tk)=>{_bsTheseSave(tk,"nouvelle");};
 // confirmation ailleurs dans l'app (Ma boussole), reste un ✕ directement en lecture — pas besoin
 // du mode écriture pour un geste aussi simple et déjà réversible en pratique (on ne supprime que
 // ce qu'on vient de voir).
-window.openNotes=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_notesOuverteTk=tk;R();scrollTo(0,0);};
+window.openNotes=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;_notesOuverteTk=tk;R();scrollTo(0,0);};
 function notesHtml(){
   const tk=_notesOuverteTk;
   const notes=_boussoleFlux(tk).filter(e=>e.type==="note").sort((a,b)=>(b.d||0)-(a.d||0));
@@ -3530,7 +3531,7 @@ window._noteEnregistrer=(tk)=>{_bsNoteSave(tk);};
 // non) via le _hzPick existant — direct au DOM, sans R(), donc sans jamais fermer un clavier ici
 // puisqu'il n'y en a pas. Un tap choisit, "Enregistrer" applique : reste cohérent avec le reste du
 // socle (rien ne s'ecrit avant le clic explicite), plutot qu'un tap qui appliquerait seul.
-window.openHorizon=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;convFill=null;_horizonOuverteTk=tk;
+window.openHorizon=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;convFill=null;_horizonOuverteTk=tk;
   const r=document.getElementById("modal-root");if(r)r.dataset.hz=_horizonOf(tk)||"";
   R();scrollTo(0,0);};
 function horizonHtml(){
@@ -3552,7 +3553,7 @@ window._horizonEnregistrer=(tk)=>{const r=document.getElementById("modal-root");
 // _themeDetacher (existants, les mêmes que la gestion des thèmes) — rien de réécrit. Pas de
 // création de thème ici (décidé) : sans thème existant, renvoi vers themeNouveau(), le parcours
 // déjà en place.
-window.openThemesTitre=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_themesOuverteTk=tk;
+window.openThemesTitre=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;_themesOuverteTk=tk;
   _themesTitreStage=new Set(_themesDuTitre(tk).map(t=>t.id));
   R();scrollTo(0,0);};
 function themesTitreHtml(){
@@ -3597,6 +3598,7 @@ window._themesTitreEnregistrer=(tk)=>{
 // de rafraîchissement séparé à entretenir.
 window.openConvictionSommaire=(tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;
   _theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;
+  _objectifsOuvertPoche=null;_objectifsOuvertTk=null;
   _convictionOuverteTk=tk;R();scrollTo(0,0);};
 function convictionSommaireHtml(){
   const tk=_convictionOuverteTk;
@@ -3631,6 +3633,38 @@ ${ligne("📝","Ma thèse",theseApercu,theseVersion?"v"+theseVersion:"","openThe
 ${ligne("🗒️","Mes notes",notesApercu,notes.length?String(notes.length):"","openNotes('"+escAttr(tk)+"')")}
 ${ligne("⏳","Mon horizon",hzApercu,"","openHorizon('"+escAttr(tk)+"')")}
 ${ligne("🏷️","Mes thèmes",themesApercu,themes.length?String(themes.length):"","openThemesTitre('"+escAttr(tk)+"')")}
+</div>`;}
+
+// ══ MES OBJECTIFS — SOMMAIRE (CASE 3, étape 5/7) ════════════════════════════════════════════════
+// Par ENVELOPPE + TICKER (jamais agrégé, acquis v214-215). Barre de progression et bloc "alerte de
+// baisse" copiés tels quels de posFicheHtml (mêmes variables, mêmes fonctions : savePlanTargets,
+// openAchat). Aperçus de paliers via _paliersRows/_achatRows, existantes, inchangées.
+window.openObjectifsSommaire=(poche,tk)=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=false;
+  _theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;
+  _objectifsOuvertPoche=poche;_objectifsOuvertTk=tk;R();scrollTo(0,0);};
+function objectifsSommaireHtml(){
+  const poche=_objectifsOuvertPoche,tk=_objectifsOuvertTk;
+  const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);
+  if(!p)return `<div class="fade"><div onclick="_navBack()" style="color:var(--acc);font-size:14px;cursor:pointer;padding:6px 2px;font-weight:600">‹ Retour</div><div style="text-align:center;padding:30px 10px;color:var(--mut);font-size:13px">Cette position n'existe plus dans ${esc(poche||"")}.</div></div>`;
+  const cur=curOf(p),sym=curSym(cur);
+  let prog=null;const _obj=p.cibleHaut;if(_obj&&p.pru!=null&&_obj!==p.pru){prog=Math.max(0,Math.min(100,((p.cours-p.pru)/(_obj-p.pru))*100));}
+  const barre=prog!=null?`<div class="card" style="margin-bottom:14px"><div style="font-size:10px;color:var(--mut);margin-bottom:8px">Progression vers l'objectif</div><div style="height:6px;border-radius:3px;background:var(--inp);overflow:hidden"><div style="height:6px;background:var(--acc);width:${vg(prog,0)}%"></div></div><div class="mono" style="display:flex;justify-content:space-between;font-size:9px;color:var(--mut);margin-top:5px"><span>PRU ${fmt2_(p.pru)}</span><span style="color:var(--txt)">${fmt2_(p.cours)}</span><span>${fmt2_(p.cibleHaut)}</span></div></div>`:"";
+  const achatRows=_achatRows(poche,tk),paliersRows=_paliersRows(poche,tk);
+  const prixListe=rows=>rows.map(r=>vg(r.px,2)).join(", ")+" "+sym;
+  const achatApercu=achatRows.length?prixListe(achatRows):"Aucun plan";
+  const paliersApercu=paliersRows.length?prixListe(paliersRows):"Aucun plan";
+  const ligne=(icone,libelle,apercu,compteur,onclick)=>`<div onclick="${onclick}" class="card card-tap" style="display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:12px 14px"><span style="font-size:18px;flex-shrink:0">${icone}</span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px"><span>${libelle}</span>${compteur?`<span style="font-size:10px;color:var(--mut);font-weight:400">${esc(compteur)}</span>`:""}</div><div style="font-size:11px;color:var(--mut);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(apercu)}</div></div><span style="color:var(--mut);font-size:14px;flex-shrink:0">›</span></div>`;
+  // Alerte de baisse : même comportement à deux visages que posFicheHtml, copié tel quel — pas une
+  // ligne de navigation comme les deux autres (il n'existe pas de page dédiée), un widget inline.
+  const alerte=`<div class="card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:${achatRows.length?"8":"10"}px"><span style="font-size:18px;flex-shrink:0">🔔</span><div style="flex:1;font-size:13px;font-weight:700">Alerte de baisse</div></div>${achatRows.length?`<div style="display:flex;align-items:center;gap:8px;background:var(--inp);border-radius:8px;padding:9px 10px"><div style="flex:1;font-size:11.5px;color:var(--dim);line-height:1.5">Seuil bas ${p.cible!=null?`<b>${vg(p.cible,2)} ${esc(sym)}</b>`:"—"} — il vient de ton plan d'achat.</div><span onclick="openAchat('${escAttr(tk)}',null,'${escAttr(poche)}')" style="font-size:11px;color:var(--acc);font-weight:600;cursor:pointer">Modifier ›</span></div>`:`<div style="display:flex;gap:8px"><input id="fCB" inputmode="decimal" value="${p.cible||""}" placeholder="Seuil bas (${sym})" style="flex:1;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px;color:var(--txt);font-family:inherit;font-size:12px"><button class="btn" style="font-size:11px;padding:8px 10px" onclick="savePlanTargets('${escAttr(poche)}','${escAttr(tk)}')">OK</button></div>`}</div>`;
+  return `<div class="fade">
+<div onclick="_navBack()" style="display:inline-flex;align-items:center;gap:4px;color:var(--acc);font-size:14px;cursor:pointer;padding:6px 2px 10px;font-weight:600">‹ Retour</div>
+<div style="font-size:21px;font-weight:800;margin-bottom:2px">${esc(p.titre||tk)} <span style="font-size:14px;color:var(--dim);font-weight:400">${esc(tk)}</span></div>
+<div style="font-size:11.5px;color:var(--mut);margin-bottom:14px">Mes objectifs — ${esc(poche)}</div>
+${barre}
+${ligne("🎯","Plan d'achat",achatApercu,achatRows.length?String(achatRows.length):"","openAchat('"+escAttr(tk)+"',null,'"+escAttr(poche)+"')")}
+${ligne("📤","Plan de sortie",paliersApercu,paliersRows.length?String(paliersRows.length):"","openPlan('"+escAttr(tk)+"','"+escAttr(poche)+"')")}
+${alerte}
 </div>`;}
 
 // ══ PLAN D'ACHAT ═════════════════════════════════════════════════════════════════════════════
@@ -3719,7 +3753,7 @@ function _achatPart(poche,tk,r){const o=_achat(poche,tk);
   return (o&&o.unit==="amount")?`pour ${vg(r.q,0)} ${curSym(_tkCur(tk))}`:`${vg(r.q,0)} actions`;}
 function _achatPhrase(poche,tk,r){
   return `${esc(tk)} est descendu à ${vg(r.px,2)} ${esc(curSym(_tkCur(tk)))}${poche?" ("+esc(poche)+")":""} — ton plan prévoyait d'acheter ${_achatPart(poche,tk,r)}.`;}
-window.openAchat=(tk,ctx,poche)=>{_navPush();achatTk=tk;achatPoche=poche||"";_achatUnitPend=null;
+window.openAchat=(tk,ctx,poche)=>{_navPush();_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;achatTk=tk;achatPoche=poche||"";_achatUnitPend=null;
   _achatCtx=(ctx&&ctx.sym)?{tk:tk,sym:ctx.sym,name:ctx.name||tk,cur:ctx.cur||"EUR",cours:(ctx.cours!=null?ctx.cours:null)}:null;
   convView="achat";R();scrollTo(0,0);};
 // Le plan garde de quoi être lu et rafraîchi tout seul, même sans liste ni position.
@@ -4025,7 +4059,7 @@ window.openSocleDemo=()=>{cm();_navPush();_ficheEdit=false;_socleDemoOn=true;R()
 function socleDemoHtml(){
   const lecture=`<div style="font-size:14px;line-height:1.6;white-space:pre-wrap">${_socleDemoTxt?esc(_socleDemoTxt):'<span style="color:var(--mut)">Vide.</span>'}</div>`;
   const ecriture=`<textarea id="socleDemoTa" rows="6" placeholder="Écris quelque chose…" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:10px;color:var(--txt);font-family:inherit;font-size:14px;resize:vertical">${esc(_socleDemoTxt)}</textarea>`;
-  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étapes 1-4 — tester les vraies pages</div><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase;margin-bottom:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openNotes(t);">Mes notes ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openHorizon(t);">Mon horizon ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThemesTitre(t);">Mes thèmes ›</button></div><button class="btn btn-p" style="font-size:13px;width:100%;margin-top:8px;background:#a78bfa22;border:1px solid #a78bfa55;color:#a78bfa" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openConvictionSommaire(t);">🔥 Ma conviction (sommaire) ›</button></div>`;
+  const testeur=_ficheEdit?"":`<div style="margin-top:22px;padding-top:16px;border-top:1px solid var(--sep)"><div style="font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px">Étapes 1-5 — tester les vraies pages</div><input id="socleTestTk" placeholder="Ticker (ex : NBIS)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;text-transform:uppercase;margin-bottom:8px"><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThese(t);">Ma thèse ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openNotes(t);">Mes notes ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openHorizon(t);">Mon horizon ›</button><button class="btn btn-p" style="font-size:13px;flex:1" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openThemesTitre(t);">Mes thèmes ›</button></div><button class="btn btn-p" style="font-size:13px;width:100%;margin-top:8px;background:#a78bfa22;border:1px solid #a78bfa55;color:#a78bfa" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();if(t)openConvictionSommaire(t);">🔥 Ma conviction (sommaire) ›</button><div style="font-size:10px;color:var(--mut);margin-top:16px;margin-bottom:6px">Les objectifs sont PAR ENVELOPPE — indique aussi laquelle :</div><input id="socleTestPoche" placeholder="Enveloppe (ex : CTO)" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:9px;color:var(--txt);font-family:inherit;font-size:13px;margin-bottom:8px"><button class="btn btn-p" style="font-size:13px;width:100%;background:#34d39922;border:1px solid #34d39955;color:var(--grn)" onclick="var t=(document.getElementById('socleTestTk').value||'').trim().toUpperCase();var po=(document.getElementById('socleTestPoche').value||'').trim();if(t&&po)openObjectifsSommaire(po,t);else toast('Renseigne le ticker ET l\\'enveloppe');">🎯 Mes objectifs (sommaire) ›</button></div>`;
   return _soclePage("Titre de démo","Patron lecture / écriture — étape 0, à retirer ensuite",lecture,ecriture,"_socleDemoSave()")+testeur;}
 window._socleDemoSave=()=>{const v=((document.getElementById("socleDemoTa")||{}).value||"");_socleDemoTxt=v;_ficheEdit=false;R();};
 function posFicheHtml(){const poche=pfPoche,tk=pfTk;const P=D.poches[poche];const p=P&&P.positions.find(z=>z.ticker===tk);if(!p)return"";
