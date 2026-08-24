@@ -84,16 +84,23 @@ body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:ma
 <div id="modal-root"></div>
 <script>
 if ('serviceWorker' in navigator) {
-  const sw = `self.addEventListener('fetch', e => {});`;
-  const blob = new Blob([sw], {type: 'application/javascript'});
-  navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(()=>{});
+  // URL fixe (relative au dossier de index.html, donc valable que le site soit servi à la
+  // racine du domaine ou dans un sous-dossier) : le navigateur réutilise la MÊME registration
+  // au lieu d'en recréer une à chaque chargement — c'était le cas avec l'ancien blob: URL,
+  // par nature différente à chaque page (une blob: URL ne survit pas à un rechargement).
+  navigator.serviceWorker.register('sw.js').catch(()=>{});
+  // Nettoyage une fois : les anciennes registrations sur blob: (héritées d'avant ce correctif)
+  // ne servent plus à rien — on les retire pour repartir propre, sans toucher à celle sur sw.js.
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => { if(r.active && r.active.scriptURL.startsWith('blob:')) r.unregister(); });
+  }).catch(()=>{});
 }
 
 // ══════════════ CONFIG ══════════════
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "244";
+const APP_VERSION = "245";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
