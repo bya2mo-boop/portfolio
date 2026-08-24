@@ -41,6 +41,10 @@ body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:ma
 @keyframes bl{0%,100%{opacity:1}50%{opacity:.3}}
 @keyframes sp{to{transform:rotate(360deg)}}
 .fade{animation:fu .3s ease both}.blink{animation:bl 2s infinite}
+/* Re-rendu du MEME ecran (rafraichissement des prix, mise a jour horaire) : l'animation
+   d'entree n'a pas lieu d'etre. Sans ca, chaque R() recree les blocs .fade, qui rejouent
+   depuis opacity:0 et laissent voir le fond quasi-noir ~300 ms — c'est le "flash noir". */
+#app.sans-anim .fade{animation:none}
 .spin{animation:sp 1s linear infinite;display:inline-block}
 .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; white-space: nowrap; overflow-x: auto; }
 .hide-scroll::-webkit-scrollbar { display: none; }
@@ -89,7 +93,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "243";
+const APP_VERSION = "244";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1815,6 +1819,10 @@ async function init(){
       if(session) currentUser = session.user;
     }catch(e){console.error("Supabase init failed:", e)}
   }
+  // La verification a conclu — avec session, sans session, ou en echec. Dans les trois cas
+  // l'ecran peut desormais montrer l'etat reel ; sans Supabase (sb absent) on conclut aussi,
+  // sinon un utilisateur deconnecte resterait bloque sur le "Chargement...".
+  _authVerifiee = true;
 
   if(_isRecoveryFlow || window._recoveryMode){
     window._recoveryMode = true;
@@ -2439,8 +2447,19 @@ function _navRestaure(){try{
   return true;}catch(e){return false;}}
 let _rPending=false;
 document.addEventListener("focusout",()=>{if(_rPending){_rPending=false;setTimeout(R,0);}},true);
+// Signature de l'ECRAN affiche (identite de la vue, jamais les donnees qu'elle contient).
+// Sert a distinguer "l'utilisateur a navigue" de "on redessine le meme ecran".
+let _dernierEcran=null;
+// Passe a vrai des que la verification de session a CONCLU (avec ou sans session). Tant
+// qu'elle est en cours, on laisse le "Chargement..." plutot que de vider l'ecran sur fond noir.
+let _authVerifiee=false;
+function _signatureEcran(){return [tab,sel,bSub,bPage,bTool,watchListOpen,anaSub,anaView,
+  convView,convMode,convEnv,convPlanTk,achatTk,boussoleTk,alertsSub,agendaOpen,agendaSub,
+  resDetail,aSym,aTab,aPeriod,aChartType,cmpOpen,oWidget,themeOpen,_ficheEdit,
+  _theseOuverteTk,_notesOuverteTk,_horizonOuverteTk,_themesOuverteTk,_convictionOuverteTk,
+  _objectifsOuvertPoche,_objectifsOuvertTk,_ficheOuverteTk,_ficheOuvertePoche].join("|");}
 function R(){
-if (!currentUser) { const appEl = document.getElementById("app"); if(appEl) appEl.innerHTML = ""; const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'none'; window.requireAuth('login'); return; }
+if (!currentUser) { if(!_authVerifiee) return; const appEl = document.getElementById("app"); if(appEl) appEl.innerHTML = ""; const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'none'; window.requireAuth('login'); return; }
 {const _fae=document.activeElement;
  if(_fae&&(_fae.tagName==="INPUT"||_fae.tagName==="TEXTAREA")&&!["checkbox","radio","range","button","submit"].includes(_fae.type)){
    _rPending=true;return;
@@ -2737,6 +2756,12 @@ if($){
   const _fid=(_ae&&_ae.id&&$.contains(_ae))?_ae.id:null;
   let _ss=null,_se=null;
   if(_fid){try{_ss=_ae.selectionStart;_se=_ae.selectionEnd;}catch(e){}}
+  // L'animation d'entree ne se justifie qu'a un CHANGEMENT d'ecran. Si la signature est
+  // identique au rendu precedent (refresh de prix, mise a jour horaire, save()...), on pose
+  // la classe AVANT d'injecter le HTML : les blocs .fade naissent alors sans animation.
+  {const _sig=_signatureEcran();
+   $.classList.toggle("sans-anim",_sig===_dernierEcran);
+   _dernierEcran=_sig;}
   $.innerHTML=h;
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
