@@ -100,7 +100,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "245";
+const APP_VERSION = "246";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -825,7 +825,7 @@ function _convChartSvg(items){
     const ecarte=Math.abs(pose.x-d.cx)>1.5||Math.abs(pose.y-(d.cy-d.r-6))>1.5;
     prises.push({x:pose.x,y:pose.y,demiL});
     if(ecarte)amorces+=`<line x1="${d.cx.toFixed(1)}" y1="${d.cy.toFixed(1)}" x2="${pose.x.toFixed(1)}" y2="${(pose.y-3).toFixed(1)}" stroke="${d.it.color}" stroke-opacity="0.35" stroke-width="0.7"/>`;
-    labels+=`<text x="${pose.x.toFixed(1)}" y="${pose.y.toFixed(1)}" font-size="9.5" font-weight="600" fill="${nb>1?"var(--dim)":d.it.color}" text-anchor="middle" ${nb>1?`style="cursor:pointer" onclick="_convPaquet('${escAttr(d.groupe.map(q=>q.it.tk).join(","))}')"`:""}>${esc(txt)}</text>`;
+    labels+=`<text x="${pose.x.toFixed(1)}" y="${pose.y.toFixed(1)}" font-size="9.5" font-weight="600" fill="${nb>1?"var(--dim)":d.it.color}" text-anchor="middle" ${nb>1?`style="cursor:pointer" onclick="_convPaquet('${escAttr(d.groupe.map(q=>q.it.tk).join(","))}')"`:`style="cursor:pointer" onclick="openConvictionSommaire('${escAttr(d.it.tk)}')"`}>${esc(txt)}</text>`;
   });
   // Libellés de zone placés dans les COINS extrêmes, jamais au centre : au milieu du nuage ils se
   // lisaient comme l'étiquette du point le plus proche. Un contrôle de collision les décale
@@ -910,7 +910,6 @@ function _convEntete(titre,phrase,aide){
 }
 function _convVuePage(vue,ctx){
   const d=ctx.d,cv=ctx.cv,noThesis=ctx.noThesis,noPlan=ctx.noPlan,noHz=ctx.noHz,derive=ctx.derive;
-  const lignePos=(x)=>`<div onclick="openFiche('${escAttr(x.ticker)}','${escAttr(x.poche)}')" style="display:flex;align-items:center;gap:10px;padding:11px 0;border-bottom:1px solid var(--sep);cursor:pointer"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${esc(_nomAffiche(x))}</div><div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(x.poche)}</div></div><span style="color:var(--mut);font-size:13px">›</span></div>`;
   if(vue==="completer"){
     // Trois choix, jamais la liste des positions : un mur de 30 lignes vides décourage au lieu
     // d'inviter. On entre ensuite dans un parcours qui ne montre QU'UNE position à la fois.
@@ -952,13 +951,13 @@ function _convVuePage(vue,ctx){
     const x=d.ap.find(y=>y.ticker===convPlanTk&&y.poche===convPlanPoche);
     if(!x)return _convRetour()+`<div class="card">Position introuvable.</div>`;
     return _convRetour()+_convEntete("Plan de sortie","À quels prix tu comptes vendre, et quelle part à chaque fois. Chaque palier sert aussi d'alerte de prix.")
-      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitre(x.ticker,esc(_nomAffiche(x,30)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(x.poche)}</div>${_planEditorHtml(x,false)}</div>`;
+      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitreConv(x.ticker,esc(_nomAffiche(x,30)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(x.poche)}</div>${_planEditorHtml(x,false)}</div>`;
   }
   if(vue==="achat"){
     const tk=achatTk;const pch=achatPoche||"";
     if(!tk)return _convRetour()+`<div class="card">Aucun titre choisi.</div>`;
     return _convRetour()+_convEntete("Plan d'achat","À quels prix tu comptes entrer, et combien à chaque fois. Chaque palier sert aussi d'alerte de baisse.")
-      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitre(tk,esc(_tkNom(tk)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(tk)}${pch?" · "+esc(pch):(_tkDetenu(tk)?"":" · titre non détenu")}</div>${_achatEditorHtml(pch,tk)}</div>`;
+      +`<div class="card"><div style="font-size:15px;font-weight:700">${_lienTitreConv(tk,esc(_tkNom(tk)))}</div><div style="font-size:10.5px;color:var(--mut);margin:2px 0 10px">${esc(tk)}${pch?" · "+esc(pch):(_tkDetenu(tk)?"":" · titre non détenu")}</div>${_achatEditorHtml(pch,tk)}</div>`;
   }
   if(vue==="boussole"){
     const un=boussoleTk;
@@ -986,7 +985,7 @@ function _convVuePage(vue,ctx){
       : `<div onclick="_bsChoisirTitre()" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:14px;padding:7px 12px;border:1px solid var(--bdr);border-radius:999px;font-size:12px;color:var(--acc);font-weight:600;cursor:pointer">+ Écrire</div>`;
     const retour=_convRetour();
     const entete=un
-      ? `<div style="margin-bottom:12px"><h2 style="font-size:19px;font-weight:700">${_lienTitre(un,esc(_tkNom(un)))}</h2><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${esc(un)}${_tkDetenu(un)?"":" · titre non détenu"} · ce que tu as écrit sur cette ligne</div></div>`
+      ? `<div style="margin-bottom:12px"><h2 style="font-size:19px;font-weight:700">${_lienTitreConv(un,esc(_tkNom(un)))}</h2><div style="font-size:11px;color:var(--mut);line-height:1.5;margin-top:3px">${esc(un)}${_tkDetenu(un)?"":" · titre non détenu"} · ce que tu as écrit sur cette ligne</div></div>`
       : _convEntete("Ma boussole","Tes convictions et tes décisions, à relire quand tu doutes");
     let corps;
     if(flux.length)corps=`<div class="card">${flux.map(ent).join("")}</div>`;
@@ -1006,7 +1005,7 @@ function _convVuePage(vue,ctx){
     // de droite change, pour qu'on garde ses repères en basculant.
     const ligne=(x)=>{const c=cv[x.ticker]||0;const dorm=_convDormante(x.ticker);
       const id="cvv_"+x.ticker.replace(/[^A-Za-z0-9]/g,"_");
-      const titre=`<div style="min-width:0">${_lienTitre(x.ticker,`<span style="font-size:13px;font-weight:700">${esc(_nomAffiche(x,22))}</span>`)}${dorm&&convMode==="conv"?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${vg((x.valeur||0)/tot*100,1)} % du portefeuille</div></div>`;
+      const titre=`<div style="min-width:0">${_lienTitreConv(x.ticker,`<span style="font-size:13px;font-weight:700">${esc(_nomAffiche(x,22))}</span>`)}${dorm&&convMode==="conv"?` <span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px">à revoir</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${vg((x.valeur||0)/tot*100,1)} % du portefeuille</div></div>`;
       if(convMode==="conv"){
         return `<div style="padding:13px 0;border-bottom:1px solid var(--sep)"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">${titre}<span class="mono" id="${id}" style="font-size:15px;font-weight:800;color:${_convColor(c)}">${c}</span></div><input type="range" min="0" max="100" step="1" value="${c}" oninput="var e=document.getElementById('${id}');e.textContent=this.value;e.style.color=(this.value>=70?'var(--grn)':this.value>=40?'var(--amb)':'var(--mut)')" onchange="_convSet('${escAttr(x.ticker)}',this.value)" style="width:100%;accent-color:var(--acc)"></div>`;}
       let etat,apercu,act;
@@ -1052,7 +1051,7 @@ function _convVuePage(vue,ctx){
       const noteAff=(!noteLongue||_themeExp[noteKey])?note:note.slice(0,90)+"…";
       return `<div style="padding:12px 0;border-bottom:1px solid var(--sep);${vendu?"opacity:.55":""}">`
         +`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px">`
-        +`<div style="min-width:0">${_lienTitre(tk,`<span style="font-size:13px;font-weight:700">${esc(_tkNom(tk))}</span>`)}${vendu?`<span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px;margin-left:6px">vendu</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)}</div></div>`
+        +`<div style="min-width:0">${_lienTitreConv(tk,`<span style="font-size:13px;font-weight:700">${esc(_tkNom(tk))}</span>`)}${vendu?`<span style="font-size:9px;color:var(--mut);border:1px dashed var(--mut);border-radius:4px;padding:0 4px;margin-left:6px">vendu</span>`:""}<div style="font-size:10px;color:var(--mut);margin-top:2px">${esc(tk)}</div></div>`
         +(!vendu&&typeof conv==="number"?`<span class="mono" style="font-size:13px;font-weight:800;color:${_convColor(conv)};flex-shrink:0">${conv}</span>`:"")
         +`<span onclick="_themeDetacherConfirm('${escAttr(t.id)}','${escAttr(tk)}')" style="color:var(--mut);font-size:14px;cursor:pointer;padding:0 2px;flex-shrink:0">✕</span>`
         +`</div>`
@@ -2571,10 +2570,11 @@ window._ptInfo=(raw)=>{const p=String(raw).split("|");
    +`<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--mut);text-transform:uppercase">Conviction</div><div class="mono" style="font-size:17px;font-weight:800;margin-top:2px">${esc(p[3])}</div></div>`
    +`<div style="flex:1;background:var(--inp);border-radius:10px;padding:10px;text-align:center"><div style="font-size:10px;color:var(--mut);text-transform:uppercase">Poids</div><div class="mono" style="font-size:17px;font-weight:800;margin-top:2px">${esc(p[4])} %</div></div>`
    +`</div>`
-   +`<div style="font-size:11px;color:var(--mut);margin-top:10px">${esc(p[2])}${p[5]?" · conviction à revoir":""}</div>`);};
+   +`<div style="font-size:11px;color:var(--mut);margin-top:10px">${esc(p[2])}${p[5]?" · conviction à revoir":""}</div>`
+   +`<button class="btn btn-p" style="width:100%;margin-top:14px;font-size:13px" onclick="cm();openConvictionSommaire('${escAttr(p[0])}')">Ma conviction sur ce titre ›</button>`);};
 window._convPaquet=(l)=>{const tks=String(l).split(",");const cv=(D.prefs&&D.prefs.conv)||{};const d=ga();
   const lignes=tks.map(tk=>{const x=d.ap.find(y=>y.ticker===tk);
-    return `<div style="display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--sep)"><span style="font-size:13px">${esc(tk)}${x?` <span style="color:var(--mut);font-size:11px">${esc(x.poche)}</span>`:""}</span><span class="mono" style="font-size:12px;color:var(--dim)">conviction ${cv[tk]||"—"}</span></div>`;}).join("");
+    return `<div onclick="cm();openConvictionSommaire('${escAttr(tk)}')" style="display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="font-size:13px">${esc(tk)}${x?` <span style="color:var(--mut);font-size:11px">${esc(x.poche)}</span>`:""}</span><span style="display:flex;align-items:center;gap:6px"><span class="mono" style="font-size:12px;color:var(--dim)">conviction ${cv[tk]||"—"}</span><span style="color:var(--acc);font-size:13px">›</span></span></div>`;}).join("");
   sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">${tks.length} lignes au même endroit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);margin-bottom:8px">Même conviction et même poids : leurs points se superposent.</div>${lignes}`);};
 window._hzMenu=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px"><h3 style="font-size:16px;font-weight:700">Filtrer par horizon</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div><div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:12px">Une conviction de 90 sur 3 mois ne veut pas dire la même chose qu'une conviction de 90 sur 10 ans.</div>${[["tout","Tous les horizons",""]].concat(HORIZONS.map(h=>[h.k,h.l,h.d])).map(o=>`<div onclick="setConvHz('${o[0]}')" style="display:flex;align-items:center;gap:10px;padding:12px 0;border-top:1px solid var(--sep);cursor:pointer"><span style="flex:1;font-size:13px;color:${convHz===o[0]?"var(--acc)":"var(--txt)"};font-weight:${convHz===o[0]?"700":"400"}">${o[1]}${o[2]?` <span style="color:var(--mut);font-size:11px;font-weight:400">· ${o[2]}</span>`:""}</span>${convHz===o[0]?`<span style="color:var(--acc)">✓</span>`:""}</div>`).join("")}`);};
 // Réglage des paliers : une position à la fois, atteinte depuis Conviction ou depuis la fiche.
@@ -3328,7 +3328,7 @@ function _themesModeHtml(){
   const cartes=themes.length?themes.map(carte).join(""):`<div class="card" style="text-align:center;color:var(--mut);font-size:12px;padding:24px">Aucun thème pour l'instant.<br>Regroupe plusieurs titres sous une même grande idée.</div>`;
   const btnNouveau=`<div onclick="themeNouveau()" style="display:inline-block;margin-bottom:14px;font-size:12.5px;color:var(--acc);font-weight:600;cursor:pointer">+ Nouveau thème</div>`;
   const sansTheme=_titresSansTheme();
-  const nonRattaches=sansTheme.length?`<div style="margin-top:18px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 8px">Non rattachés (${sansTheme.length})</div><div class="card" style="padding:2px 14px">${sansTheme.map(tk=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sep)">${_lienTitre(tk,`<span style="font-size:12.5px">${esc(_tkNom(tk))}</span>`)}<span style="font-size:10.5px;color:var(--mut)">${esc(tk)}</span></div>`).join("")}</div></div>`:"";
+  const nonRattaches=sansTheme.length?`<div style="margin-top:18px"><div style="font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.5px;margin:0 2px 8px">Non rattachés (${sansTheme.length})</div><div class="card" style="padding:2px 14px">${sansTheme.map(tk=>`<div style="display:flex;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--sep)">${_lienTitreConv(tk,`<span style="font-size:12.5px">${esc(_tkNom(tk))}</span>`)}<span style="font-size:10.5px;color:var(--mut)">${esc(tk)}</span></div>`).join("")}</div></div>`:"";
   return banniere+btnNouveau+cartes+nonRattaches;
 }
 window.openTheme=(id)=>{_navPush();_theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;_convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;_ficheOuverteTk=null;_ficheOuvertePoche=null;themeOpen=id;convView="themePage";R();scrollTo(0,0);};
@@ -4249,6 +4249,10 @@ window.openTitre=(tk)=>{
   aOpen(sym,nom,cur,t,x?x.isin:null);
   aTab="fund";R();};
 function _lienTitre(tk,txt,style){return `<span onclick="event.stopPropagation();openTitre('${escAttr(tk)}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--bdr);text-underline-offset:2px;${style||""}">${txt}</span>`;}
+// Variante réservée à l'onglet Conviction : on y reste dans le registre de la conviction, donc un
+// titre mène à SON sommaire « Ma conviction », pas à la fiche action. _lienTitre reste inchangé
+// pour ses autres appelants (Alertes, Plans d'achat, CASE1 de la page de titre).
+function _lienTitreConv(tk,txt,style){return `<span onclick="event.stopPropagation();openConvictionSommaire('${escAttr(tk)}')" style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--bdr);text-underline-offset:2px;${style||""}">${txt}</span>`;}
 window.setATab=t=>{aTab=t;R();if(t==="desc")loadDesc();};
 // Ouvre une fiche directement sur l'onglet Fondamentaux (utilisé par la grille Qualité).
 window.aOpenFund=(sym,name,cur,isin)=>{aOpen(sym,name,cur,null,isin);aTab="fund";R();};
