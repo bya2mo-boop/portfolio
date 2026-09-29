@@ -100,7 +100,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "247";
+const APP_VERSION = "248";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1745,7 +1745,7 @@ async function refreshPrices(){
     if(currentUser) pushToSupabase();
     fetchEarnDay();
     try{if(!D.prefs||!D.prefs.divAutoTs||Date.now()-D.prefs.divAutoTs>12*3600000)refreshDivs();}catch(e){}
-    try{if(!D.prefs||!D.prefs.earnHistTs||Date.now()-D.prefs.earnHistTs>24*3600000)refreshEarnHist();}catch(e){}
+    try{refreshEarnHist();}catch(e){}
     try{await refreshIsinSymbols();}catch(e){}
     // Plus de verrou global de 7 jours : refreshCountries() décide ticker par ticker et ne fait rien
     // quand tout est déjà résolu. Une position ajoutée aujourd'hui a son pays au prochain cycle.
@@ -2752,7 +2752,7 @@ const splitHtml=splitAlerts.length?splitAlerts.map(s=>`<div class="card" style="
 const openS=alertsSub==="splits";
 h+=`<div class="card card-tap" onclick="setAlertsSub('splits')" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-left:3px solid ${splitAlerts.length?"#fbbf24":"var(--bdr)"};margin-bottom:${openS?"0":"10px"};${openS?"border-radius:16px 16px 0 0":""}"><div style="width:40px;height:40px;border-radius:11px;background:#fbbf2418;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">✂️</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700;color:${openS?"var(--acc)":"var(--txt)"}">Splits détectés</div><div style="font-size:11px;color:${splitAlerts.length?"#d9a520":"var(--mut)"};margin-top:2px">${splitAlerts.length?`${splitAlerts.length} à vérifier / corriger`:"Aucun split récent"}</div></div>${splitAlerts.length?`<span class="mono" style="font-size:11px;font-weight:700;color:${openS?"var(--acc)":"var(--dim)"};background:${openS?"var(--acc)22":"var(--inp)"};border-radius:99px;padding:3px 10px">${splitAlerts.length}</span>`:""}<span style="color:${openS?"var(--acc)":"var(--dim)"};font-size:13px;margin-left:8px">${openS?"▲":"▼"}</span></div>`;
 if(openS)h+=`<div class="card" style="border-radius:0 0 16px 16px;border-top:none;margin-top:-1px;margin-bottom:10px;padding:14px 16px 16px">${splitHtml}</div>`;
-const {earnItems,divItems}=_agendaLists();const agCount=earnItems.length+divItems.length;
+const {earnItems,divItems}=_agendaLists();const agCount=_earnDatees(earnItems)+divItems.length;
 h+=`<div class="card card-tap" onclick="openAgenda()" style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-left:3px solid #34d399;margin-bottom:10px"><div style="width:40px;height:40px;border-radius:11px;background:#34d39918;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0">📅</div><div style="flex:1;min-width:0"><div style="font-size:15px;font-weight:700">Dividendes & Résultats</div><div style="font-size:11px;color:var(--mut);margin-top:2px">Prochains versements & publications</div></div>${agCount?`<span class="mono" style="font-size:11px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:3px 10px">${agCount}</span>`:""}<span style="color:var(--dim);font-size:15px;margin-left:8px">›</span></div>`;
 h+=`</div>`;
 }}
@@ -2864,17 +2864,50 @@ async function refreshEarnHist(){
     if(!D||!D.poches)return;
     const map={};
     Object.entries(D.poches).forEach(([n,p])=>{ if(n==="Crypto")return; p.positions.forEach(pos=>{ const t=pos.ticker; if(!t||CG[t]||t==="50PESO")return; let ys; if(pos.avSymbol)ys=pos.avSymbol; else if(KNOWN_EU[t])ys=KNOWN_EU[t]; else ys=t; map[t]=ys; }); });
-    const syms=[...new Set(Object.values(map))];
+    const prev=(D.prefs&&D.prefs.earnHist)||{};
+    // Horodatage PAR TICKER, au lieu d'un unique compteur global : un titre ajoute aujourd'hui
+    // est interroge des le cycle suivant, sans attendre l'expiration d'un verrou commun. Un
+    // titre pour lequel on n'a toujours AUCUNE date exploitable repasse plus vite (6 h) qu'un
+    // titre servi correctement (24 h), sans pour autant rappeler la source tous les quarts d'heure.
+    const nowMs=Date.now();
+    const aRafraichir=Object.keys(map).filter(t=>{
+      const e=prev[t];
+      if(!e||!e.at)return true;
+      return nowMs-e.at>((e.sansDate?6:24)*3600000);});
+    if(!aRafraichir.length)return;
+    const syms=[...new Set(aRafraichir.map(t=>map[t]))];
     if(!syms.length)return;
     const r=await fetchT(`${FUND_URL}/?earnings=${encodeURIComponent(syms.join(","))}&_cb=${Date.now()}`,null,15000);
     if(!r.ok)return;
     const j=await r.json();
     if(!j)return;
-    const byTicker={};
-    Object.keys(map).forEach(t=>{ const ys=map[t]; if(j[ys])byTicker[t]=j[ys]; });
+    // FUSION, jamais remplacement. L'ancien « earnHist = byTicker » EFFACAIT tout titre absent de
+    // la reponse du jour, puis posait le verrou de 24 h : la donnee disparaissait et aucune
+    // nouvelle tentative n'etait possible. Ici, un titre absent conserve ce qu'on savait de lui.
+    const fusion={...prev};
+    aRafraichir.forEach(t=>{const got=j[map[t]];
+      fusion[t]=got?{...(prev[t]||{}),...got}:{...(prev[t]||{})};});
+    // Une date n'est exploitable que si elle est encore devant nous : c'est exactement le filtre
+    // de _dateResultats, repris ici pour decider qui a besoin du repli.
+    const nowS=Date.now()/1000;
+    const aDate=e=>!!(e&&((e.nextEarnTs&&e.nextEarnTs>nowS-86400)||(e.sumEarnTs&&e.sumEarnTs>nowS-86400)));
+    // Repli : ?earnings= ne renvoie rien pour certains symboles (LVMH, L'Oreal, Microsoft, Nestle)
+    // alors que ?summary= a la bonne date. Meme repli quand la reponse existe mais que sa date est
+    // deja passee — c'est ce qui fait AVANCER la date apres une publication. Par lots, pour ne pas
+    // ouvrir vingt requetes d'un coup ; fundFetch met de toute facon ces reponses en cache 6 h.
+    const manquants=aRafraichir.filter(t=>!aDate(fusion[t]));
+    for(let i=0;i<manquants.length;i+=6){
+      const lot=manquants.slice(i,i+6);
+      await Promise.all(lot.map(async t=>{
+        try{const sm2=await fundFetch("summary",map[t]);
+          if(sm2&&!sm2.error&&sm2.earnTs)fusion[t]={...fusion[t],sumEarnTs:sm2.earnTs,sumEarnAt:Date.now()};
+        }catch(e){}}));
+    }
+    const at=Date.now();
+    aRafraichir.forEach(t=>{fusion[t]={...fusion[t],at:at,sansDate:!aDate(fusion[t])};});
     if(!D.prefs)D.prefs={};
-    D.prefs.earnHist=byTicker;
-    D.prefs.earnHistTs=Date.now();
+    D.prefs.earnHist=fusion;
+    D.prefs.earnHistTs=at;
     saveLocal(); if(currentUser) pushToSupabase(); R();
   }catch(e){}
 }
@@ -4165,6 +4198,10 @@ function _dateResultats(tk,extra){
   const now=Date.now()/1000;const c=[];
   const eh=D&&D.prefs&&D.prefs.earnHist&&D.prefs.earnHist[tk];
   if(eh&&eh.nextEarnTs)c.push(eh.nextEarnTs);
+  // Date issue de ?summary=, memorisee a l'ouverture de la fiche fondamentaux ou par le repli
+  // de refreshEarnHist. C'est souvent la SEULE source fraiche : ?earnings= est vide pour
+  // certains titres et le earningsTimestamp de quotefull pointe la publication precedente.
+  if(eh&&eh.sumEarnTs)c.push(eh.sumEarnTs);
   // Le même titre peut être détenu dans plusieurs enveloppes : on prend ce que chacune sait.
   try{Object.values((D&&D.poches)||{}).forEach(pk=>(pk.positions||[]).forEach(y=>{
     if(y&&y.ticker===tk&&y.earnTs)c.push(y.earnTs);}));}catch(e){}
@@ -4172,6 +4209,22 @@ function _dateResultats(tk,extra){
   const fut=c.filter(t=>t&&t>now-86400);
   return fut.length?Math.min.apply(null,fut):null;}
 function _nextEarn(x){return x?_dateResultats(x.ticker,x.earnTs):null;}
+// La date la plus fraiche vient de ?summary=, que seule la fiche fondamentaux interroge. Elle
+// etait affichee puis JETEE en quittant l'ecran : la page Dividendes & Resultats restait aveugle.
+// On la range a cote des autres candidats, sans jamais ecraser ceux-ci — _dateResultats continue
+// de retenir la date future la plus proche. Ecriture reservee aux titres reellement detenus,
+// pour ne pas gonfler le stockage a chaque valeur simplement consultee.
+function _memoEarnSummary(sym,ts){
+  if(!ts||!D||!D.poches)return false;
+  const h=_findHolding(sym,(typeof aData!=="undefined"&&aData)?aData.tkGuess:null);
+  const tk=h&&h[0]&&h[0].x&&h[0].x.ticker;
+  if(!tk)return false;
+  D.prefs=D.prefs||{};D.prefs.earnHist=D.prefs.earnHist||{};
+  const e=D.prefs.earnHist[tk]||(D.prefs.earnHist[tk]={});
+  if(e.sumEarnTs===ts)return false;
+  e.sumEarnTs=ts;e.sumEarnAt=Date.now();
+  if(ts>Date.now()/1000-86400)e.sansDate=false;
+  return true;}
 
 // ══ SOCLE ÉTAPE 0 — patron générique lecture / écriture ═══════════════════════════════════════
 // Toute page de détail de la future page de titre (thèse, notes, horizon, thèmes, plans…) passe
@@ -4358,7 +4411,9 @@ async function loadAChart(){const rng=aPeriod;const sym=aSym;
   const itv=(rng==="1d"?"5m":rng==="5d"?"30m":rng==="1mo"?"1d":rng==="3mo"?"1d":rng==="1y"?"1d":"1wk");
   try{const d=await fundFetch("ohlc",sym,`&range=${rng}&interval=${itv}`);aData.ohlc=d&&d.bars?d.bars:[];aData.ohlcErr=0;}catch(e){aData.ohlc=[];aData.ohlcErr=1;}
   if(aSym)R();}
-async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}if(aSym)R();
+async function loadASummary(){if(typeof CG!=="undefined"&&CG[aSym]){try{const id=CG[aSym];const r=await fetchT(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${id}&price_change_percentage=24h`,{},10000);const j=await r.json();aData.crypto=(j&&j[0])||null;}catch(e){aData.crypto=null;}if(aSym)R();return;}try{const [d,fd]=await Promise.all([fundFetch("summary",aSym),fundFetch("fund",aSym)]);aData.sum=(d===undefined?null:d);aData.fund=(fd===undefined?null:fd);}catch(e){if(aData.sum===undefined)aData.sum=null;if(aData.fund===undefined)aData.fund=null;}
+try{if(_memoEarnSummary(aSym,aData.sum&&aData.sum.earnTs))saveLocal();}catch(e){}
+if(aSym)R();
 try{
   const h=await fundFetchHoldings(aSym);
   if(h&&!h.error&&h.holdings&&h.holdings.length){
@@ -5021,10 +5076,29 @@ if(x.cible!=null)x.cible=rnd(x.cible/ratio);if(x.cibleHaut!=null)x.cibleHaut=rnd
 if(!D.prefs)D.prefs={};if(!D.prefs.splitSeen)D.prefs.splitSeen={};D.prefs.splitSeen[ticker+"@"+t]=1;
 cm();D=rc(D);saveLocal();if(currentUser)pushToSupabase();R();toast("Split appliqué : quantité et PRU réalignés.");
 };
-function _agendaLists(){const bl=_bPos();const now=Date.now()/1000;const seen={};const earnItems=[];const eh=(D.prefs&&D.prefs.earnHist)||{};
-bl.forEach(r=>{const x=r.x;if(seen[x.ticker])return;const ts=_nextEarn(x);if(ts){seen[x.ticker]=1;earnItems.push({tk:x.ticker,t:ts});}});
+// Ne sont candidats a une date de resultats que les actifs qui en publient. Lister une crypto,
+// un fonds ou une ligne en saisie manuelle comme « date non communiquee » serait du bruit : ces
+// actifs n'ont pas de resultats trimestriels, ce n'est pas une donnee manquante.
+function _publieDesResultats(poche,x){
+  if(!x||!x.ticker)return false;
+  if(x.manual)return false;
+  if(x.ticker==="50PESO")return false;
+  if(typeof CG!=="undefined"&&CG[x.ticker])return false;
+  if(String(poche||"").toLowerCase().indexOf("crypto")>-1)return false;
+  const fo=(D&&D.prefs&&D.prefs.etfHoldings&&D.prefs.etfHoldings[x.ticker])||null;
+  if(fo&&fo.isFund)return false;
+  return true;}
+// _bPos(true) applique le predicat unifie _horsPatrimoine (v243) : l'agenda des resultats ne
+// montre que le patrimoine, comme partout ailleurs. Un titre sans date connue est desormais
+// remonte avec t=null au lieu d'etre ecarte : le faire disparaitre se lisait a tort comme
+// « aucun resultat prevu ». La vue affichera « date non communiquee ».
+function _agendaLists(){const bl=_bPos(true);const seen={};const earnItems=[];
+bl.forEach(r=>{const x=r.x;if(seen[x.ticker])return;if(!_publieDesResultats(r.poche,x))return;seen[x.ticker]=1;const ts=_nextEarn(x);earnItems.push({tk:x.ticker,t:ts||null});});
 const {upcoming,now:nowD}=_upcomingDivEvents();const divItems=upcoming.filter(u=>u.date>=nowD).map(u=>({tk:u.tk,t:u.date.getTime()/1000,eur:u.eur}));
-earnItems.sort((a,b)=>a.t-b.t);divItems.sort((a,b)=>a.t-b.t);
+// Les dates connues d'abord, de la plus proche a la plus lointaine ; les inconnues en queue,
+// par ordre alphabetique — elles ne doivent pas s'intercaler entre deux echeances reelles.
+earnItems.sort((a,b)=>{if(a.t==null&&b.t==null)return a.tk<b.tk?-1:a.tk>b.tk?1:0;if(a.t==null)return 1;if(b.t==null)return -1;return a.t-b.t;});
+divItems.sort((a,b)=>a.t-b.t);
 return{earnItems,divItems};}
 function _divAgendaData(){
 const d=ga();
@@ -5050,9 +5124,11 @@ return {dp,td,dpx,tdNet,tdShown,dr,yr,drYtd,drTot,recvSugg,divCalHtml,tFv};
 }
 function _pastEarnings(){
 const eh=(D.prefs&&D.prefs.earnHist)||{};
-const _exT=(D.prefs&&D.prefs.pocheExclTotal)||{};
 const titleMap={};
-Object.entries(D.poches).forEach(([n,p])=>{if(_exT[n])return;p.positions.forEach(pos=>{if(pos.ticker)titleMap[pos.ticker]=pos.titre||pos.ticker;});});
+// Meme perimetre que « Resultats a venir » : _horsPatrimoine (v243) ecarte l'enveloppe sortie du
+// total ET la position marquee hors analyse. Avant, seule l'enveloppe etait filtree, si bien
+// qu'un titre annonce a venir pouvait ne jamais reapparaitre en passe.
+Object.entries(D.poches).forEach(([n,p])=>{p.positions.forEach(pos=>{if(!pos.ticker)return;if(_horsPatrimoine(n,pos))return;titleMap[pos.ticker]=pos.titre||pos.ticker;});});
 const out=[];
 Object.keys(eh).forEach(tk=>{
 if(!(tk in titleMap))return;
@@ -5070,7 +5146,15 @@ function _agendaMiniList(list,expanded,expKey,fmtLabel,emptyTxt){
 if(!list.length)return `<div style="text-align:center;color:var(--mut);padding:14px;font-size:11px">${emptyTxt}</div>`;
 const shown=expanded?list.slice(0,12):list.slice(0,3);
 const now=Date.now()/1000;
-const rows=shown.map((it,i)=>{const days=Math.round((it.t-now)/86400);return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${i<shown.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="font-size:12px;font-weight:600">${fmtLabel(it)}</div><div style="font-size:10px;color:var(--mut);text-align:right">${new Date(it.t*1000).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}${days>=0?` · dans ${days} j`:" · aujourd'hui"}</div></div>`;}).join("");
+const rows=shown.map((it,i)=>{
+const connue=(it.t!=null);
+const days=connue?Math.round((it.t-now)/86400):0;
+// On prefere dire qu'on ignore la date plutot que de retirer le titre de la liste : l'absence
+// se lisait comme « aucun resultat prevu », ce qui est une information fausse.
+const droite=connue
+  ?`${new Date(it.t*1000).toLocaleDateString("fr-FR",{day:"2-digit",month:"short"})}${days>=0?` · dans ${days} j`:" · aujourd'hui"}`
+  :`<span style="font-style:italic">date non communiquée</span>`;
+return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;${i<shown.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="font-size:12px;font-weight:600;${connue?"":"color:var(--dim)"}">${fmtLabel(it)}</div><div style="font-size:10px;color:var(--mut);text-align:right">${droite}</div></div>`;}).join("");
 const more=list.length>3?`<div onclick="toggleAgendaExp('${expKey}')" style="text-align:center;color:var(--acc);font-size:11px;cursor:pointer;padding-top:6px">${expanded?"▲ Réduire":"▼ Voir les "+list.length}</div>`:"";
 return rows+more;
 }
@@ -5098,6 +5182,9 @@ return `<div class="card card-tap" onclick="toggleDivSec('${key}',${open})" styl
 }).join("");
 return h;
 }
+// Les pastilles annoncent des ECHEANCES : un titre dont la date est inconnue ne doit pas les
+// gonfler, sinon le chiffre promet des rendez-vous qui n'existent pas.
+function _earnDatees(l){return (l||[]).filter(i=>i.t!=null).length;}
 function agendaResSubHtml(){
 const {earnItems}=_agendaLists();
 const past=_pastEarnings();
@@ -5152,7 +5239,7 @@ h+=`<div class="card card-tap" onclick="setAgendaSub('div')" style="display:flex
 </div>`;
 h+=`<div class="card card-tap" onclick="setAgendaSub('res')" style="display:flex;justify-content:space-between;align-items:center;padding:16px;margin-bottom:8px">
 <span style="display:flex;align-items:center;gap:10px"><span style="font-size:18px">📊</span><span style="font-size:14px;font-weight:700">Détail résultats</span></span>
-<span style="display:flex;align-items:center;gap:10px">${earnItems.length?`<span class="mono" style="font-size:11px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:3px 10px">${earnItems.length}</span>`:""}<span style="color:var(--dim);font-size:15px">›</span></span>
+<span style="display:flex;align-items:center;gap:10px">${_earnDatees(earnItems)?`<span class="mono" style="font-size:11px;font-weight:700;color:var(--dim);background:var(--inp);border-radius:99px;padding:3px 10px">${_earnDatees(earnItems)}</span>`:""}<span style="color:var(--dim);font-size:15px">›</span></span>
 </div>`;
 h+=`</div>`;
 return h;
