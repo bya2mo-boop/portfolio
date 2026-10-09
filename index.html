@@ -100,7 +100,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "248";
+const APP_VERSION = "249";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -138,7 +138,12 @@ document.addEventListener("visibilitychange", () => {
   _dernierRetourPremierPlan = Date.now();
   try{
     if(typeof D!=="undefined" && D && typeof currentUser!=="undefined" && currentUser && typeof window.refreshPrices==="function"){
-      window.refreshPrices();
+      // Relire AVANT d'écrire : une PWA restée en mémoire des heures ou des jours se recale d'abord
+      // sur le serveur (fusion), puis seulement rafraîchit ses cours.
+      (async()=>{
+        try{ if(typeof _synchroniser==="function") await _synchroniser(); }catch(e){}
+        try{ window.refreshPrices(); }catch(e){}
+      })();
     }
   }catch(e){}
 });
@@ -1299,156 +1304,282 @@ let _syncPending=false;
 let _lastSyncErrToast=0;
 function _syncErr(){const now=Date.now();if(now-_lastSyncErrToast<15000)return;_lastSyncErrToast=now;try{toast("⚠️ Sauvegarde impossible — vérifie ta connexion. Ne ferme pas l'appli tant que ça n'est pas rétabli.","err");}catch(e){}}
 
-async function pullFromSupabase() {
-  if (!sb || !currentUser) return false;
-  try {
-    const { data: pfData, error: pfErr } = await sb.from('portfolios').select('*').eq('user_id', currentUser.id).limit(1);
-    if (pfErr) throw pfErr;
-    if (!pfData || pfData.length === 0) return false;
+// ══ SYNCHRONISATION ENTRE APPAREILS (v249) ══════════════════════════════════════════════════════
+// Avant : chaque appareil envoyait son état COMPLET au serveur sans rien vérifier, et ne relisait
+// le serveur qu'au démarrage. Une PWA restée ouverte des jours écrasait donc, au premier cycle ou
+// au retour au premier plan, tout ce qui avait été fait ailleurs (PRU, quantités, thèses…), et
+// supprimait côté serveur toute position qu'elle ne connaissait pas.
+// Désormais chaque synchronisation est une FUSION À TROIS : la « base » (dernier état que cet
+// appareil et le serveur avaient en commun), la copie locale, et le serveur relu à l'instant.
+// Ce que seul cet appareil a changé part ; ce que seul le serveur a changé arrive. Si les deux ont
+// changé la même chose différemment, c'est un vrai conflit : la version du serveur reste en place,
+// la version locale est conservée à part et l'utilisateur est prévenu. Rien n'est perdu en silence.
+// L'écriture est conditionnelle : elle n'a lieu que si le serveur est toujours à la version relue
+// (prefs._rev). Sinon on relit et on refusionne. Aucune modification de schéma n'est nécessaire.
 
-    const pf = pfData[0];
-    window.currentPfId = pf.id;
+// Caches recalculés automatiquement sur chaque appareil : jamais de conflit, la copie locale prime.
+const _SYNC_PREFS_AUTO=new Set(["divAuto","divAutoTs","earnHist","earnHistTs","etfHoldings","fxRates","isinFailed","isinOfFailed","paysAuto","paysAutoTs","paysEchec","paysTry","staleQuote","staleQuoteTs","poidsHist","achatSync","palierSync","seedMode","smoothMid"]);
+// Marqueurs « vu », horodatages et réglages d'affichage : fusion sans alerte (le plus récent).
+const _SYNC_PREFS_SOUPLE=new Set(["convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","splitSeen","manualUpdatedAt","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
+const _SYNC_PREFS_TECH=["_rev","_migs"];
+const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
+const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin"];
+const _POS_COL={titre:"titre",qty:"qty",pru:"pru",cours:"cours",cible:"cible",cibleHaut:"cible_haut",sector:"sector",dividend:"dividend",avSymbol:"av_symbol",currency:"currency",isin:"isin"};
 
-    const { data: posData, error: posErr } = await sb.from('positions').select('*').eq('portfolio_id', pf.id);
-    if (posErr) throw posErr;
+// Égalité insensible à l'ordre des clés : Postgres (jsonb) réordonne les objets qu'il stocke.
+function _syncCle(v){
+  if(v===undefined)return "u";
+  if(v===null||typeof v!=="object")return JSON.stringify(v);
+  if(Array.isArray(v))return "["+v.map(x=>x===undefined?"null":_syncCle(x)).join(",")+"]";
+  return "{"+Object.keys(v).filter(k=>v[k]!==undefined).sort().map(k=>JSON.stringify(k)+":"+_syncCle(v[k])).join(",")+"}";}
+function _syncEq(a,b){return _syncCle(a)===_syncCle(b);}
+function _syncCopie(v){return v===undefined?undefined:JSON.parse(JSON.stringify(v));}
+function _syncObj(v){return !!v&&typeof v==="object"&&!Array.isArray(v);}
+function _syncNum(v){if(v==null)return null;return (typeof v==="string"&&v.trim()!==""&&isFinite(+v))?+v:v;}
 
-    const { data: cfData, error: cfErr } = await sb.from('cashflows').select('*').eq('portfolio_id', pf.id).order('date', { ascending: true });
-    if (cfErr) console.warn('cashflows fetch error', cfErr);
-    window.cashflows = cfData || [];
+function _posPersiste(x){return {titre:x.titre==null?null:x.titre,qty:_syncNum(x.qty),pru:_syncNum(x.pru),cours:_syncNum(x.cours),
+  cible:_syncNum(x.cible)||null,cibleHaut:_syncNum(x.cibleHaut)||null,sector:x.sector||null,dividend:_syncNum(x.dividend)||null,
+  avSymbol:x.avSymbol||null,currency:x.currency||null,isin:x.isin||null};}
+function _prefsSync(p){const o=Object.assign({},p||{});_SYNC_PREFS_TECH.forEach(k=>{delete o[k];});return o;}
+function _snapLocal(d){const pos={};
+  Object.entries((d&&d.poches)||{}).forEach(([n,p])=>((p&&p.positions)||[]).forEach(x=>{if(!x||!x.ticker)return;const k=n+"|"+x.ticker;if(!(k in pos))pos[k]=_posPersiste(x);}));
+  return {cash:_syncNum(d.cash)||0,eurUsd:_syncNum(d.eurUsd)||1.1,immobilier:d.immobilier||{},targetAlloc:d.targetAlloc||{},
+    sales:d.sales||[],divReceived:d.divReceived||[],prefs:_prefsSync(d.prefs),pos};}
+function _snapServeur(pf,rows){const pos={};
+  (rows||[]).forEach(r=>{if(!r||!r.ticker)return;const k=r.poche+"|"+r.ticker;if(!(k in pos))pos[k]=_posPersiste({titre:r.titre,qty:r.qty,pru:r.pru,cours:r.cours,cible:r.cible,cibleHaut:r.cible_haut,sector:r.sector,dividend:r.dividend,avSymbol:r.av_symbol,currency:r.currency,isin:r.isin});});
+  return {cash:_syncNum(pf.cash)||0,eurUsd:_syncNum(pf.eur_usd)||1.1,immobilier:pf.immobilier||{},targetAlloc:pf.target_alloc||{},
+    sales:pf.sales||[],divReceived:pf.div_received||[],prefs:_prefsSync(pf.prefs),pos};}
 
-    const localD = loadLocal().D || {};
+function _syncRegle(s){
+  if(s[0]==="eurUsd")return "auto";
+  if(s[0]==="pos"&&s.length===3&&(s[2]==="cours"||s[2]==="dividend"))return "auto";
+  if(s[0]==="prefs"&&s.length>=2){if(_SYNC_PREFS_AUTO.has(s[1]))return "auto";if(_SYNC_PREFS_SOUPLE.has(s[1]))return "souple";}
+  return "user";}
+// Listes (ventes, notes, suivi, ordre des enveloppes…) : ce que chaque côté a ajouté est gardé, ce
+// qu'un côté a retiré est retiré. Si les deux ont modifié le même élément, les deux versions restent.
+function _fusionListe(b,l,s){const B=new Set(b.map(_syncCle)),L=new Set(l.map(_syncCle)),S=new Set(s.map(_syncCle));const out=[];
+  s.forEach(v=>{const k=_syncCle(v);if(B.has(k)&&!L.has(k))return;out.push(_syncCopie(v));});
+  l.forEach(v=>{const k=_syncCle(v);if(B.has(k)||S.has(k))return;out.push(_syncCopie(v));});
+  return out;}
+function _fusion3(b,l,s,segs,conflits){
+  if(_syncEq(l,s))return _syncCopie(l);
+  if(_syncEq(l,b))return _syncCopie(s);
+  if(_syncEq(s,b))return _syncCopie(l);
+  const regle=_syncRegle(segs);
+  if(_syncObj(l)&&_syncObj(s)){const bb=_syncObj(b)?b:{};const out={};
+    new Set([...Object.keys(s),...Object.keys(l),...Object.keys(bb)]).forEach(k=>{const v=_fusion3(bb[k],l[k],s[k],segs.concat(k),conflits);if(v!==undefined)out[k]=v;});
+    return out;}
+  if(regle==="user"&&Array.isArray(l)&&Array.isArray(s))return _fusionListe(Array.isArray(b)?b:[],l,s);
+  if(regle==="auto")return _syncCopie(l===undefined?s:l);
+  if(regle==="souple"){if(typeof l==="number"&&typeof s==="number")return Math.max(l,s);return _syncCopie(l===undefined?s:l);}
+  conflits.push({chemin:segs.slice(),local:_syncCopie(l),serveur:_syncCopie(s)});
+  return _syncCopie(s);}
+function _sansAuto(sn){const o=_syncCopie(sn)||{};delete o.eurUsd;
+  if(o.prefs)Object.keys(o.prefs).forEach(k=>{if(_SYNC_PREFS_AUTO.has(k)||_SYNC_PREFS_SOUPLE.has(k))delete o.prefs[k];});
+  if(o.pos)Object.keys(o.pos).forEach(k=>{delete o.pos[k].cours;delete o.pos[k].dividend;});
+  return o;}
 
-    let newD = {
-      updatedAt: new Date().toLocaleDateString("fr-FR")+" "+new Date().toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),
-      eurUsd: pf.eur_usd || 1.10,
-      cash: pf.cash || 0,
-      targetAlloc: pf.target_alloc || {},
-      immobilier: pf.immobilier || {},
-      sales: pf.sales || [],
-      divReceived: pf.div_received || [],
-      prefs: pf.prefs || {},
-      poches: {},
-      migV2: localD.migV2, migV3: localD.migV3, migV4: localD.migV4, migV5: localD.migV5, migV6: localD.migV6, migV7: localD.migV7
-    };
+// La base est stockée sans les caches automatiques (ils ne se fusionnent pas) pour ménager la place.
+function _cleSync(nom){return "pf-"+nom+"-"+currentUser.id;}
+function _lireBase(){try{const t=localStorage.getItem(_cleSync("base"));return t?JSON.parse(t):null;}catch(e){return null;}}
+function _ecrireBase(rev,snap){try{const sn=_syncCopie(snap);sn.prefs=Object.assign({},sn.prefs);_SYNC_PREFS_AUTO.forEach(k=>{delete sn.prefs[k];});
+  localStorage.setItem(_cleSync("base"),JSON.stringify({rev:rev==null?null:rev,at:Date.now(),snap:sn}));}catch(e){console.warn("synchro : base non enregistree",e);}}
+// _rev n'est écrit que par _synchroniser, toujours comme un entier (Math.floor(...)+1). Si une valeur
+// non entière apparaissait quand même (édition manuelle de la base), le contrôle compare au texte
+// réellement stocké et la valeur suivante redevient entière.
+// BASE PROVISOIRE (transition v248 → v249) : la v248 ne gardait pas de base. Au premier lancement
+// v249, la copie locale TELLE QU'ELLE EST CHARGÉE devient la base. Ses valeurs (peut-être anciennes)
+// comptent donc comme « non modifiées » : le serveur l'emporte et rien n'en est poussé. Ce que
+// l'utilisateur saisit ENSUITE diffère de cette base et part normalement — même si le premier
+// lancement a lieu sans réseau. Gardée intégrale (caches compris) pour que rien d'ancien ne parte.
+function _ecrireBaseProvisoire(snap){try{localStorage.setItem(_cleSync("base"),JSON.stringify({rev:null,at:Date.now(),provisoire:true,snap:_syncCopie(snap)}));return true;}catch(e){console.warn("synchro : base provisoire non enregistree",e);return false;}}
+// Différences « données utilisateur » entre deux instantanés, pour l'avis unique du premier lancement.
+function _diffSnap(a,b,segs,out){segs=segs||[];out=out||[];if(out.length>=60||_syncEq(a,b))return out;
+  if(_syncObj(a)&&_syncObj(b)&&!(segs[0]==="prefs"&&segs.length>=2)){new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>_diffSnap(a[k],b[k],segs.concat(k),out));return out;}
+  if(segs[0]==="prefs"&&segs.length===2&&_syncObj(a)&&_syncObj(b)){new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{if(!_syncEq(a[k],b[k])&&out.length<60)out.push({chemin:segs.concat(k),local:_syncCopie(a[k]),serveur:_syncCopie(b[k])});});return out;}
+  out.push({chemin:segs.slice(),local:_syncCopie(a),serveur:_syncCopie(b)});return out;}
+function _lireAvis(){try{return JSON.parse(localStorage.getItem(_cleSync("avis-premier"))||"null");}catch(e){return null;}}
+function _bandeauAvisPremier(){try{const a=currentUser?_lireAvis():null;let b=document.getElementById("syncAvisPremier");
+  if(!a||a.vu||!(a.liste||[]).length){if(b)b.remove();return;}
+  if(!b){b=document.createElement("div");b.id="syncAvisPremier";
+    b.style.cssText="position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9997;background:var(--card);color:var(--txt);border:1px solid var(--acc);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)";
+    document.body.appendChild(b);}
+  b.innerHTML='<span style="flex:1">ℹ️ Cet appareil avait une version différente de tes données (sans doute plus ancienne). La version enregistrée a été gardée ; celle de cet appareil a été <b>mise de côté</b>, rien n\'a été effacé.</span>'
+    +'<button onclick="_voirAvisPremier()" style="background:var(--acc);color:#fff;border:none;border-radius:8px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0">Voir</button>';
+}catch(e){}}
+window._voirAvisPremier=()=>{const a=_lireAvis()||{liste:[]};
+  sm('<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Mise à jour de cet appareil</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>'
+   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Au passage à la nouvelle version, ces valeurs étaient différentes sur cet appareil. L\'app ne peut pas savoir si c\'était une modification en attente ou simplement une valeur ancienne : elle a gardé la version enregistrée, et conservé celle de cet appareil dans une copie de sécurité. Si une valeur ci-dessous est la bonne, corrige-la à la main.</div>'
+   +(a.liste||[]).map(x=>'<div style="padding:9px 0;border-top:1px solid var(--sep)"><div style="font-size:12.5px;font-weight:700">'+esc(_libChemin(x.chemin))+'</div>'
+     +'<div style="font-size:11.5px;margin-top:4px">Enregistré (gardé) : <span class="mono">'+esc(_valCourte(x.serveur))+'</span></div>'
+     +'<div style="font-size:11.5px;color:var(--acc)">Sur cet appareil avant la mise à jour : <span class="mono">'+esc(_valCourte(x.local))+'</span></div></div>').join("")
+   +((a.liste||[]).length>=60?'<div style="font-size:11px;color:var(--mut);margin-top:8px">Liste tronquée à 60 éléments ; la copie de sécurité contient tout.</div>':'')
+   +'<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_avisPremierVu()">J\'ai compris</button>');};
+window._avisPremierVu=()=>{const a=_lireAvis();if(a){a.vu=true;try{localStorage.setItem(_cleSync("avis-premier"),JSON.stringify(a));}catch(e){}}_bandeauAvisPremier();cm();};
+function _revServeur(pf){const r=pf&&pf.prefs?pf.prefs._rev:null;if(r==null)return null;const n=+r;return (isFinite(n)&&n>=0)?{n:Math.floor(n),txt:String(r)}:null;}
+function _migsDe(d){const o={};Object.keys(d||{}).forEach(k=>{if(/^mig/.test(k)&&d[k])o[k]=true;});return o;}
 
-    const savedOrder = (pf.prefs && Array.isArray(pf.prefs.pocheOrder) && pf.prefs.pocheOrder.length) ? pf.prefs.pocheOrder : ["CTO", "PEA", "Assurance Vie", "PEE", "Crypto", "Métaux"];
-    savedOrder.forEach(p => { if(!newD.poches[p]) newD.poches[p] = {sante: "5,0", positions: []}; });
+// FILET DE SÉCURITÉ : avant que les données de cet appareil soient remplacées, on en garde une
+// copie. « premier » = l'état de l'appareil au tout premier passage v249 (il peut contenir les bons
+// PRU d'avant le bug) : il n'est jamais écrasé. Les autres tournent, les 4 plus récentes gardées.
+function _filetSecurite(raison){try{if(!currentUser||!D)return;
+  const pre="pf-backup-"+currentUser.id+"-";const d=_syncCopie(D);
+  if(d&&d.prefs)_SYNC_PREFS_AUTO.forEach(k=>{delete d.prefs[k];});
+  const txt=JSON.stringify({at:Date.now(),raison:raison,version:APP_VERSION,D:d});
+  const cles=()=>{const o=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(pre)===0&&k!==pre+"premier")o.push(k);}return o.sort();};
+  if(raison==="premier"&&localStorage.getItem(pre+"premier")===null){try{localStorage.setItem(pre+"premier",txt);return;}catch(e){}}
+  const c=cles();
+  if(c.length){try{const der=JSON.parse(localStorage.getItem(c[c.length-1]));if(der&&_syncEq(der.D,d))return;}catch(e){}}
+  try{localStorage.setItem(pre+Date.now(),txt);}catch(e){const v=cles();if(v.length){localStorage.removeItem(v[0]);try{localStorage.setItem(pre+Date.now(),txt);}catch(e2){console.warn("filet non enregistre",e2);return;}}else{console.warn("filet non enregistre",e);return;}}
+  const v=cles();while(v.length>4)localStorage.removeItem(v.shift());
+}catch(e){console.warn("filet",e);}}
+window._filetsDisponibles=()=>{const pre="pf-backup-"+((currentUser&&currentUser.id)||"")+"-";const o=[];
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(pre)===0){try{const j=JSON.parse(localStorage.getItem(k));o.push({cle:k,date:new Date(j.at).toLocaleString("fr-FR"),raison:j.raison,version:j.version});}catch(e){}}}
+  return o.sort((a,b)=>a.cle<b.cle?-1:1);};
 
-    if (posData) {
-      posData.forEach(pos => {
-        if (!newD.poches[pos.poche]) {
-          newD.poches[pos.poche] = {sante: "5,0", positions: []};
-        }
-        
-        const oldPos = localD.poches && localD.poches[pos.poche] && localD.poches[pos.poche].positions.find(x => x.ticker === pos.ticker);
-        
-        newD.poches[pos.poche].positions.push({
-          ticker: pos.ticker,
-          titre: pos.titre,
-          qty: pos.qty,
-          pru: pos.pru,
-          cours: pos.cours,
-          cible: pos.cible,
-          cibleHaut: pos.cible_haut,
-          sector: pos.sector,
-          dividend: pos.dividend,
-          cours7j: oldPos ? oldPos.cours7j : pos.cours,
-          cours7jDate: oldPos ? oldPos.cours7jDate : Date.now(),
-          lastUpd: oldPos ? oldPos.lastUpd : Date.now(),
-          currency: pos.currency || (oldPos ? oldPos.currency : null),
-          avSymbol: pos.av_symbol || (oldPos ? oldPos.avSymbol : null),
-          isin: pos.isin || (oldPos ? oldPos.isin : null),
-          manual: !!(pf.prefs && pf.prefs.manualTickers && pf.prefs.manualTickers.includes(pos.ticker)),
-          noPerf: !!(pf.prefs && pf.prefs.noPerfTickers && pf.prefs.noPerfTickers.includes(pos.ticker)),
-          manualUpdated: (pf.prefs && pf.prefs.manualUpdatedAt && pf.prefs.manualUpdatedAt[pos.ticker]) || null
-        });
-      });
-    }
+// CONFLITS : la version du serveur reste en place, celle de cet appareil est gardée ici et signalée.
+function _libChemin(s){s=s||[];
+  if(s[0]==="pos"){const k=String(s[1]||"");const i=k.indexOf("|");const n=k.slice(0,i),tk=k.slice(i+1);
+    const f={qty:"quantité",pru:"PRU",titre:"nom",cible:"alerte de baisse",cibleHaut:"objectif de vente",currency:"devise",isin:"ISIN",avSymbol:"symbole",sector:"secteur"}[s[2]];
+    return tk+" ("+n+") · "+(f||(s[2]?s[2]:"position supprimée d'un côté, modifiée de l'autre"));}
+  if(s[0]==="prefs"){const m={notes:"Thèse",conv:"Conviction",horizon:"Horizon",journal:"Notes",paliers:"Plan de sortie",achat:"Plan d'achat",plan:"Plan",themes:"Thèmes",watchlist:"Suivi",watchLists:"Listes de suivi"};
+    return (m[s[1]]||s[1])+(s.length>2?" · "+s.slice(2).join(" › "):"");}
+  return ({cash:"Liquidités",immobilier:"Immobilier",targetAlloc:"Allocation cible",sales:"Ventes",divReceived:"Dividendes perçus"}[s[0]]||s.join(" › "));}
+function _valCourte(v){if(v===undefined)return "— (supprimé)";const t=typeof v==="string"?v:JSON.stringify(v);return t.length>140?t.slice(0,137)+"…":t;}
+function _lireConflits(){try{return JSON.parse(localStorage.getItem(_cleSync("conflits"))||"[]");}catch(e){return [];}}
+function _noterConflits(c){if(!c||!c.length||!currentUser)return;const l=_lireConflits();const at=Date.now();
+  c.forEach(x=>l.push({at:at,chemin:x.chemin,local:x.local,serveur:x.serveur}));
+  try{localStorage.setItem(_cleSync("conflits"),JSON.stringify(l.slice(-50)));}catch(e){}
+  _bandeauConflits();}
+function _bandeauConflits(){try{const n=currentUser?_lireConflits().length:0;let b=document.getElementById("syncConflits");
+  if(!n){if(b)b.remove();return;}
+  if(!b){b=document.createElement("div");b.id="syncConflits";
+    b.style.cssText="position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9998;background:var(--card);color:var(--txt);border:1px solid var(--amb);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)";
+    document.body.appendChild(b);}
+  b.innerHTML='<span style="flex:1">⚠️ <b>'+n+' modification'+(n>1?'s':'')+'</b> faite'+(n>1?'s':'')+' en même temps sur deux appareils. La version déjà enregistrée est gardée ; la tienne est conservée, rien n\'est perdu.</span>'
+    +'<button onclick="_voirConflits()" style="background:var(--amb);color:#000;border:none;border-radius:8px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0">Voir</button>';
+}catch(e){}}
+window._voirConflits=()=>{const l=_lireConflits();
+  sm('<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Modifications en conflit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>'
+   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Ces valeurs ont été modifiées sur deux appareils avant qu\'ils se synchronisent. L\'app ne choisit pas à ta place : la version déjà enregistrée est restée en place, et voici la tienne. Corrige à la main si c\'est la tienne qui est juste.</div>'
+   +l.slice().reverse().map(x=>'<div style="padding:9px 0;border-top:1px solid var(--sep)"><div style="font-size:12.5px;font-weight:700">'+esc(_libChemin(x.chemin))+'</div>'
+     +'<div style="font-size:11px;color:var(--mut);margin-top:2px">'+esc(new Date(x.at).toLocaleString("fr-FR"))+'</div>'
+     +'<div style="font-size:11.5px;margin-top:4px">En place : <span class="mono">'+esc(_valCourte(x.serveur))+'</span></div>'
+     +'<div style="font-size:11.5px;color:var(--amb)">Ta version : <span class="mono">'+esc(_valCourte(x.local))+'</span></div></div>').join("")
+   +'<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_conflitsVus()">J\'ai vérifié</button>');};
+window._conflitsVus=()=>{try{localStorage.removeItem(_cleSync("conflits"));}catch(e){}_bandeauConflits();cm();};
 
-    D = newD;
-    H = pf.hist || [];
-    st.sync = true;
-    return true;
-  } catch(e) {
-    console.error("pullFromSupabase:", e);
-    st.sync = false;
-    return false;
-  }
-}
+function _construireD(m,L,pf){
+  const now=new Date();
+  const nd={updatedAt:now.toLocaleDateString("fr-FR")+" "+now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}),
+    eurUsd:m.eurUsd,cash:m.cash,targetAlloc:_syncCopie(m.targetAlloc),immobilier:_syncCopie(m.immobilier),
+    sales:_syncCopie(m.sales),divReceived:_syncCopie(m.divReceived),prefs:_syncCopie(m.prefs),poches:{}};
+  Object.keys(L||{}).forEach(k=>{if(/^mig/.test(k)&&L[k])nd[k]=L[k];});
+  const sm=(pf&&pf.prefs&&pf.prefs._migs)||{};Object.keys(sm).forEach(k=>{if(sm[k]&&/^mig/.test(k))nd[k]=true;});
+  const lp=(L&&L.poches)||{};
+  const vide=n=>{const o=lp[n]?Object.assign({},lp[n]):{sante:"5,0"};o.positions=[];return o;};
+  const ordre=(Array.isArray(nd.prefs.pocheOrder)&&nd.prefs.pocheOrder.length)?nd.prefs.pocheOrder:_SYNC_POCHES_DEFAUT;
+  ordre.forEach(n=>{if(!nd.poches[n])nd.poches[n]=vide(n);});
+  const P=nd.prefs,mt=P.manualTickers||[],np=P.noPerfTickers||[],mu=P.manualUpdatedAt||{};
+  Object.keys(m.pos).forEach(k=>{const i=k.indexOf("|");const n=k.slice(0,i),tk=k.slice(i+1);
+    if(!nd.poches[n])nd.poches[n]=vide(n);
+    const loc=(lp[n]&&(lp[n].positions||[]).find(x=>x&&x.ticker===tk))||null;
+    const f=m.pos[k];
+    const x=loc?Object.assign(_syncCopie(loc),f):Object.assign({cours7j:f.cours,cours7jDate:Date.now(),lastUpd:Date.now()},f);
+    x.ticker=tk;x.manual=mt.includes(tk);x.noPerf=np.includes(tk);x.manualUpdated=mu[tk]||null;
+    nd.poches[n].positions.push(x);});
+  return nd;}
 
-async function pushToSupabase() {
-  if(!sb || !currentUser || !window.currentPfId) return false;
-  if(_isSyncing){_syncPending=true;return false;}
-  _isSyncing=true;
-  let ok=false;
+// Écriture des positions : uniquement ce qui diffère du serveur relu, champ par champ. Une position
+// n'est supprimée que si la fusion l'a retirée — c'est-à-dire qu'elle a été vendue ou supprimée sur
+// cet appareil — jamais parce qu'elle manquait simplement à une copie ancienne.
+async function _ecrirePositions(pfId,avant,apres){
+  const ins=[],maj=[],sup=[];
+  Object.keys(apres).forEach(k=>{const a=apres[k],b=avant[k];const i=k.indexOf("|");const poche=k.slice(0,i),tk=k.slice(i+1);
+    if(!b){const row={portfolio_id:pfId,poche:poche,ticker:tk};_POS_SYNC.forEach(f=>{row[_POS_COL[f]]=a[f]==null?null:a[f];});ins.push(row);return;}
+    const d={};_POS_SYNC.forEach(f=>{if(!_syncEq(a[f],b[f]))d[_POS_COL[f]]=a[f]==null?null:a[f];});
+    if(Object.keys(d).length)maj.push({poche:poche,tk:tk,d:d});});
+  Object.keys(avant).forEach(k=>{if(!(k in apres)){const i=k.indexOf("|");sup.push({poche:k.slice(0,i),tk:k.slice(i+1)});}});
+  if(ins.length){const {error}=await sb.from('positions').insert(ins);if(error)throw error;}
+  for(const u of maj){const {error}=await sb.from('positions').update(u.d).eq('portfolio_id',pfId).eq('poche',u.poche).eq('ticker',u.tk);if(error)throw error;}
+  for(const x of sup){const {error}=await sb.from('positions').delete().eq('portfolio_id',pfId).eq('poche',x.poche).eq('ticker',x.tk);if(error)throw error;}}
+
+function _syncDelai(p,ms){let t=null;return Promise.race([p,new Promise((_,ko)=>{t=setTimeout(()=>ko(new Error("delai depasse")),ms);})]).finally(()=>clearTimeout(t));}
+async function _lireServeur(){
+  const {data:pfData,error:e1}=await _syncDelai(sb.from('portfolios').select('*').eq('user_id',currentUser.id).limit(1),15000);
+  if(e1)throw e1;
+  if(!pfData||!pfData.length)return null;
+  const pf=pfData[0];
+  const {data:rows,error:e2}=await _syncDelai(sb.from('positions').select('*').eq('portfolio_id',pf.id),15000);
+  if(e2)throw e2;
+  return {pf:pf,rows:rows||[]};}
+
+// Retour : "ok", "absent" (aucun portefeuille sur le serveur), "erreur" (réseau, refus), "occupe", "hors".
+// Une lecture qui échoue n'écrit JAMAIS rien : on ne pousse pas un état qu'on n'a pas pu comparer.
+async function _synchroniser(){
+  if(!sb||!currentUser)return "hors";
+  if(_isSyncing){_syncPending=true;return "occupe";}
+  _isSyncing=true;let etat="erreur";
   try{
-    const { error: pfErr } = await sb.from('portfolios').update({
-      cash: D.cash || 0,
-      eur_usd: D.eurUsd || 1.1,
-      immobilier: D.immobilier || {},
-      target_alloc: D.targetAlloc || {},
-      sales: D.sales || [],
-      div_received: D.divReceived || [],
-      prefs: D.prefs || {},
-      hist: H.slice(-1000)
-    }).eq('id', window.currentPfId);
-    
-    if(pfErr) throw pfErr;
-
-    const { data: dbPos, error: fetchErr } = await sb.from('positions').select('id, poche, ticker').eq('portfolio_id', window.currentPfId);
-    if(fetchErr) throw fetchErr;
-
-    let toUpdate = [];
-    let toInsert = [];
-    let keptIds = new Set();
-
-    Object.entries(D.poches).forEach(([pocheName, p]) => {
-      p.positions.forEach(pos => {
-        const dbMatch = dbPos.find(x => x.poche === pocheName && x.ticker === pos.ticker);
-        const payload = {
-          portfolio_id: window.currentPfId,
-          poche: pocheName,
-          ticker: pos.ticker,
-          titre: pos.titre,
-          qty: pos.qty,
-          pru: pos.pru,
-          cours: pos.cours,
-          cible: pos.cible || null,
-          cible_haut: pos.cibleHaut || null,
-          sector: pos.sector || null,
-          dividend: pos.dividend || null,
-          av_symbol: pos.avSymbol || null,
-          currency: pos.currency || null,
-          isin: pos.isin || null
-        };
-        if(dbMatch) {
-          toUpdate.push({ id: dbMatch.id, ...payload });
-          keptIds.add(dbMatch.id);
-        } else {
-          toInsert.push(payload);
-        }
-      });
-    });
-
-    const idsToDelete = dbPos.filter(x => !keptIds.has(x.id)).map(x => x.id);
-    
-    if(idsToDelete.length > 0) await sb.from('positions').delete().in('id', idsToDelete);
-    if(toInsert.length > 0) await sb.from('positions').insert(toInsert);
-    for(const item of toUpdate) {
-        const { id, ...data } = item;
-        await sb.from('positions').update(data).eq('id', id);
+    for(let essai=0;essai<3;essai++){
+      const srv=await _lireServeur();
+      if(!srv){etat="absent";break;}
+      window.currentPfId=srv.pf.id;
+      const sS=_snapServeur(srv.pf,srv.rows);
+      const base=_lireBase();
+      const sL=(D&&D.poches)?_snapLocal(D):null;
+      const conflits=[];
+      // Sans base (premier passage v249, ou appareil neuf), on ne sait pas ce que la copie locale a
+      // réellement changé : le serveur fait foi, et la copie locale part dans le filet de sécurité.
+      const m=(!sL||!base||!base.snap)?_syncCopie(sS):_fusion3(base.snap,sL,sS,[],conflits);
+      // Avis unique : ce que la copie d'avant la mise à jour avait de différent du serveur. Calculé
+      // sur la base provisoire (la copie telle que chargée), donc sans les saisies faites depuis.
+      if(base&&base.provisoire&&base.snap&&!_lireAvis()){const dl=_diffSnap(_sansAuto(base.snap),_sansAuto(sS));
+        try{localStorage.setItem(_cleSync("avis-premier"),JSON.stringify({at:Date.now(),vu:dl.length===0,liste:dl}));}catch(e){}}
+      const hS=Array.isArray(srv.pf.hist)?srv.pf.hist:[];
+      const vus=new Set();const hU=[];
+      (H||[]).concat(hS).forEach(p=>{if(p&&p.t!=null&&!vus.has(p.t)){vus.add(p.t);hU.push(p);}});
+      H=hU.sort((a,b)=>a.t-b.t);downsampleH();if(H.length>1000)H=H.slice(-1000);
+      const migsS=(srv.pf.prefs&&srv.pf.prefs._migs)||{};
+      const migs=Object.assign({},migsS,_migsDe(D));
+      const rv=_revServeur(srv.pf);let rev=rv?rv.n:null;
+      if(!_syncEq(m,sS)||!_syncEq(H,hS)||!_syncEq(migs,migsS)){
+        const nouv=(rev==null?0:rev)+1;
+        let q=sb.from('portfolios').update({cash:m.cash,eur_usd:m.eurUsd,immobilier:m.immobilier,target_alloc:m.targetAlloc,
+          sales:m.sales,div_received:m.divReceived,prefs:Object.assign(_syncCopie(m.prefs),{_rev:nouv,_migs:migs}),hist:H}).eq('id',srv.pf.id);
+        q=(rv==null)?q.is('prefs->>_rev',null):q.eq('prefs->>_rev',rv.txt);
+        const {data:faits,error:e3}=await q.select('id');
+        if(e3)throw e3;
+        if(!faits||!faits.length)continue;
+        await _ecrirePositions(srv.pf.id,sS.pos,m.pos);
+        rev=nouv;
+      }
+      _ecrireBase(rev,m);
+      // Ce que l'utilisateur a fait PENDANT l'écriture est réappliqué par-dessus l'état fusionné.
+      const sL2=(D&&D.poches)?_snapLocal(D):null;
+      const mF=(sL&&sL2&&!_syncEq(sL2,sL))?_fusion3(sL,sL2,m,[],conflits):m;
+      if(!sL2||!_syncEq(mF,sL2)){
+        if(sL2&&!_syncEq(_sansAuto(sL2),_sansAuto(mF)))_filetSecurite((base&&base.snap)?"fusion":"premier");
+        D=_construireD(mF,(D&&D.poches)?D:null,srv.pf);rc(D);
+      }else Object.keys(migsS).forEach(k=>{if(migsS[k]&&/^mig/.test(k))D[k]=true;});
+      if(conflits.length)_noterConflits(conflits);
+      _bandeauAvisPremier();
+      saveLocal();
+      etat="ok";break;
     }
+  }catch(e){console.error("synchro:",e);etat="erreur";}
+  finally{_isSyncing=false;}
+  st.sync=(etat==="ok");
+  if(etat==="erreur")_syncErr();
+  if(etat==="ok"&&!_syncPending){try{localStorage.removeItem(_cleSync("dirty"));}catch(e){}}
+  if(D)R();
+  if(_syncPending){_syncPending=false;setTimeout(()=>{_synchroniser();},0);}
+  return etat;}
 
-    st.sync=true; ok=true;
-  }catch(e){console.error("pushToSupabase:",e);st.sync=false;_syncErr();}
-  finally{
-    _isSyncing=false;
-    R();
-  }
-  if(_syncPending){_syncPending=false;setTimeout(pushToSupabase,0)}
-  else if(ok && currentUser){try{localStorage.removeItem("pf-dirty-"+currentUser.id);}catch(e){}}
-  return ok;
-}
+// Noms conservés pour les 23 appelants : « pousser » ou « tirer », c'est désormais toujours une
+// synchronisation complète (relire, fusionner, n'écrire que la différence).
+async function pullFromSupabase(){return (await _synchroniser())==="ok";}
+async function pushToSupabase(){return (await _synchroniser())==="ok";}
 
 async function migrateToSupabase() {
   if(!sb || !currentUser) return;
@@ -1524,7 +1655,6 @@ const saveLocal=()=>{
   try{
     localStorage.setItem("pf-data-"+currentUser.id,JSON.stringify(D));
     localStorage.setItem("pf-hist-"+currentUser.id,JSON.stringify(H.slice(-1000)));
-    localStorage.setItem("pf-dirty-"+currentUser.id,"1");
     st.localOk=true;
   }catch(e){
     console.error("LocalStorage save failed:",e);
@@ -1541,7 +1671,10 @@ const loadLocal=()=>{
   }catch(e){return{D:null,H:[]}}
 };
 
-async function save(){if(D&&D.poches){if(!D.prefs)D.prefs={};D.prefs.pocheOrder=Object.keys(D.poches);}rc(D);saveLocal();R();if(currentUser) pushToSupabase();}
+// pf-dirty ne signale plus que les modifications faites par l'utilisateur (save). Les écritures
+// automatiques (cours, variation du jour, earnHist, fonds…) passent par saveLocal seul et ne le
+// posent plus. Il est purement informatif : au lancement, c'est la fusion à trois qui décide.
+async function save(){if(D&&D.poches){if(!D.prefs)D.prefs={};D.prefs.pocheOrder=Object.keys(D.poches);}rc(D);saveLocal();if(currentUser){try{localStorage.setItem("pf-dirty-"+currentUser.id,"1");}catch(e){}}R();if(currentUser) pushToSupabase();}
 
 // ══════════════ PRICE FETCH ══════════════
 async function fetchCrypto(){
@@ -1677,17 +1810,20 @@ async function refreshPrices(){
   const nowMs = Date.now();
 
   try{
-    const nd=JSON.parse(JSON.stringify(D));
+    // Les cours sont appliqués au D COURANT, après chaque réponse, et seulement sur les champs de
+    // cours. Avant, on copiait D au début du cycle puis on remplaçait D par cette copie à la fin :
+    // tout ce qui avait changé pendant les secondes d'attente réseau (un achat, une synchro) était
+    // effacé, puis poussé au serveur.
 
     try{
       const cp=await fetchCrypto();
-      if(nd.poches.Crypto)nd.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){_applyPx(p,cp[p.ticker],nowMs);if(window._cryptoChg&&window._cryptoChg[p.ticker]!=null){p.dayPct=window._cryptoChg[p.ticker];p.dayPctAt=nowMs;}cnt++}});
+      if(D.poches.Crypto)D.poches.Crypto.positions.forEach(p=>{if(cp[p.ticker]!=null){_applyPx(p,cp[p.ticker],nowMs);if(window._cryptoChg&&window._cryptoChg[p.ticker]!=null){p.dayPct=window._cryptoChg[p.ticker];p.dayPctAt=nowMs;}cnt++}});
       ok=true;
     }catch(e){}
 
     try{
       const sp=await fetchStocks();
-      Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+      Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
         if(sp[pos.ticker]!=null){_applyPx(pos,sp[pos.ticker],nowMs);const _pc=(window._usPrevClose||{})[pos.ticker];if(_pc>0){pos.prevClose=_pc;pos.dayPct=(pos.cours-_pc)/_pc*100;pos.dayPctAt=nowMs;}cnt++}
       }));
       ok=true;
@@ -1695,46 +1831,46 @@ async function refreshPrices(){
 
     try{
       const eup=await fetchEuStocks();
-      Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+      Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
         const eu=eup[pos.ticker];
         if(eu!=null){_applyPx(pos,eu.price,nowMs);pos.quoteTs=eu.t?eu.t*1000:null;pos.w52h=eu.w52h;pos.w52l=eu.w52l;if(eu.pc>0){pos.prevClose=eu.pc;pos.dayPct=(pos.cours-eu.pc)/eu.pc*100;pos.dayPctAt=nowMs;}cnt++}
       }));
     }catch(e){console.warn("EU stocks fail:",e)}
 
-    try{const rates=await fetchFxRates();if(rates&&rates.USD){nd.eurUsd=Math.round(rates.USD*10000)/10000;nd.prefs=nd.prefs||{};nd.prefs.fxRates=rates;}}catch{}
+    try{const rates=await fetchFxRates();if(rates&&rates.USD){D.eurUsd=Math.round(rates.USD*10000)/10000;D.prefs=D.prefs||{};D.prefs.fxRates=rates;}}catch{}
 
     try{
       const gp=await fetchGold();
-      if(gp&&nd.poches["Métaux"]){
-        const coin=nd.poches["Métaux"].positions.find(p=>p.ticker==="50PESO");
+      if(gp&&D.poches["Métaux"]){
+        const coin=D.poches["Métaux"].positions.find(p=>p.ticker==="50PESO");
         if(coin){coin.cours=gp; coin.lastUpd=nowMs; cnt++}
       }
     }catch{}
 
-    Object.values(nd.poches).forEach(p=>p.positions.forEach(pos=>{
+    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
       if(!pos.cours7jDate||(Date.now()-pos.cours7jDate)>7*86400000){
         pos.cours7j=pos.cours;
         pos.cours7jDate=Date.now();
       }
     }));
 
-    D=rc(nd);
+    rc(D);
     const now=new Date();
     const ts=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
     st.lastUp=ts;st.ok=(cnt>0);st.count=cnt;
 
-    const immoEq = nd.immobilier ? nd.immobilier.equityNette || 0 : 0;
-    const tv = Object.values(nd.poches).reduce((s,p)=>s+p.valeur,0) + nd.cash + immoEquityInTotal(nd) - pocheExclSum(nd);
-    const _pExcl=(nd.prefs&&nd.prefs.perfExcl)||{};
-    let tp=0;Object.entries(nd.poches).forEach(([n,p])=>{if(_pExcl[n])return;(p.positions||[]).forEach(x=>{if(x.noPerf)return;tp+=(x.pl||0);});});
-    const invFin = Object.values(nd.poches).reduce((s,p)=>s+p.investi,0);
+    const immoEq = D.immobilier ? D.immobilier.equityNette || 0 : 0;
+    const tv = Object.values(D.poches).reduce((s,p)=>s+p.valeur,0) + D.cash + immoEquityInTotal(D) - pocheExclSum(D);
+    const _pExcl=(D.prefs&&D.prefs.perfExcl)||{};
+    let tp=0;Object.entries(D.poches).forEach(([n,p])=>{if(_pExcl[n])return;(p.positions||[]).forEach(x=>{if(x.noPerf)return;tp+=(x.pl||0);});});
+    const invFin = Object.values(D.poches).reduce((s,p)=>s+p.investi,0);
 
-    const envData = { "Cash": Math.round(nd.cash), "Immobilier": Math.round(immoEq) };
+    const envData = { "Cash": Math.round(D.cash), "Immobilier": Math.round(immoEq) };
     const envInv = {};
-    Object.entries(nd.poches).forEach(([n,p]) => { envData[n] = Math.round(p.valeur); envInv[n] = Math.round(p.investi||0); });
+    Object.entries(D.poches).forEach(([n,p]) => { envData[n] = Math.round(p.valeur); envInv[n] = Math.round(p.investi||0); });
     
-    const _liveCount = Object.values(nd.poches).reduce((s,p)=>s+(p.positions||[]).filter(x=>!x.manual).length,0);
-    const _zeroCours = Object.values(nd.poches).some(p=>(p.positions||[]).some(x=>!x.manual && !(x.cours>0)));
+    const _liveCount = Object.values(D.poches).reduce((s,p)=>s+(p.positions||[]).filter(x=>!x.manual).length,0);
+    const _zeroCours = Object.values(D.poches).some(p=>(p.positions||[]).some(x=>!x.manual && !(x.cours>0)));
     const _badSnap = _zeroCours || (_liveCount>0 && cnt===0);
     if(!_badSnap){ H.push({t:now.getTime(), v:Math.round(tv), pl:Math.round(tp), inv:Math.round(invFin), h:ts.slice(0,5), env: envData, envInv: envInv}); }
     
@@ -1770,13 +1906,23 @@ async function refreshPrices(){
 async function loadUserEnv() {
   try {
     const loc = loadLocal();
-    let wasDirty=false;try{wasDirty=!!(currentUser&&localStorage.getItem("pf-dirty-"+currentUser.id)==="1");}catch(e){}
-    let pulled = await pullFromSupabase();
-
-    if(!pulled || (wasDirty && loc.D)){
-      if(loc.D){D=loc.D;H=loc.H||[]}
-      else{D=JSON.parse(JSON.stringify(DEF));H=[]}
-      if(pulled && wasDirty && loc.D){setTimeout(()=>{if(currentUser)pushToSupabase();},1500);}
+    // Lancement : on part de la copie locale puis on FUSIONNE avec le serveur (base commune / copie
+    // locale / serveur). Avant, le drapeau pf-dirty faisait gagner en bloc la copie locale, si
+    // ancienne soit-elle, et la renvoyait au serveur : c'est ainsi qu'un appareil resté fermé des
+    // jours ramenait d'anciens PRU. Sans réseau, on garde la copie locale et on n'écrit rien.
+    D = loc.D || null; H = loc.H || [];
+    // Premier lancement v249 sur un appareil qui a déjà des données : copie intégrale mise de côté,
+    // puis base provisoire (voir _ecrireBaseProvisoire). Fait AVANT toute synchro et toute saisie.
+    if(D && D.poches && currentUser && !_lireBase()){ _filetSecurite("premier"); _ecrireBaseProvisoire(_snapLocal(D)); }
+    const etat = await Promise.race([_synchroniser(), new Promise(r=>setTimeout(()=>r("delai"),20000))]);
+    const pulled = (etat==="ok");
+    if(!D || !D.poches){ D=JSON.parse(JSON.stringify(DEF)); H=[]; }
+    if(pulled && window.currentPfId){
+      try{
+        const { data: cfData, error: cfErr } = await sb.from('cashflows').select('*').eq('portfolio_id', window.currentPfId).order('date', { ascending: true });
+        if (cfErr) console.warn('cashflows fetch error', cfErr);
+        window.cashflows = cfData || [];
+      }catch(e){ console.warn('cashflows fetch error', e); }
     }
 
     applyMortgagePayments();
@@ -1787,11 +1933,15 @@ async function loadUserEnv() {
     R();
     if(!(D.prefs&&D.prefs.onboardingDone)&&_acctEmpty())setTimeout(()=>showGuide(0),350);
 
-    if (!pulled) {
+    try{ _bandeauConflits(); _bandeauAvisPremier(); }catch(e){}
+    // Portefeuille absent du serveur (nouveau compte) : on le crée depuis la copie locale. En cas
+    // d'erreur réseau, en revanche, on ne crée ni n'écrit rien : la prochaine synchro s'en chargera.
+    if (etat==="absent") {
       await migrateToSupabase();
       const migratedAgain = await applyPortfolioMigrations();
-      if (migratedAgain) { saveLocal(); pushToSupabase(); }
-    } else if(migrated) {
+      if (migratedAgain) saveLocal();
+      pushToSupabase();
+    } else if(pulled && migrated) {
       pushToSupabase();
     }
 
@@ -1872,10 +2022,11 @@ async function applyPortfolioMigrations(){
     D.migV5=true;changed=true;
   }
 
-  if(!D.migV7){
-    Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{ if(!pos.currency)pos.currency=LEGACY_CUR[pos.ticker]||"EUR"; }));
-    D.migV7=true;changed=true;
-  }
+  // migV7 retirée (v249) : elle ÉCRIVAIT une devise devinée (LEGACY_CUR ou "EUR") dans toute position
+  // sans devise. Sur un appareil neuf, une ligne importée par CSV sans devise pouvait ainsi passer en
+  // USD et changer de valeur sans que personne l'ait choisi. On ne devine plus : une position sans
+  // devise reste sans devise, et curOf() continue de l'afficher en EUR comme il l'a toujours fait.
+  if(!D.migV7){D.migV7=true;changed=true;}
 
   if (!D.migV6 && sb && window.currentPfId && Array.isArray(D.sales) && D.sales.length > 0) {
     try {
@@ -2013,16 +2164,11 @@ async function applyPortfolioMigrations(){
     changed=true;
   }
 
-  if(!D.migV8){
-    D.prefs=D.prefs||{};
-    if(D.prefs.conv){
-      Object.keys(D.prefs.conv).forEach(tk=>{
-        const v=D.prefs.conv[tk];
-        if(v>0&&v<=5)D.prefs.conv[tk]=Math.round(v*20);
-      });
-    }
-    D.migV8=true;changed=true;
-  }
+  // migV8 retirée (v249). Son drapeau n'était ni relu au chargement ni conservé sur le serveur : elle
+  // se rejouait à CHAQUE lancement et multipliait par 20 toute conviction de 1 à 5 (3 devenait 60).
+  // L'ancienne échelle 1-5 est convertie depuis longtemps ; la rejouer ne pouvait plus que nuire.
+  // Les drapeaux de migration sont désormais conservés (D.migV*) et mémorisés sur le serveur (prefs._migs).
+  if(!D.migV8){D.migV8=true;changed=true;}
 
   return changed;
 }
@@ -5059,6 +5205,7 @@ return `${s.titre} a splitté ${s.num}:${s.den} le ${d} — ${s.strong?"tes chif
 // Correction d'un split (P3) : réaligne quantité/PRU/cibles, valeur & P&L inchangées ─────
 function _splitRatio(sp){return sp?(sp.ratio||(sp.den?sp.num/sp.den:null)):null;}
 window.applySplitPrompt=(poche,ticker,t)=>{
+if(D.prefs&&D.prefs.splitSeen&&D.prefs.splitSeen[ticker+"@"+t])return toast("Ce split a déjà été appliqué.");
 const p=D.poches[poche];if(!p)return;const x=p.positions.find(z=>z.ticker===ticker);if(!x)return;
 const info=(D.prefs&&D.prefs.divAuto&&D.prefs.divAuto[ticker])||{};const sp=(info.splits||[]).find(s=>s.t===t);const ratio=_splitRatio(sp);if(!ratio||ratio<=1)return;
 const rnd=v=>Math.round(v*1e6)/1e6;const d=new Date(t*1000).toLocaleDateString("fr-FR");
@@ -5068,6 +5215,10 @@ if(x.cibleHaut!=null)rows.push(["Cible ↑",fmt2_(x.cibleHaut),fmt2_(x.cibleHaut
 sm(`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><h3 style="font-size:17px;font-weight:700">✂️ Corriger le split</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer">✕</button></div><p style="font-size:12px;color:var(--dim);line-height:1.5;margin-bottom:12px">${esc(x.titre||ticker)} a splitté <b>${sp.num}:${sp.den}</b> le ${d}. Voici ce qui va changer :</p><div style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px">${rows.map(r=>`<div style="display:flex;justify-content:space-between;align-items:center;background:var(--inp);border:1px solid var(--bdr);border-radius:8px;padding:8px 10px;font-size:12px"><span style="color:var(--mut)">${r[0]}</span><span class="mono"><span style="color:var(--mut)">${r[1]}</span> → <b style="color:var(--txt)">${r[2]}</b></span></div>`).join("")}</div><p style="font-size:11px;color:var(--dim);line-height:1.5;margin-bottom:14px">Ton montant investi ne bouge pas — on réaligne juste ta quantité et ton prix de revient. Ta valeur affichée se corrige pour coller à la réalité. <b>N'applique que si</b> tes chiffres ne tiennent pas déjà compte du split.</p><button class="btn btn-p" style="width:100%" onclick="doApplySplit('${escAttr(poche)}','${escAttr(ticker)}',${t})">Appliquer la correction</button><button class="btn" style="width:100%;margin-top:8px;background:var(--card);border:1px solid var(--bdr);color:var(--dim)" onclick="cm()">Annuler</button>`);
 };
 window.doApplySplit=(poche,ticker,t)=>{
+// Garde-fou : un split déjà appliqué (marqué splitSeen, sur cet appareil ou un autre) ne peut jamais
+// l'être une seconde fois — ce serait diviser le PRU deux fois. splitSeen ne peut plus être effacé
+// par une copie ancienne : la synchro fusionne ces marqueurs, elle ne les remplace pas.
+if(D.prefs&&D.prefs.splitSeen&&D.prefs.splitSeen[ticker+"@"+t]){cm();return toast("Ce split a déjà été appliqué.");}
 const p=D.poches[poche];if(!p)return;const x=p.positions.find(z=>z.ticker===ticker);if(!x)return;
 const info=(D.prefs&&D.prefs.divAuto&&D.prefs.divAuto[ticker])||{};const sp=(info.splits||[]).find(s=>s.t===t);const ratio=_splitRatio(sp);if(!ratio||ratio<=1)return;
 const rnd=v=>Math.round(v*1e6)/1e6;
