@@ -100,7 +100,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "249";
+const APP_VERSION = "250";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1343,33 +1343,104 @@ function _posPersiste(x){return {titre:x.titre==null?null:x.titre,qty:_syncNum(x
 function _prefsSync(p){const o=Object.assign({},p||{});_SYNC_PREFS_TECH.forEach(k=>{delete o[k];});return o;}
 function _snapLocal(d){const pos={};
   Object.entries((d&&d.poches)||{}).forEach(([n,p])=>((p&&p.positions)||[]).forEach(x=>{if(!x||!x.ticker)return;const k=n+"|"+x.ticker;if(!(k in pos))pos[k]=_posPersiste(x);}));
-  return {cash:_syncNum(d.cash)||0,eurUsd:_syncNum(d.eurUsd)||1.1,immobilier:d.immobilier||{},targetAlloc:d.targetAlloc||{},
-    sales:d.sales||[],divReceived:d.divReceived||[],prefs:_prefsSync(d.prefs),pos};}
+  // COPIE PROFONDE (v250) : en v249 l'instantané partageait les sous-objets de prefs avec D. Une
+  // modification faite PENDANT l'écriture d'une synchro (thèse, plan, seuil recopié…) modifiait
+  // donc aussi l'instantané « avant » : la re-fusion ne la voyait pas et l'annulait en silence.
+  return _syncCopie({cash:_syncNum(d.cash)||0,eurUsd:_syncNum(d.eurUsd)||1.1,immobilier:d.immobilier||{},targetAlloc:d.targetAlloc||{},
+    sales:d.sales||[],divReceived:d.divReceived||[],prefs:_prefsSync(d.prefs),pos});}
 function _snapServeur(pf,rows){const pos={};
   (rows||[]).forEach(r=>{if(!r||!r.ticker)return;const k=r.poche+"|"+r.ticker;if(!(k in pos))pos[k]=_posPersiste({titre:r.titre,qty:r.qty,pru:r.pru,cours:r.cours,cible:r.cible,cibleHaut:r.cible_haut,sector:r.sector,dividend:r.dividend,avSymbol:r.av_symbol,currency:r.currency,isin:r.isin});});
-  return {cash:_syncNum(pf.cash)||0,eurUsd:_syncNum(pf.eur_usd)||1.1,immobilier:pf.immobilier||{},targetAlloc:pf.target_alloc||{},
-    sales:pf.sales||[],divReceived:pf.div_received||[],prefs:_prefsSync(pf.prefs),pos};}
+  return _syncCopie({cash:_syncNum(pf.cash)||0,eurUsd:_syncNum(pf.eur_usd)||1.1,immobilier:pf.immobilier||{},targetAlloc:pf.target_alloc||{},
+    sales:pf.sales||[],divReceived:pf.div_received||[],prefs:_prefsSync(pf.prefs),pos});}
 
+// ── Classement AU NIVEAU DU CHAMP (v250) ──────────────────────────────────────────────────────
+// En v249 le classement se faisait par clé de prefs : un champ écrit par les cycles automatiques
+// (dernier cours, horodatage…) logé DANS un objet utilisateur (plan d'achat, élément de la liste
+// de suivi, crédit immobilier) levait un faux conflit à chaque rafraîchissement. Inventaire des
+// écritures automatiques dans des objets utilisateur — chaque entrée est vérifiée par le banc (V21) :
+//   refreshWatch           prefs.achat[clé].{lastCours,lastUpd,cur} · prefs.watchlist[sym].{lastCours,lastUpd,cur,coursEchec}
+//   _syncCibleAchat        position.cible + prefs.achatSync ; prefs.watchlist[sym].target + prefs.achatSync["wl:…"]
+//   _syncCibleHaut         position.cibleHaut + prefs.palierSync
+//   applyMortgagePayments  immobilier.biens[id].mortgage.{ptzCapital,mainCapital,lastPayment} · biens[id].capitalRestant
+//   rc()                   immobilier.equityNette
+//   refreshPrices / refreshDivs        position.cours / position.dividend · eurUsd
+//   refreshIsinSymbols / _autoIsin     position.{isin,avSymbol,currency,titre}, seulement quand ils manquaient
+// Ces champs ne lèvent JAMAIS de conflit : la valeur la plus récente l'emporte (groupes horodatés),
+// sinon celle de cet appareil, qui vient d'être recalculée. Seuls les champs saisis par
+// l'utilisateur peuvent produire un vrai conflit.
+const _GRP_COURS=["lastCours","lastUpd","cur","coursEchec"];
+const _GRP_CREDIT=["ptzCapital","mainCapital","lastPayment"];
+const _POS_AUTO=new Set(["cours","dividend"]);
+const _POS_REMPLI=new Set(["isin","avSymbol","currency","titre","sector"]);
+const _CLE_ELEMENT=["id","sym"];
 function _syncRegle(s){
   if(s[0]==="eurUsd")return "auto";
-  if(s[0]==="pos"&&s.length===3&&(s[2]==="cours"||s[2]==="dividend"))return "auto";
+  if(s[0]==="pos"&&s.length===3&&_POS_AUTO.has(s[2]))return "auto";
   if(s[0]==="prefs"&&s.length>=2){if(_SYNC_PREFS_AUTO.has(s[1]))return "auto";if(_SYNC_PREFS_SOUPLE.has(s[1]))return "souple";}
+  const f=s[s.length-1];
+  if(s[0]==="prefs"&&(s[1]==="achat"||s[1]==="watchlist")&&_GRP_COURS.includes(f))return "auto";
+  // rc() recalcule les totaux de l'immobilier ; applyMortgagePayments, l'échéancier du crédit.
+  if(s[0]==="immobilier"&&s.length===2&&(f==="valeurEstimee"||f==="capitalRestant"||f==="equityNette"))return "auto";
+  if(s[0]==="immobilier"&&s[s.length-2]==="mortgage"&&_GRP_CREDIT.includes(f))return "auto";
   return "user";}
-// Listes (ventes, notes, suivi, ordre des enveloppes…) : ce que chaque côté a ajouté est gardé, ce
-// qu'un côté a retiré est retiré. Si les deux ont modifié le même élément, les deux versions restent.
+function _syncPick(o,ks){const r={};ks.forEach(k=>{if(o&&o[k]!==undefined)r[k]=o[k];});return r;}
+function _syncMarque(snap,mk,k){const p=snap&&snap.prefs&&snap.prefs[mk];return (p&&p[k]!=null)?p[k]:null;}
+// Résout, dans un objet modifié des deux côtés, les champs automatiques (avant la fusion clé par clé).
+function _resoudreAuto(segs,bb,l,s,ctx,out){const faits=new Set();
+  const prendre=(cles,src)=>{cles.forEach(k=>{if(src[k]!==undefined)out[k]=_syncCopie(src[k]);faits.add(k);});};
+  // dernier cours relevé : le relevé le plus récent l'emporte, en bloc (cours, heure, devise)
+  if(_GRP_COURS.some(k=>k in l||k in s)&&!_syncEq(_syncPick(l,_GRP_COURS),_syncPick(s,_GRP_COURS)))
+    prendre(_GRP_COURS,(+(l.lastUpd||0))>=(+(s.lastUpd||0))?l:s);
+  // crédit immobilier : l'échéancier le plus avancé l'emporte, en bloc
+  if(("lastPayment" in l||"lastPayment" in s)&&!_syncEq(_syncPick(l,_GRP_CREDIT),_syncPick(s,_GRP_CREDIT)))
+    prendre(_GRP_CREDIT,String(l.lastPayment||"")>=String(s.lastPayment||"")?l:s);
+  const deuxCotes=k=>!_syncEq(l[k],s[k])&&!_syncEq(l[k],bb[k])&&!_syncEq(s[k],bb[k]);
+  // bien immobilier avec crédit : le capital restant découle de l'échéancier, celui du côté le plus avancé l'emporte
+  if(segs[0]==="immobilier"&&segs[1]==="biens"&&segs.length===3&&deuxCotes("capitalRestant")&&_syncObj(l.mortgage)&&_syncObj(s.mortgage)){
+    out.capitalRestant=String(l.mortgage.lastPayment||"")>=String(s.mortgage.lastPayment||"")?l.capitalRestant:s.capitalRestant;faits.add("capitalRestant");}
+  if(segs[0]==="pos"&&segs.length===2){const K=String(segs[1]);
+    // seuil bas / objectif recopiés depuis les plans par chaque appareil (marqueurs achatSync / palierSync)
+    [["cible","achatSync"],["cibleHaut","palierSync"]].forEach(([f,mk])=>{if(!deuxCotes(f)||!ctx)return;
+      const ml=_syncMarque(ctx.l,mk,K),ms=_syncMarque(ctx.s,mk,K);
+      if(ml!=null&&ms!=null&&l[f]===ml&&s[f]===ms){out[f]=l[f];faits.add(f);}});
+    // champs complétés automatiquement quand ils manquaient (ISIN, symbole, devise, nom)
+    const tk=K.slice(K.indexOf("|")+1);
+    _POS_REMPLI.forEach(f=>{if(faits.has(f)||!deuxCotes(f))return;const vb=bb[f];
+      if(vb==null||vb===""||(f==="titre"&&vb===tk)){out[f]=_syncCopie(l[f]!=null?l[f]:s[f]);faits.add(f);}});}
+  if(segs[0]==="prefs"&&segs[1]==="watchlist"&&segs.length===3&&ctx&&deuxCotes("target")){
+    const ml=_syncMarque(ctx.l,"achatSync","wl:"+(l.ticker||s.ticker)),ms=_syncMarque(ctx.s,"achatSync","wl:"+(s.ticker||l.ticker));
+    if(ml!=null&&ms!=null&&l.target===ml&&s.target===ms){out.target=l.target;faits.add("target");}}
+  return faits;}
+// Tableaux d'objets identifiés (liste de suivi par sym, listes/thèmes/familles/biens par id) :
+// fusion ÉLÉMENT PAR ÉLÉMENT, champ par champ. En v249 ils étaient comparés en bloc : un élément
+// dont un cycle avait changé le dernier cours, sur deux appareils, se retrouvait EN DOUBLE.
+function _cleElement(listes){for(const f of _CLE_ELEMENT){
+  if(listes.every(a=>a.every(e=>_syncObj(e)&&e[f]!=null&&e[f]!==""))&&listes.every(a=>new Set(a.map(e=>String(e[f]))).size===a.length)&&listes.some(a=>a.length))return f;}
+  return null;}
+function _fusionParCle(b,l,s,f,segs,conflits,ctx){const M=a=>{const m=new Map();a.forEach(e=>m.set(String(e[f]),e));return m;};
+  const Bm=M(b),Lm=M(l),Sm=M(s);const out=[],vus=new Set();
+  const un=k=>{if(vus.has(k))return;vus.add(k);const v=_fusion3(Bm.get(k),Lm.get(k),Sm.get(k),segs.concat(k),conflits,ctx);if(v!==undefined)out.push(v);};
+  s.forEach(e=>un(String(e[f])));l.forEach(e=>un(String(e[f])));return out;}
+// Listes sans identifiant (ventes, paliers, notes, ordre des enveloppes…) : ce que chaque côté a
+// ajouté est gardé, ce qu'un côté a retiré est retiré. Si les deux ont modifié le même élément,
+// les deux versions restent.
 function _fusionListe(b,l,s){const B=new Set(b.map(_syncCle)),L=new Set(l.map(_syncCle)),S=new Set(s.map(_syncCle));const out=[];
   s.forEach(v=>{const k=_syncCle(v);if(B.has(k)&&!L.has(k))return;out.push(_syncCopie(v));});
   l.forEach(v=>{const k=_syncCle(v);if(B.has(k)||S.has(k))return;out.push(_syncCopie(v));});
   return out;}
-function _fusion3(b,l,s,segs,conflits){
+// ctx = {l, s} : les deux instantanés complets, pour reconnaître les valeurs recopiées depuis un plan.
+function _fusion3(b,l,s,segs,conflits,ctx){
   if(_syncEq(l,s))return _syncCopie(l);
   if(_syncEq(l,b))return _syncCopie(s);
   if(_syncEq(s,b))return _syncCopie(l);
   const regle=_syncRegle(segs);
   if(_syncObj(l)&&_syncObj(s)){const bb=_syncObj(b)?b:{};const out={};
-    new Set([...Object.keys(s),...Object.keys(l),...Object.keys(bb)]).forEach(k=>{const v=_fusion3(bb[k],l[k],s[k],segs.concat(k),conflits);if(v!==undefined)out[k]=v;});
+    const faits=_resoudreAuto(segs,bb,l,s,ctx,out);
+    new Set([...Object.keys(s),...Object.keys(l),...Object.keys(bb)]).forEach(k=>{if(faits.has(k))return;
+      const v=_fusion3(bb[k],l[k],s[k],segs.concat(k),conflits,ctx);if(v!==undefined)out[k]=v;});
     return out;}
-  if(regle==="user"&&Array.isArray(l)&&Array.isArray(s))return _fusionListe(Array.isArray(b)?b:[],l,s);
+  if(regle==="user"&&Array.isArray(l)&&Array.isArray(s)){const bA=Array.isArray(b)?b:[];const f=_cleElement([bA,l,s]);
+    return f?_fusionParCle(bA,l,s,f,segs,conflits,ctx):_fusionListe(bA,l,s);}
   if(regle==="auto")return _syncCopie(l===undefined?s:l);
   if(regle==="souple"){if(typeof l==="number"&&typeof s==="number")return Math.max(l,s);return _syncCopie(l===undefined?s:l);}
   conflits.push({chemin:segs.slice(),local:_syncCopie(l),serveur:_syncCopie(s)});
@@ -1394,9 +1465,15 @@ function _ecrireBase(rev,snap){try{const sn=_syncCopie(snap);sn.prefs=Object.ass
 // lancement a lieu sans réseau. Gardée intégrale (caches compris) pour que rien d'ancien ne parte.
 function _ecrireBaseProvisoire(snap){try{localStorage.setItem(_cleSync("base"),JSON.stringify({rev:null,at:Date.now(),provisoire:true,snap:_syncCopie(snap)}));return true;}catch(e){console.warn("synchro : base provisoire non enregistree",e);return false;}}
 // Différences « données utilisateur » entre deux instantanés, pour l'avis unique du premier lancement.
-function _diffSnap(a,b,segs,out){segs=segs||[];out=out||[];if(out.length>=60||_syncEq(a,b))return out;
-  if(_syncObj(a)&&_syncObj(b)&&!(segs[0]==="prefs"&&segs.length>=2)){new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>_diffSnap(a[k],b[k],segs.concat(k),out));return out;}
-  if(segs[0]==="prefs"&&segs.length===2&&_syncObj(a)&&_syncObj(b)){new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>{if(!_syncEq(a[k],b[k])&&out.length<60)out.push({chemin:segs.concat(k),local:_syncCopie(a[k]),serveur:_syncCopie(b[k])});});return out;}
+// Même parcours que la fusion (objets clé par clé, tableaux identifiés élément par élément) ; les
+// champs automatiques sont ignorés : ce ne sont pas des choix de l'utilisateur.
+function _diffSnap(a,b,segs,out){segs=segs||[];out=out||[];
+  if(out.length>=60||_syncEq(a,b))return out;
+  if(segs.length&&_syncRegle(segs)!=="user")return out;
+  if(_syncObj(a)&&_syncObj(b)){new Set([...Object.keys(a),...Object.keys(b)]).forEach(k=>_diffSnap(a[k],b[k],segs.concat(k),out));return out;}
+  if(Array.isArray(a)&&Array.isArray(b)){const f=_cleElement([a,b]);
+    if(f){const A=new Map(a.map(e=>[String(e[f]),e])),B=new Map(b.map(e=>[String(e[f]),e]));
+      new Set([...A.keys(),...B.keys()]).forEach(k=>_diffSnap(A.get(k),B.get(k),segs.concat(k),out));return out;}}
   out.push({chemin:segs.slice(),local:_syncCopie(a),serveur:_syncCopie(b)});return out;}
 function _lireAvis(){try{return JSON.parse(localStorage.getItem(_cleSync("avis-premier"))||"null");}catch(e){return null;}}
 function _bandeauAvisPremier(){try{const a=currentUser?_lireAvis():null;let b=document.getElementById("syncAvisPremier");
@@ -1404,16 +1481,16 @@ function _bandeauAvisPremier(){try{const a=currentUser?_lireAvis():null;let b=do
   if(!b){b=document.createElement("div");b.id="syncAvisPremier";
     b.style.cssText="position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9997;background:var(--card);color:var(--txt);border:1px solid var(--acc);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)";
     document.body.appendChild(b);}
-  b.innerHTML='<span style="flex:1">ℹ️ Cet appareil avait une version différente de tes données (sans doute plus ancienne). La version enregistrée a été gardée ; celle de cet appareil a été <b>mise de côté</b>, rien n\'a été effacé.</span>'
+  const n=a.liste.length;
+  b.innerHTML='<span style="flex:1">ℹ️ À la mise à jour, cet appareil avait une autre valeur pour <b>'+esc(_ecartCourt(a.liste[0]))+'</b>'+(n>1?' et '+(n-1)+' autre'+(n>2?'s':''):'')
+    +'. La version enregistrée est gardée ; celle de cet appareil est conservée à part.</span>'
     +'<button onclick="_voirAvisPremier()" style="background:var(--acc);color:#fff;border:none;border-radius:8px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0">Voir</button>';
 }catch(e){}}
 window._voirAvisPremier=()=>{const a=_lireAvis()||{liste:[]};
   sm('<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Mise à jour de cet appareil</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>'
-   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Au passage à la nouvelle version, ces valeurs étaient différentes sur cet appareil. L\'app ne peut pas savoir si c\'était une modification en attente ou simplement une valeur ancienne : elle a gardé la version enregistrée, et conservé celle de cet appareil dans une copie de sécurité. Si une valeur ci-dessous est la bonne, corrige-la à la main.</div>'
-   +(a.liste||[]).map(x=>'<div style="padding:9px 0;border-top:1px solid var(--sep)"><div style="font-size:12.5px;font-weight:700">'+esc(_libChemin(x.chemin))+'</div>'
-     +'<div style="font-size:11.5px;margin-top:4px">Enregistré (gardé) : <span class="mono">'+esc(_valCourte(x.serveur))+'</span></div>'
-     +'<div style="font-size:11.5px;color:var(--acc)">Sur cet appareil avant la mise à jour : <span class="mono">'+esc(_valCourte(x.local))+'</span></div></div>').join("")
-   +((a.liste||[]).length>=60?'<div style="font-size:11px;color:var(--mut);margin-top:8px">Liste tronquée à 60 éléments ; la copie de sécurité contient tout.</div>':'')
+   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Au passage à la nouvelle version, ces valeurs étaient différentes sur cet appareil. Ce peut être une modification qui n\'avait pas encore été envoyée, ou simplement une valeur ancienne : l\'app ne peut pas le savoir. La version enregistrée est restée en place ; celle de cet appareil est conservée dans une copie de sécurité. Pour la reprendre, il suffit de la saisir à nouveau.</div>'
+   +(a.liste||[]).map(x=>_ecartHtml(x,"Enregistré","Sur cet appareil avant la mise à jour","var(--acc)")).join("")
+   +((a.liste||[]).length>=60?'<div style="font-size:11px;color:var(--mut);margin-top:8px">Liste limitée à 60 éléments ; la copie de sécurité contient tout.</div>':'')
    +'<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_avisPremierVu()">J\'ai compris</button>');};
 window._avisPremierVu=()=>{const a=_lireAvis();if(a){a.vu=true;try{localStorage.setItem(_cleSync("avis-premier"),JSON.stringify(a));}catch(e){}}_bandeauAvisPremier();cm();};
 function _revServeur(pf){const r=pf&&pf.prefs?pf.prefs._rev:null;if(r==null)return null;const n=+r;return (isFinite(n)&&n>=0)?{n:Math.floor(n),txt:String(r)}:null;}
@@ -1437,37 +1514,118 @@ window._filetsDisponibles=()=>{const pre="pf-backup-"+((currentUser&&currentUser
   for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.indexOf(pre)===0){try{const j=JSON.parse(localStorage.getItem(k));o.push({cle:k,date:new Date(j.at).toLocaleString("fr-FR"),raison:j.raison,version:j.version});}catch(e){}}}
   return o.sort((a,b)=>a.cle<b.cle?-1:1);};
 
-// CONFLITS : la version du serveur reste en place, celle de cet appareil est gardée ici et signalée.
-function _libChemin(s){s=s||[];
-  if(s[0]==="pos"){const k=String(s[1]||"");const i=k.indexOf("|");const n=k.slice(0,i),tk=k.slice(i+1);
-    const f={qty:"quantité",pru:"PRU",titre:"nom",cible:"alerte de baisse",cibleHaut:"objectif de vente",currency:"devise",isin:"ISIN",avSymbol:"symbole",sector:"secteur"}[s[2]];
-    return tk+" ("+n+") · "+(f||(s[2]?s[2]:"position supprimée d'un côté, modifiée de l'autre"));}
-  if(s[0]==="prefs"){const m={notes:"Thèse",conv:"Conviction",horizon:"Horizon",journal:"Notes",paliers:"Plan de sortie",achat:"Plan d'achat",plan:"Plan",themes:"Thèmes",watchlist:"Suivi",watchLists:"Listes de suivi"};
-    return (m[s[1]]||s[1])+(s.length>2?" · "+s.slice(2).join(" › "):"");}
-  return ({cash:"Liquidités",immobilier:"Immobilier",targetAlloc:"Allocation cible",sales:"Ventes",divReceived:"Dividendes perçus"}[s[0]]||s.join(" › "));}
-function _valCourte(v){if(v===undefined)return "— (supprimé)";const t=typeof v==="string"?v:JSON.stringify(v);return t.length>140?t.slice(0,137)+"…":t;}
+// RENDU LISIBLE d'un écart (conflit ou avis) : le nom du titre, le champ en français, des valeurs
+// formatées dans la devise de la ligne. Descriptif : l'app montre les deux versions, elle ne tranche pas.
+function _syncPosDe(K){const i=String(K||"").indexOf("|");const n=String(K).slice(0,i),tk=String(K).slice(i+1);
+  const x=D&&D.poches&&D.poches[n]?(D.poches[n].positions||[]).find(y=>y&&y.ticker===tk):null;
+  return {poche:n,tk:tk,nom:(x&&x.titre&&x.titre!==tk)?x.titre:tk,cur:x?curOf(x):"EUR"};}
+function _syncNomTk(tk){const q=_syncPosTk(tk);return q?q.nom:tk;}
+function _syncPosTk(tk){let r=null;Object.keys((D&&D.poches)||{}).forEach(n=>{(D.poches[n].positions||[]).forEach(x=>{if(!r&&x&&x.ticker===tk)r={nom:(x.titre&&x.titre!==tk)?x.titre:tk,cur:curOf(x)};});});
+  if(!r){const w=((D&&D.prefs&&D.prefs.watchlist)||[]).find(y=>y&&y.ticker===tk);if(w)r={nom:w.name||tk,cur:w.cur||"EUR"};}
+  return r;}
+function _syncPrix(v,cur){return (typeof v==="number"&&isFinite(v))?vg(v,2)+" "+curSym(cur||"EUR"):null;}
+function _syncTexte(v){const t=String(v).replace(/\s+/g," ").trim();return "« "+(t.length>110?t.slice(0,107)+"…":t)+" »";}
+function _syncPaliers(rows,cur){if(!Array.isArray(rows))return null;const px=rows.filter(r=>r&&r.px>0).map(r=>_syncPrix(+r.px,cur));
+  return px.length?(px.length+" palier"+(px.length>1?"s":"")+" : "+px.join(", ")):"aucun palier";}
+// Un écart → {sujet, champ, enPlace, tienne} en français.
+function _ecartLisible(x){const s=x.chemin||[];let sujet="",champ="",cur="EUR",fmt=null;
+  const val=(v)=>{if(v===undefined||v===null)return "— (vide ou supprimé)";
+    if(fmt){const r=fmt(v);if(r!=null)return r;}
+    if(typeof v==="number")return (v>1e12&&v<1e13)?new Date(v).toLocaleString("fr-FR"):vg(v,v%1?2:0);
+    if(typeof v==="string")return _syncTexte(v);
+    if(typeof v==="boolean")return v?"oui":"non";
+    if(Array.isArray(v))return v.length+" élément"+(v.length>1?"s":"");
+    return "(modifié)";};
+  if(s[0]==="pos"){const p=_syncPosDe(s[1]);cur=p.cur;sujet=p.nom+" · "+p.poche;
+    const F={qty:["Quantité",v=>vg(v,v%1?4:0)],pru:["Prix de revient (PRU)",v=>_syncPrix(v,cur)],cible:["Seuil d'alerte (baisse)",v=>_syncPrix(v,cur)],
+      cibleHaut:["Objectif de vente",v=>_syncPrix(v,cur)],cours:["Cours",v=>_syncPrix(v,cur)],titre:["Nom",null],currency:["Devise",v=>String(v)],
+      isin:["ISIN",v=>String(v)],avSymbol:["Symbole de cotation",v=>String(v)],sector:["Secteur",v=>String(v)],dividend:["Dividende annuel",v=>_syncPrix(v,cur)]};
+    if(s.length<3){champ="Ligne";fmt=v=>(v&&typeof v==="object")?("présente ("+vg(v.qty,v.qty%1?4:0)+" × "+_syncPrix(v.pru,cur)+")"):null;}
+    else{champ=(F[s[2]]||[s[2]])[0];fmt=(F[s[2]]||[])[1]||null;}}
+  else if(s[0]==="prefs"){const k=s[1];
+    const parTk=(lib,f)=>{sujet=_syncNomTk(s[2]||"");champ=lib;fmt=f||null;};
+    if(k==="notes")parTk("Thèse");
+    else if(k==="conv")parTk("Conviction",v=>vg(v,0)+" / 100");
+    else if(k==="horizon")parTk("Horizon d'investissement");
+    else if(k==="journal")parTk("Notes");
+    else if(k==="achat"||k==="paliers"){const cle=String(s[2]||"");const i=cle.indexOf("|");const tk=cle.slice(i+1),poche=cle.slice(0,i);
+      const q=_syncPosTk(tk);cur=q?q.cur:"EUR";sujet=(q?q.nom:tk)+(poche?" · "+poche:"");
+      const plan=(k==="achat")?"Plan d'achat":"Plan de sortie";
+      if(s[3]==="rows"||s.length<4){champ=plan;fmt=v=>Array.isArray(v)?_syncPaliers(v,cur):(v&&typeof v==="object"&&v.rows?_syncPaliers(v.rows,cur):null);}
+      else{champ=plan+" · "+s.slice(3).join(" › ");}}
+    else if(k==="watchlist"){const sym=s[2];const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>y&&String(y.sym)===String(sym));
+      sujet="Liste de suivi · "+((w&&(w.name||w.ticker))||sym);cur=(w&&w.cur)||"EUR";
+      const F={target:["Seuil d'achat",v=>_syncPrix(v,cur)],targetHigh:["Seuil haut",v=>_syncPrix(v,cur)],name:["Nom",null],listId:["Liste",v=>String(v)]};
+      champ=s.length<4?"Titre suivi":(F[s[3]]||[s[3]])[0];fmt=s.length<4?(v=>v&&typeof v==="object"?"suivi":null):((F[s[3]]||[])[1]||null);}
+    else if(k==="watchLists")champ="Listes de suivi";
+    else if(k==="themes")champ="Thèmes";
+    else champ={pocheOrder:"Ordre des enveloppes",manualTickers:"Lignes en saisie manuelle",noPerfTickers:"Lignes hors analyse",
+      pocheExclTotal:"Enveloppes hors patrimoine",taxRates:"Fiscalité par enveloppe",taxGlobal:"Fiscalité",goalNetWorth:"Objectif de patrimoine",families:"Familles d'enveloppes"}[k]||("Réglage « "+k+" »");
+    if(!sujet)sujet=champ,champ="";}
+  else if(s[0]==="cash"){sujet="Liquidités";fmt=v=>_syncPrix(v,"EUR");}
+  else if(s[0]==="immobilier"){sujet="Immobilier";champ=s.slice(1).filter(x=>!/^b[0-9a-z]+$/.test(x)).join(" › ");}
+  else if(s[0]==="targetAlloc"){sujet="Allocation cible";champ=s[1]||"";fmt=v=>vg(v,0)+" %";}
+  else if(s[0]==="sales")sujet="Ventes enregistrées";
+  else if(s[0]==="divReceived")sujet="Dividendes perçus";
+  else sujet=s.join(" › ");
+  return {sujet:sujet,champ:champ,enPlace:val(x.serveur),tienne:val(x.local)};}
+function _ecartHtml(x,libEnPlace,libTienne,couleur){const e=_ecartLisible(x);
+  return '<div style="padding:9px 0;border-top:1px solid var(--sep)"><div style="font-size:12.5px;font-weight:700">'+esc(e.sujet)+'</div>'
+    +(e.champ?'<div style="font-size:11.5px;color:var(--dim)">'+esc(e.champ)+'</div>':'')
+    +'<div style="font-size:12px;margin-top:4px">'+esc(libEnPlace)+' : <b>'+esc(e.enPlace)+'</b></div>'
+    +'<div style="font-size:12px;color:'+couleur+'">'+esc(libTienne)+' : <b>'+esc(e.tienne)+'</b></div></div>';}
+function _ecartCourt(x){const e=_ecartLisible(x);return e.sujet+(e.champ?" · "+e.champ.toLowerCase():"");}
 function _lireConflits(){try{return JSON.parse(localStorage.getItem(_cleSync("conflits"))||"[]");}catch(e){return [];}}
+// Un conflit enregistré par une version antérieure sur un champ automatique est un FAUX conflit
+// (v249 : « Plan d'achat · |VEDL › lastUpd ») : il est retiré au lancement.
+function _purgerFauxConflits(){try{if(!currentUser)return 0;const l=_lireConflits();
+  const garde=l.filter(x=>{const s=x&&x.chemin;if(!Array.isArray(s)||!s.length)return false;
+    if(_syncRegle(s)!=="user")return false;
+    const f=s[s.length-1];if(s[0]==="immobilier"&&_GRP_CREDIT.includes(f))return false;
+    return true;});
+  if(garde.length!==l.length){if(garde.length)localStorage.setItem(_cleSync("conflits"),JSON.stringify(garde));else localStorage.removeItem(_cleSync("conflits"));}
+  return l.length-garde.length;}catch(e){return 0;}}
 function _noterConflits(c){if(!c||!c.length||!currentUser)return;const l=_lireConflits();const at=Date.now();
   c.forEach(x=>l.push({at:at,chemin:x.chemin,local:x.local,serveur:x.serveur}));
   try{localStorage.setItem(_cleSync("conflits"),JSON.stringify(l.slice(-50)));}catch(e){}
   _bandeauConflits();}
-function _bandeauConflits(){try{const n=currentUser?_lireConflits().length:0;let b=document.getElementById("syncConflits");
+function _bandeauConflits(){try{const l=currentUser?_lireConflits():[];const n=l.length;let b=document.getElementById("syncConflits");
   if(!n){if(b)b.remove();return;}
   if(!b){b=document.createElement("div");b.id="syncConflits";
     b.style.cssText="position:fixed;left:10px;right:10px;top:calc(env(safe-area-inset-top,0px) + 10px);z-index:9998;background:var(--card);color:var(--txt);border:1px solid var(--amb);border-radius:12px;padding:11px 13px;display:flex;align-items:center;gap:10px;font-size:12px;line-height:1.4;box-shadow:0 6px 20px rgba(0,0,0,.35)";
     document.body.appendChild(b);}
-  b.innerHTML='<span style="flex:1">⚠️ <b>'+n+' modification'+(n>1?'s':'')+'</b> faite'+(n>1?'s':'')+' en même temps sur deux appareils. La version déjà enregistrée est gardée ; la tienne est conservée, rien n\'est perdu.</span>'
+  const premier=_ecartCourt(l[l.length-1]);
+  b.innerHTML='<span style="flex:1">⚠️ <b>'+esc(premier)+'</b>'+(n>1?' et '+(n-1)+' autre'+(n>2?'s':''):'')
+    +' : modifié sur tes deux appareils avant leur synchronisation. Les deux versions sont gardées.</span>'
     +'<button onclick="_voirConflits()" style="background:var(--amb);color:#000;border:none;border-radius:8px;padding:7px 11px;font-weight:700;font-size:12px;cursor:pointer;flex-shrink:0">Voir</button>';
 }catch(e){}}
 window._voirConflits=()=>{const l=_lireConflits();
-  sm('<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Modifications en conflit</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>'
-   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Ces valeurs ont été modifiées sur deux appareils avant qu\'ils se synchronisent. L\'app ne choisit pas à ta place : la version déjà enregistrée est restée en place, et voici la tienne. Corrige à la main si c\'est la tienne qui est juste.</div>'
-   +l.slice().reverse().map(x=>'<div style="padding:9px 0;border-top:1px solid var(--sep)"><div style="font-size:12.5px;font-weight:700">'+esc(_libChemin(x.chemin))+'</div>'
-     +'<div style="font-size:11px;color:var(--mut);margin-top:2px">'+esc(new Date(x.at).toLocaleString("fr-FR"))+'</div>'
-     +'<div style="font-size:11.5px;margin-top:4px">En place : <span class="mono">'+esc(_valCourte(x.serveur))+'</span></div>'
-     +'<div style="font-size:11.5px;color:var(--amb)">Ta version : <span class="mono">'+esc(_valCourte(x.local))+'</span></div></div>').join("")
-   +'<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_conflitsVus()">J\'ai vérifié</button>');};
+  sm('<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:8px"><h3 style="font-size:16px;font-weight:700">Modifié sur deux appareils</h3><button onclick="cm()" style="background:none;border:none;color:var(--mut);font-size:22px;cursor:pointer;line-height:1">✕</button></div>'
+   +'<div style="font-size:11.5px;color:var(--mut);line-height:1.5;margin-bottom:10px">Ces valeurs ont été changées sur tes deux appareils avant qu\'ils se synchronisent. La valeur déjà enregistrée est restée en place ; voici aussi celle de cet appareil. Pour garder la tienne, il suffit de la saisir à nouveau.</div>'
+   +l.slice().reverse().map(x=>_ecartHtml(x,"En place","Sur cet appareil","var(--amb)")
+     .replace('<div style="font-size:12.5px;font-weight:700">','<div style="font-size:10.5px;color:var(--mut)">'+esc(new Date(x.at).toLocaleString("fr-FR"))+'</div><div style="font-size:12.5px;font-weight:700">')).join("")
+   +'<button class="btn btn-p" style="width:100%;margin-top:12px" onclick="_conflitsVus()">J\'ai vu</button>');};
 window._conflitsVus=()=>{try{localStorage.removeItem(_cleSync("conflits"));}catch(e){}_bandeauConflits();cm();};
+// DOUBLONS laissés par la v249 : un élément de liste (titre suivi, liste, thème, famille, bien) dont
+// un cycle automatique avait changé le dernier cours sur deux appareils était fusionné comme un
+// élément NOUVEAU, et se retrouvait en double. On regroupe les exemplaires d'un même identifiant :
+// valeurs saisies du premier, dernier cours le plus récent. Si deux exemplaires portent des valeurs
+// SAISIES différentes, l'écart est signalé comme un conflit : rien n'est jeté en silence.
+function _dedoublonnerListes(){if(!D)return false;let chg=false;const confl=[];
+  const traiter=(arr,cle,segs)=>{const vus=new Map();const out=[];
+    arr.forEach(e=>{if(!_syncObj(e)||e[cle]==null||e[cle]===""){out.push(e);return;}const k=String(e[cle]);
+      if(!vus.has(k)){vus.set(k,out.length);out.push(e);return;}
+      chg=true;const a=out[vus.get(k)];
+      if((+(e.lastUpd||0))>(+(a.lastUpd||0)))_GRP_COURS.forEach(f=>{if(e[f]!==undefined)a[f]=e[f];else delete a[f];});
+      Object.keys(e).forEach(f=>{if(_GRP_COURS.includes(f)||f===cle||_syncEq(a[f],e[f]))return;
+        if(a[f]===undefined||a[f]===null){a[f]=_syncCopie(e[f]);return;}
+        confl.push({chemin:segs.concat(k,f),local:_syncCopie(e[f]),serveur:_syncCopie(a[f])});});});
+    return out;};
+  if(D.prefs)[["watchlist","sym"],["watchLists","id"],["themes","id"],["families","id"]].forEach(([n,c])=>{
+    if(Array.isArray(D.prefs[n]))D.prefs[n]=traiter(D.prefs[n],c,["prefs",n]);});
+  if(D.immobilier&&Array.isArray(D.immobilier.biens))D.immobilier.biens=traiter(D.immobilier.biens,"id",["immobilier","biens"]);
+  if(confl.length)_noterConflits(confl);
+  return chg;}
 
 function _construireD(m,L,pf){
   const now=new Date();
@@ -1531,7 +1689,7 @@ async function _synchroniser(){
       const conflits=[];
       // Sans base (premier passage v249, ou appareil neuf), on ne sait pas ce que la copie locale a
       // réellement changé : le serveur fait foi, et la copie locale part dans le filet de sécurité.
-      const m=(!sL||!base||!base.snap)?_syncCopie(sS):_fusion3(base.snap,sL,sS,[],conflits);
+      const m=(!sL||!base||!base.snap)?_syncCopie(sS):_fusion3(base.snap,sL,sS,[],conflits,{l:sL,s:sS});
       // Avis unique : ce que la copie d'avant la mise à jour avait de différent du serveur. Calculé
       // sur la base provisoire (la copie telle que chargée), donc sans les saisies faites depuis.
       if(base&&base.provisoire&&base.snap&&!_lireAvis()){const dl=_diffSnap(_sansAuto(base.snap),_sansAuto(sS));
@@ -1557,12 +1715,14 @@ async function _synchroniser(){
       _ecrireBase(rev,m);
       // Ce que l'utilisateur a fait PENDANT l'écriture est réappliqué par-dessus l'état fusionné.
       const sL2=(D&&D.poches)?_snapLocal(D):null;
-      const mF=(sL&&sL2&&!_syncEq(sL2,sL))?_fusion3(sL,sL2,m,[],conflits):m;
+      const mF=(sL&&sL2&&!_syncEq(sL2,sL))?_fusion3(sL,sL2,m,[],conflits,{l:sL2,s:m}):m;
       if(!sL2||!_syncEq(mF,sL2)){
         if(sL2&&!_syncEq(_sansAuto(sL2),_sansAuto(mF)))_filetSecurite((base&&base.snap)?"fusion":"premier");
         D=_construireD(mF,(D&&D.poches)?D:null,srv.pf);rc(D);
       }else Object.keys(migsS).forEach(k=>{if(migsS[k]&&/^mig/.test(k))D[k]=true;});
       if(conflits.length)_noterConflits(conflits);
+      // doublons hérités de la v249 : regroupés ici, la synchro suivante envoie la liste propre
+      if(_dedoublonnerListes()){rc(D);_syncPending=true;}
       _bandeauAvisPremier();
       saveLocal();
       etat="ok";break;
@@ -1911,6 +2071,8 @@ async function loadUserEnv() {
     // ancienne soit-elle, et la renvoyait au serveur : c'est ainsi qu'un appareil resté fermé des
     // jours ramenait d'anciens PRU. Sans réseau, on garde la copie locale et on n'écrit rien.
     D = loc.D || null; H = loc.H || [];
+    // v250 : les faux conflits enregistrés par la v249 sur des champs automatiques disparaissent.
+    try{ _purgerFauxConflits(); }catch(e){}
     // Premier lancement v249 sur un appareil qui a déjà des données : copie intégrale mise de côté,
     // puis base provisoire (voir _ecrireBaseProvisoire). Fait AVANT toute synchro et toute saisie.
     if(D && D.poches && currentUser && !_lireBase()){ _filetSecurite("premier"); _ecrireBaseProvisoire(_snapLocal(D)); }
