@@ -4,13 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<!-- COULEURS-ENTETE-DEBUT : ces balises ne peuvent pas lire le socle. La barre d'etat iOS (mode clair), la barre du navigateur et le manifeste recopient le blanc lune de la charte, et le banc verifie qu'ils lui restent egaux. L'icone n'est PAS une couleur du socle : c'est un element de marque, identique a la v250 au caractere pres, a ne jamais modifier ici. Seul un fichier fourni par la designeuse la remplacera. -->
+<!-- COULEURS-ENTETE-DEBUT : ces balises ne peuvent pas lire le socle. La barre d'etat iOS (mode clair), la barre du navigateur et le manifeste (fichier manifest.webmanifest) recopient le blanc lune de la charte, et le banc verifie qu'ils lui restent egaux. Les ICONES sont des elements de marque : uniquement les fichiers de la designeuse, redimensionnes dans icones/, jamais dessines ni retouches ici. -->
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Convicto">
 <meta name="description" content="Convicto — suivi de portefeuille boursier et de patrimoine : positions, PEA, CTO, crypto, immobilier, alertes de prix et analyse de performance.">
 <meta name="theme-color" content="#f1f5ff">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230a0b0f'/%3E%3Ctext x='32' y='45' font-family='Arial,sans-serif' font-size='38' font-weight='700' text-anchor='middle' fill='%236c8cff'%3EC%3C/text%3E%3C/svg%3E">
-<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Convicto%22%2C%22short_name%22%3A%22Convicto%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23f1f5ff%22%2C%22theme_color%22%3A%22%23f1f5ff%22%7D">
+<link rel="icon" type="image/png" sizes="32x32" href="icones/favicon-32.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icones/apple-touch-icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
 <!-- COULEURS-ENTETE-FIN -->
 <link rel="preload" href="fonts/poppins-400-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/poppins-700-latin.woff2" as="font" type="font/woff2" crossorigin>
@@ -147,7 +148,8 @@
 @font-face{font-family:"Poppins";font-style:normal;font-weight:500;font-display:swap;src:url(fonts/poppins-500-latin.woff2) format("woff2")}
 @font-face{font-family:"Poppins";font-style:normal;font-weight:600;font-display:swap;src:url(fonts/poppins-600-latin.woff2) format("woff2")}
 @font-face{font-family:"Poppins";font-style:normal;font-weight:700;font-display:swap;src:url(fonts/poppins-700-latin.woff2) format("woff2")}
-@font-face{font-family:"Diamond Grotesk";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/DiamondGrotesk-VF.ttf) format("truetype")}
+/* Diamond Grotesk ne sert que pour les LETTRES : unicode-range exclut les chiffres 0-9 (son zero barre nuit a la lecture des montants), qui retombent sur Poppins. Le fichier de police n'est pas modifie. */
+@font-face{font-family:"Diamond Grotesk";font-style:normal;font-weight:400;font-display:swap;src:url(fonts/DiamondGrotesk-VF.ttf) format("truetype");unicode-range:U+0000-002F,U+003A-10FFFF}
 :root{
 /* 1. Polices. Repli systeme uniquement si le fichier ne se charge pas, ou pour un signe absent des
    deux polices (fleches, triangles, croix, espace fine des milliers). */
@@ -181,9 +183,8 @@
 }
 /* Les champs et boutons n'heritent pas de la police par defaut du navigateur. */
 button,input,select,textarea{font-family:inherit}
-/* Titres et grands chiffres isoles en Diamond Grotesk. Faux gras interdit : seule la graisse Regular existe. */
-h1,h2,h3,[style*="font-size:var(--fs-titre)"],[style*="font-size:var(--fs-grand)"],
-.mono[style*="font-size:var(--fs-titre)"],.mono[style*="font-size:var(--fs-grand)"]{font-family:var(--police-titre);font-synthesis:none}
+/* Diamond Grotesk : titres en LETTRES seulement (h1 h2 h3 et textes en taille titre). Tout montant, y compris les grands chiffres (classe mono), reste en Poppins. Faux gras interdit : seule la graisse Regular existe. */
+h1,h2,h3,[style*="font-size:var(--fs-titre)"]:not(.mono){font-family:var(--police-titre);font-synthesis:none}
 /* ═══ SOCLE-FORMES-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
@@ -272,7 +273,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "252";
+const APP_VERSION = "253";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2843,7 +2844,7 @@ window.requireAuth = (mode = 'login') => {
     links = `<div style="font-size:var(--fs-corps); color:var(--lien); cursor:pointer; font-weight:600; margin-bottom:8px;" onclick="requireAuth('${mode==='login'?'signup':'login'}')">${mode==='login'?"Créer un compte":"Déjà inscrit ? Se connecter"}</div>${mode==='login'?`<div style="font-size:var(--fs-corps); color:var(--mut); cursor:pointer;" onclick="requireAuth('forgot')">Mot de passe oublié ?</div>`:''}`;
   }
   const subtitle = mode==='reset' ? 'Choisis ton nouveau mot de passe.' : (mode==='forgot' ? "On t'envoie un lien pour réinitialiser." : 'Gérez et analysez votre patrimoine<br>en toute simplicité.');
-  document.getElementById("modal-root").innerHTML = `<div class="modal-bg" style="background:var(--bg); align-items:center;"><div class="modal" style="max-height:none; border-radius:var(--r-grand); border:1px solid var(--bdr); text-align:center; padding:30px 20px;"><div style="/* MARQUE-DEBUT : nom de marque, laisse tel quel en attendant le logo de la designeuse */font-size:24px; font-weight:800; font-family:system-ui,-apple-system,sans-serif; margin-bottom:10px; color:var(--txt);/* MARQUE-FIN */">Convicto</div><div style="font-size:var(--fs-corps); color:var(--dim); margin-bottom:24px; line-height:1.4;">${subtitle}</div><h3 style="font-size:var(--fs-sous-titre); font-weight:700; margin-bottom:16px; text-align:left;">${titles[mode]}</h3>${fields}${action}${links}</div></div>`;
+  document.getElementById("modal-root").innerHTML = `<div class="modal-bg" style="background:var(--bg); align-items:center;"><div class="modal" style="max-height:none; border-radius:var(--r-grand); border:1px solid var(--bdr); text-align:center; padding:30px 20px;"><img src="icones/logo-connexion.png" alt="Convicto" width="558" height="87" style="display:block;width:279px;max-width:100%;height:auto;margin:0 auto 14px"><div style="font-size:var(--fs-corps); color:var(--dim); margin-bottom:24px; line-height:1.4;">${subtitle}</div><h3 style="font-size:var(--fs-sous-titre); font-weight:700; margin-bottom:16px; text-align:left;">${titles[mode]}</h3>${fields}${action}${links}</div></div>`;
 };
 window.doSignIn = async () => { if(!sb) return toast('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return toast('Email et mot de passe requis'); const { data, error } = await sb.auth.signInWithPassword({email, password: pwd}); if(error) return toast('Erreur connexion : ' + error.message); currentUser = data.user; await loadUserEnv(); };
 window.doSignUp = async () => { if(!sb) return toast('Supabase non initialisé.'); const email = document.getElementById('au_email').value.trim(); const pwd = document.getElementById('au_pwd').value; if(!email || !pwd) return toast('Email et mot de passe requis'); if(pwd.length < 8) return toast('Mot de passe : minimum 8 caractères'); const { data, error } = await sb.auth.signUp({email, password: pwd}); if(error && !error.message.includes("Database error saving new user")) { return toast('Erreur inscription : ' + error.message); } toast("Compte créé ! Vérifie ta boîte mail (et les spams) pour confirmer ton adresse, puis reviens te connecter."); };
