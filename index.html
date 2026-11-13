@@ -357,7 +357,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "254";
+const APP_VERSION = "255";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1622,8 +1622,31 @@ const _SYNC_PREFS_AUTO=new Set(["divAuto","divAutoTs","earnHist","earnHistTs","e
 const _SYNC_PREFS_SOUPLE=new Set(["convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","splitSeen","manualUpdatedAt","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
 const _SYNC_PREFS_TECH=["_rev","_migs"];
 const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
-const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin"];
-const _POS_COL={titre:"titre",qty:"qty",pru:"pru",cours:"cours",cible:"cible",cibleHaut:"cible_haut",sector:"sector",dividend:"dividend",avSymbol:"av_symbol",currency:"currency",isin:"isin"};
+const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser"];
+const _POS_COL={titre:"titre",qty:"qty",pru:"pru",cours:"cours",cible:"cible",cibleHaut:"cible_haut",sector:"sector",dividend:"dividend",avSymbol:"av_symbol",currency:"currency",isin:"isin",
+  pruCurrency:"pru_currency",dividendCurrency:"dividend_currency",dividendUser:"dividend_user"};
+// ══ MONNAIES DE LA POSITION (v255, chantier « devises et dividendes », séance 1) ══════════════════
+// Trois champs dont les colonnes sont ajoutées par sql/v255_monnaies_positions.sql (exécuté par Yanis) :
+//   pruCurrency      monnaie du PRU (vide = suit la monnaie du cours, « currency »)
+//   dividendCurrency monnaie du dividende annuel par action
+//   dividendUser     dividende corrigé par l'utilisateur (vide = pas de correction ; « dividend » reste
+//                    l'automatique). Aucun calcul ne lit encore ces champs : rien ne change à l'écran.
+// Si l'app est déposée AVANT le SQL, les colonnes manquent : Supabase refuserait toute écriture qui les
+// cite. On synchronise alors exactement comme la v254 (sans ces trois champs, qui restent sur l'appareil),
+// puis on les envoie dès que les colonnes existent. _colsV255 : null inconnu, true présentes, false absentes.
+const _POS_V255=["pruCurrency","dividendCurrency","dividendUser"];
+let _colsV255=null;
+function _posChamps(){return _colsV255===false?_POS_SYNC.filter(f=>!_POS_V255.includes(f)):_POS_SYNC;}
+function _erreurColonneV255(e){const t=String((e&&(e.message||""))+" "+(e&&(e.details||""))+" "+(e&&(e.hint||"")));
+  return !!e&&(e.code==="PGRST204"||e.code==="42703")&&/pru_currency|dividend_currency|dividend_user/.test(t);}
+// Remplissage (à chaque lancement et après chaque synchro) : uniquement les monnaies VIDES, jamais une
+// valeur déjà posée. Une position sans devise reste sans monnaie du PRU ni du dividende (décision Q2 :
+// elle suit la monnaie du cours, et ira dans la liste de contrôle de la séance 3).
+function _completerMonnaies(d){let n=0;
+  Object.values((d&&d.poches)||{}).forEach(p=>((p&&p.positions)||[]).forEach(x=>{if(!x||!x.currency)return;
+    if(!x.pruCurrency){x.pruCurrency=x.currency;n++;}
+    if(!x.dividendCurrency){x.dividendCurrency=x.currency;n++;}}));
+  return n>0;}
 
 // Égalité insensible à l'ordre des clés : Postgres (jsonb) réordonne les objets qu'il stocke.
 function _syncCle(v){
@@ -1638,7 +1661,10 @@ function _syncNum(v){if(v==null)return null;return (typeof v==="string"&&v.trim(
 
 function _posPersiste(x){return {titre:x.titre==null?null:x.titre,qty:_syncNum(x.qty),pru:_syncNum(x.pru),cours:_syncNum(x.cours),
   cible:_syncNum(x.cible)||null,cibleHaut:_syncNum(x.cibleHaut)||null,sector:x.sector||null,dividend:_syncNum(x.dividend)||null,
-  avSymbol:x.avSymbol||null,currency:x.currency||null,isin:x.isin||null};}
+  avSymbol:x.avSymbol||null,currency:x.currency||null,isin:x.isin||null,
+  // v255 : absents de l'instantané quand les colonnes manquent (le serveur ne peut pas les garder)
+  ...(_colsV255===false?{}:{pruCurrency:x.pruCurrency||null,dividendCurrency:x.dividendCurrency||null,
+    dividendUser:(x.dividendUser==null||x.dividendUser==="")?null:_syncNum(x.dividendUser)})};}
 function _prefsSync(p){const o=Object.assign({},p||{});_SYNC_PREFS_TECH.forEach(k=>{delete o[k];});return o;}
 function _snapLocal(d){const pos={};
   Object.entries((d&&d.poches)||{}).forEach(([n,p])=>((p&&p.positions)||[]).forEach(x=>{if(!x||!x.ticker)return;const k=n+"|"+x.ticker;if(!(k in pos))pos[k]=_posPersiste(x);}));
@@ -1648,7 +1674,8 @@ function _snapLocal(d){const pos={};
   return _syncCopie({cash:_syncNum(d.cash)||0,eurUsd:_syncNum(d.eurUsd)||1.1,immobilier:d.immobilier||{},targetAlloc:d.targetAlloc||{},
     sales:d.sales||[],divReceived:d.divReceived||[],prefs:_prefsSync(d.prefs),pos});}
 function _snapServeur(pf,rows){const pos={};
-  (rows||[]).forEach(r=>{if(!r||!r.ticker)return;const k=r.poche+"|"+r.ticker;if(!(k in pos))pos[k]=_posPersiste({titre:r.titre,qty:r.qty,pru:r.pru,cours:r.cours,cible:r.cible,cibleHaut:r.cible_haut,sector:r.sector,dividend:r.dividend,avSymbol:r.av_symbol,currency:r.currency,isin:r.isin});});
+  (rows||[]).forEach(r=>{if(!r||!r.ticker)return;const k=r.poche+"|"+r.ticker;if(!(k in pos))pos[k]=_posPersiste({titre:r.titre,qty:r.qty,pru:r.pru,cours:r.cours,cible:r.cible,cibleHaut:r.cible_haut,sector:r.sector,dividend:r.dividend,avSymbol:r.av_symbol,currency:r.currency,isin:r.isin,
+    pruCurrency:r.pru_currency,dividendCurrency:r.dividend_currency,dividendUser:r.dividend_user});});
   return _syncCopie({cash:_syncNum(pf.cash)||0,eurUsd:_syncNum(pf.eur_usd)||1.1,immobilier:pf.immobilier||{},targetAlloc:pf.target_alloc||{},
     sales:pf.sales||[],divReceived:pf.div_received||[],prefs:_prefsSync(pf.prefs),pos});}
 
@@ -1670,7 +1697,9 @@ function _snapServeur(pf,rows){const pos={};
 const _GRP_COURS=["lastCours","lastUpd","cur","coursEchec"];
 const _GRP_CREDIT=["ptzCapital","mainCapital","lastPayment"];
 const _POS_AUTO=new Set(["cours","dividend"]);
-const _POS_REMPLI=new Set(["isin","avSymbol","currency","titre","sector"]);
+// v255 : les deux monnaies, remplies quand elles manquaient, suivent la même exception (décision Q3).
+// Le dividende corrigé (dividendUser) reste une saisie : conflit signalé, sans exception.
+const _POS_REMPLI=new Set(["isin","avSymbol","currency","titre","sector","pruCurrency","dividendCurrency"]);
 const _CLE_ELEMENT=["id","sym"];
 function _syncRegle(s){
   if(s[0]==="eurUsd")return "auto";
@@ -1837,7 +1866,8 @@ function _ecartLisible(x){const s=x.chemin||[];let sujet="",champ="",cur="EUR",f
   if(s[0]==="pos"){const p=_syncPosDe(s[1]);cur=p.cur;sujet=p.nom+" · "+p.poche;
     const F={qty:["Quantité",v=>vg(v,v%1?4:0)],pru:["Prix de revient (PRU)",v=>_syncPrix(v,cur)],cible:["Seuil d'alerte (baisse)",v=>_syncPrix(v,cur)],
       cibleHaut:["Objectif de vente",v=>_syncPrix(v,cur)],cours:["Cours",v=>_syncPrix(v,cur)],titre:["Nom",null],currency:["Devise",v=>String(v)],
-      isin:["ISIN",v=>String(v)],avSymbol:["Symbole de cotation",v=>String(v)],sector:["Secteur",v=>String(v)],dividend:["Dividende annuel",v=>_syncPrix(v,cur)]};
+      isin:["ISIN",v=>String(v)],avSymbol:["Symbole de cotation",v=>String(v)],sector:["Secteur",v=>String(v)],dividend:["Dividende annuel",v=>_syncPrix(v,cur)],
+      pruCurrency:["Monnaie du PRU",v=>String(v)],dividendCurrency:["Monnaie du dividende",v=>String(v)],dividendUser:["Dividende corrigé",v=>_syncPrix(v,cur)]};
     if(s.length<3){champ="Ligne";fmt=v=>(v&&typeof v==="object")?("présente ("+vg(v.qty,v.qty%1?4:0)+" × "+_syncPrix(v.pru,cur)+")"):null;}
     else{champ=(F[s[2]]||[s[2]])[0];fmt=(F[s[2]]||[])[1]||null;}}
   else if(s[0]==="prefs"){const k=s[1];
@@ -1945,11 +1975,20 @@ function _construireD(m,L,pf){
 // Écriture des positions : uniquement ce qui diffère du serveur relu, champ par champ. Une position
 // n'est supprimée que si la fusion l'a retirée — c'est-à-dire qu'elle a été vendue ou supprimée sur
 // cet appareil — jamais parce qu'elle manquait simplement à une copie ancienne.
+// v255 : si Supabase refuse une écriture parce qu'une colonne v255 n'existe pas encore (cas d'un serveur
+// sans aucune position, où la lecture n'a pas pu le dire), on note les colonnes absentes et on refait
+// l'écriture sans elles. Sans risque : un ajout refusé n'a rien créé (il passe en premier, en un seul
+// envoi), et les mises à jour déjà passées sont rejouées à l'identique.
 async function _ecrirePositions(pfId,avant,apres){
+  try{await _ecrirePositions1(pfId,avant,apres,_posChamps());}
+  catch(e){if(_colsV255===false||!_erreurColonneV255(e))throw e;
+    _colsV255=false;console.warn("synchro : colonnes v255 absentes du serveur, envoi sans les monnaies (SQL v255 à exécuter)");
+    await _ecrirePositions1(pfId,avant,apres,_posChamps());}}
+async function _ecrirePositions1(pfId,avant,apres,champs){
   const ins=[],maj=[],sup=[];
   Object.keys(apres).forEach(k=>{const a=apres[k],b=avant[k];const i=k.indexOf("|");const poche=k.slice(0,i),tk=k.slice(i+1);
-    if(!b){const row={portfolio_id:pfId,poche:poche,ticker:tk};_POS_SYNC.forEach(f=>{row[_POS_COL[f]]=a[f]==null?null:a[f];});ins.push(row);return;}
-    const d={};_POS_SYNC.forEach(f=>{if(!_syncEq(a[f],b[f]))d[_POS_COL[f]]=a[f]==null?null:a[f];});
+    if(!b){const row={portfolio_id:pfId,poche:poche,ticker:tk};champs.forEach(f=>{row[_POS_COL[f]]=a[f]==null?null:a[f];});ins.push(row);return;}
+    const d={};champs.forEach(f=>{if(!_syncEq(a[f],b[f]))d[_POS_COL[f]]=a[f]==null?null:a[f];});
     if(Object.keys(d).length)maj.push({poche:poche,tk:tk,d:d});});
   Object.keys(avant).forEach(k=>{if(!(k in apres)){const i=k.indexOf("|");sup.push({poche:k.slice(0,i),tk:k.slice(i+1)});}});
   if(ins.length){const {error}=await sb.from('positions').insert(ins);if(error)throw error;}
@@ -1964,7 +2003,16 @@ async function _lireServeur(){
   const pf=pfData[0];
   const {data:rows,error:e2}=await _syncDelai(sb.from('positions').select('*').eq('portfolio_id',pf.id),15000);
   if(e2)throw e2;
+  // v255 : « select * » renvoie toutes les colonnes, même vides. Si les colonnes v255 n'y sont pas, le SQL
+  // n'a pas encore été exécuté. Sans aucune ligne on ne peut pas savoir : l'écriture le dira (voir plus haut).
+  if(rows&&rows.length&&rows[0])_colsV255=_POS_V255.every(f=>_POS_COL[f] in rows[0]);
   return {pf:pf,rows:rows||[]};}
+// v255 : la base enregistrée par une version précédente n'a pas les nouveaux champs (ou les a alors que
+// les colonnes manquent). On la remet à la forme courante AVANT de comparer : sinon « absent » (base) contre
+// « vide » (serveur) contre « USD » (appareil) passerait pour un changement des deux côtés, donc un conflit.
+function _normaliserBase(base){if(!base||!base.snap||!base.snap.pos)return base;
+  Object.keys(base.snap.pos).forEach(k=>{const x=base.snap.pos[k];if(x&&typeof x==="object")base.snap.pos[k]=_posPersiste(x);});
+  return base;}
 
 // Retour : "ok", "absent" (aucun portefeuille sur le serveur), "erreur" (réseau, refus), "occupe", "hors".
 // Une lecture qui échoue n'écrit JAMAIS rien : on ne pousse pas un état qu'on n'a pas pu comparer.
@@ -1978,7 +2026,7 @@ async function _synchroniser(){
       if(!srv){etat="absent";break;}
       window.currentPfId=srv.pf.id;
       const sS=_snapServeur(srv.pf,srv.rows);
-      const base=_lireBase();
+      const base=_normaliserBase(_lireBase());
       const sL=(D&&D.poches)?_snapLocal(D):null;
       const conflits=[];
       // Sans base (premier passage v249, ou appareil neuf), on ne sait pas ce que la copie locale a
@@ -2017,6 +2065,9 @@ async function _synchroniser(){
       if(conflits.length)_noterConflits(conflits);
       // doublons hérités de la v249 : regroupés ici, la synchro suivante envoie la liste propre
       if(_dedoublonnerListes()){rc(D);_syncPending=true;}
+      // v255 : monnaies vides complétées (positions créées par une ancienne version, l'import IBKR, le
+      // formulaire actuel) ; la synchro suivante les envoie. Ne lève jamais de conflit (règle « remplie »).
+      if(D&&D.poches&&_completerMonnaies(D))_syncPending=true;
       _bandeauAvisPremier();
       saveLocal();
       etat="ok";break;
@@ -2625,6 +2676,11 @@ async function applyPortfolioMigrations(){
   // L'ancienne échelle 1-5 est convertie depuis longtemps ; la rejouer ne pouvait plus que nuire.
   // Les drapeaux de migration sont désormais conservés (D.migV*) et mémorisés sur le serveur (prefs._migs).
   if(!D.migV8){D.migV8=true;changed=true;}
+
+  // v255 : monnaie du PRU et du dividende = devise actuelle, quand elles sont vides. Rejouée à CHAQUE
+  // lancement (pas de drapeau) : les positions créées ailleurs sans ces champs sont prises aussi.
+  // Aucun calcul ne les lit encore : aucun chiffre ne bouge.
+  if(_completerMonnaies(D))changed=true;
 
   return changed;
 }
