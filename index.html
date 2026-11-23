@@ -117,7 +117,8 @@
 --interrupteur-off:var(--c-ardoise-pale);--piece-ignoree:var(--c-graph-gris-clair);
 --heros-f:var(--c-navy);--heros-t:var(--c-lune);--heros-menthe:var(--c-menthe);
 --badge-f:var(--c-navy);--badge-t:var(--c-menthe);--compteur-f:var(--c-emeraude);
---heros-accent:var(--c-menthe);--invitation-f:var(--c-menthe);--donut-vide:var(--c-onglets);
+--heros-accent:var(--c-menthe);--part-autres:var(--c-graph-gris);/* v269 : part « autres » 3,2:1 */
+--anneau-piste:rgba(180,243,226,.22);/*=alpha menthe 22*/--invitation-f:var(--c-menthe);--donut-vide:var(--c-onglets);
 --sur-hausse:var(--c-navy);
 --hausse-f:var(--c-menthe-claire);
 --baisse:var(--c-baisse);
@@ -172,9 +173,9 @@
 --d12:#2d6a6b;/*=mix menthe 25 navy*/
 /* Teintes claires de la charte, pour les parts de camembert seulement (v254, accord Yanis) : contraste
    faible sur fond blanc, donc TOUJOURS entourees du contour navy ci-dessous. */
---d13:var(--c-rose);
---d14:var(--c-menthe);
---d15:#8dacf5;/*=mix bleu 55 blanc*/
+--d13:var(--c-navy-fonce);/* v269 : 3:1 au moins sur blanc, clartés alternées (voir DCOL) */
+--d14:var(--c-graph-gris);/* v269 */
+--d15:var(--c-bleu-fonce);/* v269 */
 --contour-donnee:var(--c-navy);
 /* 8. Graphiques et carte du monde (du blanc lune au bleu, puis au navy). */
 --serie:var(--c-bleu);
@@ -562,7 +563,7 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .env-titre{margin:0;font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-titre);line-height:36px;}
 .env-sous{font-size:var(--fs-corps-fort);color:var(--dim);}
 .env-tuiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px;}
-.env-tuile{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.env-tuile{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;grid-row:span 3;display:grid;grid-template-rows:subgrid;row-gap:4px;align-content:start;min-width:0;}/* v269 : rangées partagées */
 .et-lib{font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
 .et-val{font-size:var(--fs-montant);color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .et-val.hausse{color:var(--positif);}
@@ -598,7 +599,10 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .lp-droite{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
 .lp-val{font-size:var(--fs-bouton);font-weight:700;}
 .env-liens{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin-top:12px;}
+.zone-liste{position:relative;}
 .fab-zone{position:sticky;bottom:calc(var(--hauteur-nav,84px) + 16px);display:flex;justify-content:flex-end;margin-top:12px;pointer-events:none;}
+.bouton-flottant.rond{width:56px;height:56px;padding:0;justify-content:center;border-radius:var(--r-rond);}
+.liste-pos.avec-fab{padding-right:72px;}/* v269 : place du bouton rond, à droite des montants */
 .fab-zone>*{pointer-events:auto;}
 /* OUTILS ET SUIVI (v268, maquette) */
 .champ-recherche{width:100%;display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;margin:0 0 4px;border-radius:var(--r-18);background:var(--card);border:1.5px solid var(--action);color:var(--dim);font-family:var(--police-texte);font-size:var(--fs-bouton);text-align:left;cursor:pointer;}
@@ -620,6 +624,37 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .ls-sous{font-size:var(--fs-onglet);color:var(--dim);}
 .ls-compte{min-width:28px;height:28px;padding:0 8px;border-radius:var(--r-pilule);background:var(--hausse);color:var(--sur-hausse);font-size:var(--fs-onglet);font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box;}
 .ligne-suivi>svg:last-child{color:var(--dim);flex-shrink:0;}
+/* FICHE DU TITRE (v269, maquette B1) */
+.pilule-suivre{height:var(--toucher);padding:0 14px;border-radius:var(--r-pilule);border:1px solid var(--bdr);background:var(--card);color:var(--txt);display:flex;align-items:center;gap:6px;font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:600;cursor:pointer;}
+.pilule-suivre.actif{background:var(--bouton-actif);border-color:var(--bouton-actif);}
+.fiche-tete{display:flex;flex-direction:column;gap:2px;margin-top:4px;}
+.fiche-nom{margin:0;font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-titre);line-height:36px;letter-spacing:-.5px;}
+.fiche-sous{font-size:var(--fs-onglet);color:var(--dim);}
+.fiche-isin{font-size:var(--fs-legende);color:var(--dim);cursor:pointer;}
+.fiche-prix-ligne{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:10px 0 12px;}
+.fiche-prix{font-size:var(--fs-grand);line-height:44px;}
+.mp-enveloppes{margin-bottom:12px;}
+.mp-tuiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:8px;row-gap:8px;}
+.mp-tuiles>div{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;grid-row:span 3;display:grid;grid-template-rows:subgrid;row-gap:4px;align-content:start;min-width:0;}
+.mp-lib{font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
+.mp-val{font-size:var(--fs-sous-titre);font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);}
+.mp-val.hausse{color:var(--positif);}
+.mp-val.baisse{color:var(--baisse);}
+.mp-sous{font-size:var(--fs-corps);color:var(--dim);}
+.mp-resultats{margin:12px 0 0;font-size:var(--fs-corps);}
+.mp-non{font-size:var(--fs-corps);color:var(--dim);line-height:1.55;}
+.mp-actions{display:flex;flex-direction:column;gap:8px;margin-top:12px;}
+.carte-conviction{margin-top:12px;display:flex;align-items:center;gap:14px;padding:16px;border-radius:var(--r-carte);background:var(--heros-f);color:var(--heros-t);cursor:pointer;}
+.cc-anneau{position:relative;width:56px;height:56px;flex-shrink:0;}
+.cc-anneau svg{display:block;}
+.cc-anneau span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:var(--fs-sous-titre);font-weight:600;}
+.cc-texte{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.cc-lib{font-size:var(--fs-corps);color:var(--heros-accent);font-weight:600;}
+.cc-titre{font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-sous-titre);line-height:23px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+.cc-sous{font-size:var(--fs-corps);color:var(--c-sur-navy);}
+.carte-conviction>svg:last-child{color:var(--heros-accent);flex-shrink:0;}
+.mp-liens{margin-top:12px;}
+.barre-fixe>button.carre{flex:0 0 50px;width:50px;border:1px solid var(--bdr);padding:0;}
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
@@ -703,7 +738,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "268";
+const APP_VERSION = "269";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -833,7 +868,8 @@ if(sb){
 
 // Parts de camembert (v254) : ordre calcule pour que deux parts voisines different d'au moins 15 en clarte,
 // derniere et premiere comprises, et que les 6 premieres soient les plus differentes entre elles.
-const DCOL=["var(--d1)","var(--d14)","var(--d15)","var(--d7)","var(--d4)","var(--d13)","var(--d3)","var(--d12)","var(--d11)","var(--d10)","var(--d9)","var(--d2)"];
+// v269 : 12 couleurs à 3:1 au moins sur le fond des cartes, et deux parts voisines toujours à 15 de clarté d'écart
+const DCOL=["var(--d1)","var(--d2)","var(--d3)","var(--d10)","var(--d9)","var(--d4)","var(--d7)","var(--d15)","var(--d11)","var(--d12)","var(--d14)","var(--d13)"];
 const PCOL={CTO:"var(--d1)",PEA:"var(--d3)","Assurance Vie":"var(--d4)",PEE:"var(--d5)",Crypto:"var(--d6)","Métaux":"var(--d2)",Cash:"var(--mut)"};
 // Enveloppes creees par l'utilisateur : les couleurs de donnees que les enveloppes standard n'utilisent pas (clair / fonce alternes).
 const PCOL_LIBRES=["var(--d9)","var(--d10)","var(--d11)","var(--d12)","var(--d7)","var(--d8)"];
@@ -3464,17 +3500,17 @@ function _envTuiles(p,sel){const ventes=(D.sales||[]).filter(s=>s.poche===sel);c
  const _fxc=[...new Set(p.positions.map(curOf).filter(c=>c!=="EUR"))];const _ofx=_fxc.length===1?_fxc[0]:null;const _fsym=_ofx?curSym(_ofx):"";
  const invFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+(_pruCur(x)===_ofx?x.qty*x.pru:(_conv(x.qty*x.pru,_pruCur(x),_ofx)||0)),0):0;const valFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*_coursValo(x),0):0;
  const T=[["Investi",isPriv()?"•••":fmtE_(p.investi)+" €","",_ofx?fmt_(invFx)+" "+_fsym:""],["Valeur actuelle",isPriv()?"•••":fmtE_(p.valeur)+" €","",_ofx?fmt_(valFx)+" "+_fsym:""],
-   ["Plus-value latente",_signeE(pl),pl>=0?"hausse":"baisse",_ofx?(valFx-invFx>=0?"+":"−")+fmt_(Math.abs(valFx-invFx))+" "+_fsym:""],
-   ["Plus-value réalisée",ventes.length?_signeE(real):"—",ventes.length?(real>=0?"hausse":"baisse"):"",ventes.length?"sur "+ventes.length+" vente"+(ventes.length>1?"s":""):"aucune vente"]];
+   [pl>=0?"Plus-value latente":"Moins-value latente",_signeE(pl),pl>=0?"hausse":"baisse",_ofx?(valFx-invFx>=0?"+":"−")+fmt_(Math.abs(valFx-invFx))+" "+_fsym:""],
+   [real<0?"Moins-value réalisée":"Plus-value réalisée",ventes.length?_signeE(real):"—",ventes.length?(real>=0?"hausse":"baisse"):"",ventes.length?"sur "+ventes.length+" vente"+(ventes.length>1?"s":""):"aucune vente"]];
  return `<div class="env-tuiles">${T.map(t=>`<div class="env-tuile"><span class="et-lib">${t[0]}</span><span class="mono montant-grand et-val${t[2]?" "+t[2]:""}">${t[1]}</span>${t[3]?`<span class="et-sous">${t[3]}</span>`:""}</div>`).join("")}</div>`;}
 function _envRepartition(p,sel){const tri=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0));const tot=tri.reduce((s,x)=>s+(x.valeur||0),0)||1;
  const plus=!!_envPlus[sel],coupe=tri.length>5;const top=coupe&&!plus?tri.slice(0,5):tri,reste=coupe&&!plus?tri.slice(5):[];
  const it=top.map((x,i)=>({nom:x.ticker,v:x.valeur||0,col:DCOL[i%DCOL.length]}));const vReste=reste.reduce((s,x)=>s+(x.valeur||0),0);
- const itG=reste.length?it.concat([{nom:reste.length+" autres",v:vReste,col:"var(--interrupteur-off)"}]):it;
+ const itG=reste.length?it.concat([{nom:reste.length+" autres",v:vReste,col:"var(--part-autres)"}]):it;
  const barre=(D.prefs&&D.prefs.envGraph)==="barre";
  const g=barre?`<div class="barre-empilee env-barre" role="img" aria-label="Poids des positions de ${escAttr(sel)}">${itG.map((x,i)=>`<div class="cv-grow" style="width:${_nCss(x.v/tot*100,1)}%;background:${x.col};animation-delay:${_nCss(i*0.04,2)}s"></div>`).join("")}</div>`
    :_donutEnveloppes(itG,tot,{epais:22,ecart:2.5,pas:0.06,nombre:tri.length,lib:"position"+(tri.length>1?"s":""),titre:"Camembert"});
- const leg=`<div class="legende-pos">${it.map(x=>`<div class="lp-ligne"><span class="lp-carre" style="background:${x.col}"></span><span class="lp-nom">${esc(x.nom)}</span><span class="lp-pct">${vg(x.v/tot*100,1)}\u00a0%</span></div>`).join("")}${coupe?`<button type="button" class="lp-autres" aria-expanded="${plus}" onclick="_envPlusBascule('${escAttr(sel)}')"><span class="lp-carre" style="background:var(--interrupteur-off)"></span><span class="lp-nom">${plus?"Réduire":reste.length+" autres"}</span>${plus?"":`<span class="lp-pct">${vg(vReste/tot*100,1)}\u00a0%</span>`}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${plus?' style="transform:rotate(180deg)"':""}><path d="M6 9l6 6 6-6"></path></svg></button>`:""}</div>`;
+ const leg=`<div class="legende-pos">${it.map(x=>`<div class="lp-ligne"><span class="lp-carre" style="background:${x.col}"></span><span class="lp-nom">${esc(x.nom)}</span><span class="lp-pct">${vg(x.v/tot*100,1)}\u00a0%</span></div>`).join("")}${coupe?`<button type="button" class="lp-autres" aria-expanded="${plus}" onclick="_envPlusBascule('${escAttr(sel)}')"><span class="lp-carre" style="background:var(--part-autres)"></span><span class="lp-nom">${plus?"Réduire":reste.length+" autres"}</span>${plus?"":`<span class="lp-pct">${vg(vReste/tot*100,1)}\u00a0%</span>`}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${plus?' style="transform:rotate(180deg)"':""}><path d="M6 9l6 6 6-6"></path></svg></button>`:""}</div>`;
  const bt=(v,lib,svg)=>`<button type="button" aria-pressed="${(v==="barre")===barre}" class="${(v==="barre")===barre?"actif":""}" onclick="_envGraphe('${v}')">${svg}${lib}</button>`;
  return `<div class="card env-repartition"><div class="er-tete"><span class="er-titre">Répartition</span><div class="bascule-graphe" role="group" aria-label="Type de graphique">${bt("barre","Barre",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 9h18M3 15h12"></path></svg>')}${bt("camembert","Camembert",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"></path></svg>')}</div></div>${barre?g+leg:`<div class="er-corps">${g}${leg}</div>`}</div>`;}
 window._envGraphe=v=>{D.prefs=D.prefs||{};D.prefs.envGraph=v;save();};
@@ -3502,8 +3538,10 @@ function _sansThese(){const notes=(D.prefs&&D.prefs.notes)||{};return ga().ap.fi
 function _invitationConviction(){const n=_sansThese().length;if(!n)return "";
  return `<div class="invitation-conviction"><div class="ic-deco"><div class="cv-float" style="position:absolute;left:0;top:4px">${_svgPiece("var(--piece-face)",56,"var(--piece-tranche)","var(--piece-coeur)")}</div><div class="cv-twinkle" style="position:absolute;right:-2px;top:-2px">${_svgEtoile(18,"var(--txt)")}</div></div><div class="ic-texte"><span class="ic-titre">${n} position${n>1?"s":""} sans conviction écrite</span><span class="ic-sous">Pourquoi tu les as achetées ? Une phrase suffit.</span><button type="button" class="ic-bouton" onclick="gt('conv');setConvFill('these')">Écrire ma conviction<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></div></div>`;}
 function _boutonFlottant(lib,clic){return `<button type="button" class="bouton-flottant cv-pop" onclick="${clic}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>${esc(lib)}</button>`;}
+// v269 : version ronde du bouton flottant (56 px, « + » seul), qui ne flotte que sur la liste et ne masque aucun montant
+function _boutonFlottantRond(lib,clic){return `<button type="button" class="bouton-flottant rond cv-pop" aria-label="${escAttr(lib)}" title="${escAttr(lib)}" onclick="${clic}"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>`;}
 function _boutonPoints(lib,clic){return `<button type="button" class="bouton-points" aria-label="${escAttr(lib)}" onclick="${clic}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></button>`;}
-function _barreFixe(bt){return `<div class="barre-fixe">${(bt||[]).map(b=>`<button type="button"${b.principal?' class="principal"':""} onclick="${b.clic||""}">${b.ico==="plus"?`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>`:""}${esc(b.lib)}</button>`).join("")}</div>`;}
+function _barreFixe(bt){return `<div class="barre-fixe">${(bt||[]).map(b=>`<button type="button" class="${b.principal?"principal":"secondaire"}" onclick="${b.clic||""}">${b.ico==="plus"?`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>`:""}${esc(b.lib)}</button>`).join("")}</div>`;}
 function _pastilleFiltre(lib,n,actif,clic){return `<button type="button" class="filtre${actif?" actif":""}" aria-pressed="${!!actif}" onclick="${clic||""}">${esc(lib)}${n!=null?`<span class="filtre-n">${n}</span>`:""}</button>`;}
 function _pastilleDistance(v){return `<span class="pastille-distance">encore ${v<0?"−":"+"}${vg(Math.abs(v),1)}\u00a0%</span>`;}
 function _badgeCible(lib){return `<span class="badge-cible"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>${esc(lib)}</span>`;}
@@ -3997,7 +4035,7 @@ else if(_horizonOuverteTk){h+=horizonHtml();}
 else if(_themesOuverteTk){h+=themesTitreHtml();}
 else if(_convictionOuverteTk){h+=convictionSommaireHtml();}
 else if(_objectifsOuvertTk){h+=objectifsSommaireHtml();}
-else if(_ficheOuverteTk){h+=ficheHtml();}
+else if(_ficheOuverteTk&&!aSym){h+=ficheHtml();}// v269 : inutilisé (fusion dans la fiche, onglet « Ma position »)
 else if(convView==="boussole"||convView==="plan"||convView==="achat"||convView==="themePage"||convView==="themeNew"){h+=`<div class="fade">${convTabHtml()}</div>`;}
 else if(aSym&&!cmpOpen&&tab!=="bourse"){h+=actionPageHtml();}
 else{
@@ -4144,9 +4182,9 @@ h+=`<label style="display:none;align-items:center;gap:8px;font-size:var(--fs-pet
 h+=`<label style="display:none;align-items:center;gap:8px;font-size:var(--fs-petit);color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen)"><input type="checkbox" ${_inBourse(sel)?'checked':''} onchange="togglePocheBourse('${escAttr(sel)}')"> Afficher cette enveloppe dans Bourse</label>`;
 const _trL=(_TRIS.find(t=>t[0]===((D.prefs&&D.prefs.posSort)||"val_desc"))||_TRIS[0])[1];
 h+=`<div class="titre-section-ligne"><h2 class="titre-section">Positions</h2>${p.positions.length>1?`<button type="button" class="bouton-tri" onclick="_triFeuille()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4"></path><path d="M17 20V4M13 16l4 4 4-4"></path></svg>${_trL}</button>`:""}</div>`;
-h+=_envLignes(p,sel);
+h+=`<div class="zone-liste">`+_envLignes(p,sel).replace('class="card liste-pos"','class="card liste-pos avec-fab"')+`<div class="fab-zone">${_boutonFlottantRond("Ajouter une position",`aPos('${escAttr(sel)}')`)}</div></div>`;
 h+=`<div class="env-liens"><button type="button" class="lien-detail" onclick="openImport('${escAttr(sel)}')">Importer un CSV</button><button type="button" class="lien-detail" onclick="addRealizedPnl('${escAttr(sel)}')">Enregistrer un P&L réalisé passé</button></div>`;
-h+=`<div class="fab-zone">${_boutonFlottant("Ajouter",`aPos('${escAttr(sel)}')`)}</div></div>`;}}
+h+=`</div>`;}}
 
 // ─── RESTAURATION fb23f43 : onglet ANALYSE ─────────────────────────────────
 if(tab==="analyse"){const d=ga();
@@ -5400,31 +5438,24 @@ ${alerte}
 // Assemble le haut (repris de l'ancienne posFicheHtml), les
 // 3 cases sur les fonctions déjà construites (aOpen pour CASE1, les 2 sommaires pour CASE2/CASE3),
 // et les boutons — rien de recalculé, tout réutilisé tel quel.
+// v269 : la page d'une position est fondue dans la fiche du titre (onglet « Ma position », maquette B1).
+// Enveloppe d'origine si elle est donnée ; sinon (recherche, Conviction…) la plus grosse ligne d'abord.
 window.openFiche=(tk,poche)=>{
   tk=String(tk||"").trim().toUpperCase();
   if(!tk)return;
-  let holdings=(ga().ap||[]).filter(x=>x.ticker===tk);
-  // Repli : ga().ap écarte le hors patrimoine (noPerf), donc un titre détenu UNIQUEMENT en
-  // gestion famille y paraîtrait "non détenu". On relit alors D.poches directement pour savoir
-  // OÙ il est détenu — uniquement pour ouvrir la bonne page, jamais pour un calcul agrégé.
-  if(!poche&&!holdings.length){
-    holdings=[];
-    Object.entries(D.poches||{}).forEach(([n,pp])=>{
-      (pp.positions||[]).forEach(x=>{if(x.ticker===tk)holdings.push({...x,poche:n});});});
-  }
-  if(!poche&&holdings.length>1){
-    // CAS 3 : détenu dans 2+ enveloppes, aucune précisée -> la fiche action tranche (Mon portefeuille)
-    const h=holdings[0];
-    aOpen(_ySym(h)||tk,h.titre||tk,curOf(h),tk,h.isin);
-    aTab="portf";R();
-    return;
-  }
-  cm();_navPush();_ficheEdit=false;aSym=null;cmpOpen=false;convView=null;boussoleTk=null;convPlanTk=null;achatTk=null;
-  _theseOuverteTk=null;_notesOuverteTk=null;_horizonOuverteTk=null;_themesOuverteTk=null;
-  _convictionOuverteTk=null;_objectifsOuvertPoche=null;_objectifsOuvertTk=null;
-  _ficheOuvertePoche=poche||(holdings.length===1?holdings[0].poche:null);
-  _ficheOuverteTk=tk;
-  R();scrollTo(0,0);};
+  const L=_lignesTitre(tk);
+  let ch=poche?L.find(o=>o.poche===poche):null;
+  if(!ch&&L.length)ch=_ligneParDefaut(L);
+  let sym,nom,cur,isin=null;
+  if(ch){sym=_ySym(ch.x)||tk;nom=ch.x.titre||tk;cur=curOf(ch.x);isin=ch.x.isin||null;}
+  else{const w=((D.prefs&&D.prefs.watchlist)||[]).find(y=>String(y.ticker).toUpperCase()===tk);const a=(_achatToutes(tk)[0]||{}).o||null;
+    sym=w?w.sym:((a&&a.sym)||tk);nom=w?(w.name||tk):((a&&a.name)||_tkNom(tk)||tk);cur=w?w.cur:((a&&a.cur)||_devise("",sym)||"EUR");}
+  cm();_ficheEdit=false;
+  aOpen(sym,nom,cur,tk,isin);
+  aTab="portf";_ficheOuverteTk=tk;_ficheOuvertePoche=ch?ch.poche:null;R();scrollTo(0,0);};
+function _ligneParDefaut(L){return L.slice().sort((a,b)=>((_horsPatrimoine(a.poche,a.x)?1:0)-(_horsPatrimoine(b.poche,b.x)?1:0))||((b.x.valeur||0)-(a.x.valeur||0)))[0];}
+function _lignesTitre(tk){const L=[];Object.entries((D&&D.poches)||{}).forEach(([n,pp])=>(pp.positions||[]).forEach(x=>{if(String(x.ticker).toUpperCase()===tk)L.push({x:x,poche:n});}));return L;}
+window._mpPoche=p=>{_ficheOuvertePoche=p;R();};
 // Réutilise exactement la résolution symbole/nom/devise d'openTitre (ligne ~4157) pour un titre non
 // détenu, sans y naviguer directement : on reste sur cette page, aAddFlow() s'ouvre en modale.
 window._ficheAjouterEnveloppe=(tk)=>{
@@ -6560,6 +6591,34 @@ function aNewsHtml(){
   if(!aData.news.length)return `<div class="card" style="font-size:var(--fs-corps);color:var(--mut);text-align:center;padding:24px;line-height:1.6">Pas d'actualité récente pour ce titre.</div>`;
   return aData.news.map(a=>`<a href="${escAttr(a.link)}" target="_blank" rel="noopener" class="card card-tap" style="display:block;text-decoration:none;color:inherit;margin-bottom:6px;padding:12px 13px"><div style="font-size:var(--fs-corps);font-weight:600;line-height:1.45">${esc(a.title)}</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:5px"><span style="font-size:var(--fs-legende);color:var(--mut)">${esc(a.publisher)}</span><span style="font-size:var(--fs-legende);color:var(--mut)">${a.t?_relTime(a.t):""}</span></div></a>`).join("");
 }
+// v269 — onglet « Ma position » (maquette B1) : fusion de la page de la position et de « Mon portefeuille »
+function _maPositionHtml(){const tk=String(aData.tkGuess||_ficheOuverteTk||(aSym||"").split(".")[0]).toUpperCase();const L=_lignesTitre(tk);
+ const conv=(D.prefs&&D.prefs.conv&&D.prefs.conv[tk])||0,dorm=_convDormante(tk),these=((D.prefs&&D.prefs.notes&&D.prefs.notes[tk])||"").trim();
+ const C=2*Math.PI*23;const anneau=`<div class="cc-anneau"><svg width="56" height="56" viewBox="0 0 56 56" aria-hidden="true"><circle cx="28" cy="28" r="23" fill="none" stroke-width="6" style="stroke:var(--anneau-piste)"></circle>${conv?`<circle class="cv-draw" cx="28" cy="28" r="23" fill="none" stroke-width="6" stroke-linecap="round" style="stroke:var(--action)" stroke-dasharray="${_nCss(C*conv/100,1)} 200" transform="rotate(-90 28 28)"></circle>`:""}</svg><span>${conv||"—"}</span></div>`;
+ const carte=`<div class="carte-conviction cv-rise" role="button" tabindex="0" onclick="openConvictionSommaire('${escAttr(tk)}')">${anneau}<div class="cc-texte"><span class="cc-lib">Ma conviction · ${dorm?"à revoir":conv?conv+" / 100":"pas encore notée"}</span><span class="cc-titre">${these?esc(these):"Thèse pas encore écrite"}</span><span class="cc-sous">Note, thèse, horizon, thèmes</span></div>${_SVG_CHEVRON(20)}</div>`;
+ if(!L.length){const _np=_achatRows("",aSym).length;const _c=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
+   return `<div class="card mp-non">Tu ne détiens pas ce titre. Tu peux quand même noter ta conviction et écrire ta thèse — pour décider à froid, avant d'acheter.</div>${carte}<div class="mp-actions"><button class="btn btn-p" onclick="aAddFlow()">＋ Ajouter à une enveloppe</button><button class="btn btn-s" onclick="openAchat('${escAttr(aSym)}',{sym:'${escAttr(aSym)}',name:'${escAttr(aName||"")}',cur:'${escAttr(aCur||"EUR")}',cours:${_c!=null?_c:"null"}})">${_np?`Modifier mon plan d'achat · ${_np} palier${_np>1?"s":""}`:"＋ Plan d'achat"}</button></div>`;}
+ const o=L.find(z=>z.poche===_ficheOuvertePoche)||_ligneParDefaut(L);const p=o.x,poche=o.poche;
+ const cur=curOf(p),sym=curSym(cur),pc=_pruCur(p),psym=curSym(pc),dc=_dispCur(p),dsym=curSym(dc);
+ const v=(p.qty||0)*(_coursValo(p)||0),vE=v*toEur(cur),pv=_plDevPos(p),pvPct=_plPctPos(p),pvE=_posOk(p)?vE-_invEur(p):null;
+ const horsPat=_horsPatrimoine(poche,p);const bl=_bPos(true);const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;const F0=x=>Math.round(x).toLocaleString("fr-FR");
+ const priv=isPriv();
+ let h=_achatCarteFiche();
+ if(L.length>1)h+=`<div class="segment clair mp-enveloppes" role="tablist">${L.map(z=>`<button type="button" role="tab" aria-selected="${z.poche===poche}"${z.poche===poche?' class="actif"':""} onclick="_mpPoche('${escAttr(z.poche)}')">${esc(z.poche)}</button>`).join("")}</div>`;
+ const T=[["Quantité × PRU",priv?"•••":`${_nbFr(p.qty)} × ${fmt2_(p.pru)} ${psym}`,""],
+   ["Valeur",priv?"•••":(_fxConnu(cur)?F0(vE)+" €":F0(_enUnite(v,cur,dc))+" "+dsym),_fxConnu(cur)?(cur!=="EUR"?(priv?"":F0(_enUnite(v,cur,dc))+" "+dsym):""):_fxEtatCourt(cur)],
+   [pv>=0?"Plus-value":"Moins-value",priv?"•••":`${pv>=0?"▲ +":"▼ −"}${F0(Math.abs(pv))} ${psym}`,`${pvPct>=0?"+":"−"}${vg(Math.abs(pvPct),1)}\u00a0%${pc!=="EUR"&&pvE!=null&&!priv?` · ${pvE>=0?"+":"−"}${F0(Math.abs(pvE))} €`:""}`,pv>=0?"hausse":"baisse"],
+   ["Poids en bourse",!_fxConnu(cur)||horsPat?"—":vg(poids,1)+"\u00a0%",horsPat?"hors patrimoine":"dans le "+esc(poche)]];
+ h+=`<div class="mp-tuiles">${T.map(t=>`<div><span class="mp-lib">${t[0]}</span><span class="mp-val${t[3]?" "+t[3]:""}">${t[1]}</span>${t[2]?`<span class="mp-sous">${t[2]}</span>`:""}</div>`).join("")}</div>`;
+ const et=_nextEarn(p);if(et)h+=`<div class="card mp-resultats">Prochains résultats · ${new Date(et*1000).toLocaleDateString("fr-FR")} <span class="pilule pilule-mini pilule-info">auto</span></div>`;
+ h+=carte;
+ const nPal=_paliersRows(poche,tk).length+_achatRows(poche,tk).length;
+ h+=`<div class="card liste-suivi mp-liens">`
+   +`<div class="ligne-suivi" role="button" tabindex="0" onclick="setATab('chart')"><span class="ls-icone"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span><span class="ls-texte"><span class="ls-titre">Fiche du titre</span><span class="ls-sous">Graphique, fondamentaux, description, actu</span></span>${_SVG_CHEVRON(20)}</div>`
+   +`<div class="ligne-suivi" role="button" tabindex="0" onclick="openObjectifsSommaire('${escAttr(poche)}','${escAttr(tk)}')"><span class="ls-icone"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="1"></circle></svg></span><span class="ls-texte"><span class="ls-titre">Mes objectifs</span><span class="ls-sous">Plan d'achat, plan de sortie, alerte${nPal?" · "+nPal+" palier"+(nPal>1?"s":""):""}</span></span>${_SVG_CHEVRON(20)}</div>`
+   +`</div>`;
+ h+=`<div class="barre-fixe"><button type="button" class="principal" onclick="reinforce('${escAttr(poche)}','${escAttr(tk)}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Acheter</button><button type="button" class="secondaire" onclick="sellPos('${escAttr(poche)}','${escAttr(tk)}')">Vendre</button><button type="button" class="carre" aria-label="Modifier la position" onclick="ePos('${escAttr(poche)}','${escAttr(tk)}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></button></div>`;
+ return h;}
 function aPortfHtml(){const hold=_findHolding(aSym,aData.tkGuess);
 if(!hold){const _tk=aSym.includes(".")?aSym.split(".")[0]:aSym;const _np=_achatRows("",aSym).length;
 const _c=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
@@ -6649,26 +6708,29 @@ const _hIsin=(_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.isin)||(aData&&aData.isin)||(ISIN_
 if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="undefined"&&CG[aSym])){aData._isinTried=true;tickerToIsin(aSym).then(is=>{if(is){aData.isin=is;R();}});}
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym);
 let h=`<div class="fade">`;
-h+=_retourHtml("aClose()",_navLbl())+`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:var(--fs-sous-titre);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:var(--fs-legende);color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn btn-s btn-xs" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
-if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:var(--fs-titre);font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${_pt&&_pt.mention?`<span class="mention-hs">${_pt.mention}</span>`:""}${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
-  return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:var(--fs-legende);padding:3px 9px;border-radius:var(--r-pilule);cursor:pointer;font-weight:600;${_vs(haut,1)}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?_pastilleVar(dp>=0,`${dp>=0?"+":""}${vg(dp,1)}\u00a0% ${aPeriod==="1d"?"auj.":"("+_periodeFr(_perAff)+")"}`,true):""}</div>`;
+// v269 : en-tête de la maquette B1 — retour, « Suivre » en signet ; nom, « SYMBOLE · MONNAIE · ENVELOPPE », prix en grand
+const _tkF=String(aData.tkGuess||_ficheOuverteTk||(aSym||"").split(".")[0]).toUpperCase();const _LF=_lignesTitre(_tkF);
+const _pocheF=_LF.length?((_LF.find(o=>o.poche===_ficheOuvertePoche)||_ligneParDefaut(_LF)).poche):null;
+h+=`<div class="entete-detail">${_retourHtml("aClose()",_navLbl())}<div class="barre-boutons"><button type="button" class="pilule-suivre${isW?" actif":""}" aria-pressed="${isW}" onclick="aToggleWatch()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>${isW?"Suivi":"Suivre"}</button></div></div>`;
+h+=`<div class="fiche-tete"><h1 class="fiche-nom">${esc(aName)}</h1><span class="fiche-sous">${[esc(aSym),aCur?esc(aCur):"",_pocheF?esc(_pocheF):""].filter(Boolean).join(" · ")}</span>${_hIsin?`<span class="fiche-isin" onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')">ISIN ${esc(_hIsin)} ⓘ</span>`:""}</div>`;
+if(cours!=null)h+=`<div class="fiche-prix-ligne"><span class="mono montant-grand fiche-prix">${fmt2_(cours)} ${curSym(aCur)}</span>${_pt&&_pt.mention?`<span class="mention-hs">${_pt.mention}</span>`:""}${(()=>{const jour=aTab==="portf"||aPeriod==="1d";const v=aTab==="portf"&&aPeriod!=="1d"?(_pt?_pt.dp:null):dp;return v!=null&&isFinite(v)?_pastilleVar(v>=0,`${v>=0?"+":"−"}${vg(Math.abs(v),1)}\u00a0% ${jour?"aujourd'hui":"sur "+_periodeFr(_perAff)}`,true):"";})()}</div>`;
 // v266 : heure du cours, puis (prix officiel) le hors séance sur une ligne à part — même composant que la page de la position.
 if(cours!=null&&_pt&&!_crypto)h+=_heureEtHorsSeance(_pt,curSym(aCur));
-const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["actu","Actu"],["portf","Mon portefeuille"]];
+const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["actu","Actu"],["portf","Ma position"]];
 h+=`<div class="onglets-pilules" role="tablist">`+tabs.map(t=>`<button type="button" role="tab" aria-selected="${aTab===t[0]}" onclick="setATab('${t[0]}')"${aTab===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
 if(aTab==="chart"){
 h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="display:flex;border:1px solid var(--bdr);border-radius:var(--r-moyen);overflow:hidden">${[["line","Ligne"],["candle","Bougies"]].map(t=>`<span onclick="setAType('${t[0]}')" style="font-size:var(--fs-petit);padding:6px 12px;cursor:pointer;${aChartType===t[0]?"background:var(--action);color:var(--sur-action);font-weight:700":"color:var(--dim)"}">${t[1]}</span>`).join("")}</div></div>`;
 h+=(aData.ohlcErr&&!bars.length)
   ? `<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:26px 14px;text-align:center"><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6">Graphique momentanément indisponible.</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px">La source de cours n'a pas répondu — réessaie dans un instant.</div></div>`
   : `<canvas id="aCanvas" style="width:100%;height:210px;display:block;background:var(--inp);border-radius:var(--r-moyen)"></canvas>`;
-if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)+" "+curSym(aCur)],["Bas",fmt2_(lo2)+" "+curSym(aCur)],[(aPeriod==="1d"?"Var. jour":"Perf"),(dp==null?`<span style="color:var(--mut)">—</span>`:`<span style="${_vs(dp>=0)}">${dp>=0?"+":""}${vg(dp,1)}\u00a0%</span>`)]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:7px 9px"><div style="font-size:var(--fs-legende);color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:var(--fs-corps);font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
+if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)+" "+curSym(aCur)],["Bas",fmt2_(lo2)+" "+curSym(aCur)],[(aPeriod==="1d"?"Var. jour":"Perf"),(dp==null?`<span style="color:var(--mut)">—</span>`:`<span style="${_vs(dp>=0)}">${dp>=0?"+":"−"}${vg(Math.abs(dp),1)}\u00a0%</span>`)]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:7px 9px"><div style="font-size:var(--fs-legende);color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:var(--fs-corps);font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
 h+=`<div style="display:flex;justify-content:space-between;margin-top:10px">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<span onclick="setAPeriod('${pp[0]}')" style="font-size:var(--fs-petit);padding:5px 9px;cursor:pointer;border-radius:var(--r-moyen);${aPeriod===pp[0]?"background:var(--action-f);color:var(--txt);font-weight:700":"color:var(--dim)"}">${pp[1]}</span>`).join("")+`</div>`;
 if(_crypto&&aPeriod==="5y"&&bars.length)h+=`<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Historique limité à 1 an sur les cryptos — c'est ce que fournit la source.</div>`;
 }
 if(aTab==="fund")h+=aFundHtml();
 if(aTab==="desc")h+=aDescHtml();
 if(aTab==="actu"){h+=aNewsHtml();setTimeout(loadANews,0);}
-if(aTab==="portf")h+=aPortfHtml();
+if(aTab==="portf")h+=_maPositionHtml();
 h+=`</div>`;return h;}
 // v258 : suivre une cotation alors qu'une AUTRE cotation du même titre est suivie (Shell New York / Shell
 // Londres) → l'app pose la question. « Suivre les deux » : le plan d'achat existant reste attaché à la cotation
