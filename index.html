@@ -118,7 +118,8 @@
 --heros-f:var(--c-navy);--heros-t:var(--c-lune);--heros-menthe:var(--c-menthe);
 --badge-f:var(--c-navy);--badge-t:var(--c-menthe);--compteur-f:var(--c-emeraude);
 --heros-accent:var(--c-menthe);--part-autres:var(--c-graph-gris);/* v269 : part « autres » 3,2:1 */
---anneau-piste:rgba(180,243,226,.22);/*=alpha menthe 22*/--invitation-f:var(--c-menthe);--donut-vide:var(--c-onglets);
+--anneau-piste:rgba(180,243,226,.22);/*=alpha menthe 22*/
+--grille-graphe:var(--c-onglets);--degrade-graphe:var(--c-menthe);--point-graphe:var(--c-emeraude);/* v270 : graphique de la fiche (maquette B2) */--invitation-f:var(--c-menthe);--donut-vide:var(--c-onglets);
 --sur-hausse:var(--c-navy);
 --hausse-f:var(--c-menthe-claire);
 --baisse:var(--c-baisse);
@@ -336,6 +337,8 @@ h1:not(.nom-titre),h2:not(.nom-titre),h3:not(.nom-titre),[style*="font-size:var(
 @keyframes cvNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
 @keyframes cvPop{from{transform:scale(0)}to{transform:scale(1)}}
 @keyframes cvMonte{from{transform:translateY(100%)}to{transform:none}}
+@keyframes cvDevoile{from{clip-path:inset(0 100% 0 0)}to{clip-path:inset(0 0 0 0)}}
+.cv-devoile{animation:cvDevoile 1.6s var(--courbe-sortie) both}
 .cv-float{animation:cvFloat var(--duree-flotte) ease-in-out infinite}
 .cv-float2{animation:cvFloat2 var(--duree-flotte-2) ease-in-out infinite}
 .cv-twinkle{animation:cvTwinkle var(--duree-scintille) ease-in-out infinite;transform-origin:center}
@@ -348,8 +351,8 @@ h1:not(.nom-titre),h2:not(.nom-titre),h3:not(.nom-titre),[style*="font-size:var(
 .cv-load{animation:cvLoad var(--duree-charge) ease-in-out infinite}
 .cv-pop{animation:cvPop var(--duree-pop) var(--courbe-pop) both;transform-box:fill-box;transform-origin:center}
 html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle,html.anim-pause .cv-draw,html.anim-pause .cv-grow,html.anim-pause .cv-pulse,html.anim-pause .cv-rise,html.anim-pause .cv-nudge,html.anim-pause .cv-spin,html.anim-pause .cv-load,html.anim-pause .cv-pop{animation-play-state:paused}
-#app.sans-anim .cv-draw,#app.sans-anim .cv-grow,#app.sans-anim .cv-rise,#app.sans-anim .cv-pop{animation:none}
-@media (prefers-reduced-motion:reduce){.cv-float,.cv-float2,.cv-twinkle,.cv-draw,.cv-grow,.cv-pulse,.cv-rise,.cv-nudge,.cv-spin,.cv-load,.cv-pop,.modal{animation:none}}
+#app.sans-anim .cv-draw,#app.sans-anim .cv-grow,#app.sans-anim .cv-rise,#app.sans-anim .cv-pop,#app.sans-anim .cv-devoile{animation:none}
+@media (prefers-reduced-motion:reduce){.cv-float,.cv-float2,.cv-twinkle,.cv-draw,.cv-grow,.cv-pulse,.cv-rise,.cv-nudge,.cv-spin,.cv-load,.cv-pop,.modal,.cv-devoile{animation:none}}
 /* ═══ SOCLE-MOUVEMENT-FIN ═══ */
 /* ═══ COMPOSANTS-DEBUT ═══════════════════════════════════════════════════════════════════════
    Les composants communs de l'app. Uniquement des roles du socle (couleurs, polices, tailles,
@@ -539,7 +542,7 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .heros-contenu{position:relative;}
 .bouton-flottant{height:56px;padding:0 22px 0 18px;border-radius:var(--r-18);border:0;background:var(--action);color:var(--sur-action);font-family:var(--police-texte);font-size:var(--fs-bouton);font-weight:700;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--ombre-flottante);cursor:pointer;-webkit-appearance:none;appearance:none;}
 .bouton-points{width:var(--toucher);height:var(--toucher);border:0;background:transparent;color:var(--dim);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;-webkit-appearance:none;appearance:none;}
-.barre-fixe{position:sticky;bottom:var(--hauteur-nav,84px);z-index:5;display:flex;gap:8px;padding:12px 16px;margin:0 -16px;background:var(--bg);border-top:1px solid var(--bdr);}
+.barre-fixe{position:sticky;bottom:calc(var(--hauteur-nav-piece,106px) + 8px);z-index:5;display:flex;gap:8px;padding:12px 16px;margin:0 -16px;background:var(--bg);border-top:1px solid var(--bdr);}
 .barre-fixe>button{flex:1;height:50px;border-radius:var(--r-18);border:1.5px solid var(--txt);background:var(--card);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-bouton);font-weight:700;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;-webkit-appearance:none;appearance:none;}
 .barre-fixe>button.principal{flex:1.3;border:0;background:var(--action);color:var(--sur-action);}
 .piece-ignoree{display:block;border-radius:var(--r-rond);border:2px dashed var(--piece-ignoree);box-sizing:border-box;flex-shrink:0;}
@@ -655,6 +658,51 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .carte-conviction>svg:last-child{color:var(--heros-accent);flex-shrink:0;}
 .mp-liens{margin-top:12px;}
 .barre-fixe>button.carre{flex:0 0 50px;width:50px;border:1px solid var(--bdr);padding:0;}
+/* GRAPHIQUE, DESCRIPTION, ACTU DE LA FICHE (v270, maquettes B2, B4, B5) */
+.carte-graphe{padding:14px 14px 12px;margin-top:8px;}
+.cg-tete{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.cg-titre{font-size:var(--fs-corps-fort);font-weight:600;}
+.bascule-type{display:flex;gap:2px;padding:3px;border-radius:var(--r-pilule);background:var(--onglets-f);}
+.bascule-type button{width:40px;height:34px;border:0;border-radius:var(--r-pilule);background:transparent;color:var(--dim);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.bascule-type button.actif{background:var(--onglet-actif-f);color:var(--onglet-actif-t);}
+.graphe-zone{position:relative;}
+.graphe-zone canvas{width:100%;height:230px;display:block;}
+#aPointFin{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:var(--r-rond);background:var(--point-graphe);border:2px solid var(--card);box-sizing:border-box;pointer-events:none;}
+#aBulleHaut{position:absolute;background:var(--heros-f);color:var(--heros-t);border-radius:var(--r-moyen);padding:6px 10px;font-size:var(--fs-legende);line-height:16px;pointer-events:none;white-space:nowrap;animation-delay:1.2s;}
+#aBulleHaut strong{font-size:var(--fs-onglet);}
+.cg-erreur{background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:26px 14px;text-align:center;font-size:var(--fs-corps);color:var(--dim);line-height:1.6;}
+.periodes{display:flex;gap:2px;padding:4px;margin-top:10px;border-radius:var(--r-pilule);background:var(--onglets-f);}
+.periodes button{flex:1;height:28px;border:0;border-radius:var(--r-pilule);background:transparent;color:var(--dim);font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:500;padding:0 6px;cursor:pointer;}
+.periodes button.actif{background:var(--onglet-actif-f);color:var(--onglet-actif-t);font-weight:600;}
+.tuiles-graphe{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:8px;margin-top:10px;}
+.tuiles-graphe>div{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 10px;grid-row:span 2;display:grid;grid-template-rows:subgrid;row-gap:4px;align-content:start;min-width:0;}
+.tg-lib{font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
+.tg-val{font-size:var(--fs-sous-titre);font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.tg-val.hausse{color:var(--positif);}
+.tg-fleche{font-size:var(--fs-petit);}
+.mp-val,.tg-val{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;}
+.cran-1{font-size:var(--fs-corps-fort);}.cran-2{font-size:var(--fs-onglet);}.cran-3{font-size:var(--fs-corps);}.cran-4{font-size:var(--fs-petit);}/* v270 : valeurs de tuile, un cran plus petites quand elles ne tiennent pas */
+.tg-val.baisse{color:var(--baisse);}
+.cle-valeur{padding:4px 16px;margin-top:8px;}
+.cv-ligne{display:flex;justify-content:space-between;gap:12px;padding:11px 0;font-size:var(--fs-corps-fort);}
+.cv-ligne+.cv-ligne{border-top:1px solid var(--bdr);}
+.cv-ligne span:first-child{color:var(--dim);}
+.cv-ligne span:last-child{font-weight:700;text-align:right;}
+.carte-desc{padding:14px 16px 4px;}
+.desc-texte{margin:0;font-size:var(--fs-corps-fort);line-height:23px;display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;}
+.desc-texte.deplie{-webkit-line-clamp:none;display:block;}
+.desc-pied{display:flex;justify-content:space-between;align-items:center;margin-top:6px;}
+.desc-suite,.actu-suite{display:flex;align-items:center;gap:6px;min-height:var(--toucher);padding:0;border:0;background:none;color:var(--lien);font-family:var(--police-texte);font-size:var(--fs-corps-fort);font-weight:700;text-decoration:none;cursor:pointer;}
+.desc-site{display:flex;align-items:center;gap:6px;min-height:var(--toucher);color:var(--txt);font-size:var(--fs-onglet);font-weight:600;text-decoration:none;}
+.desc-trad{font-size:var(--fs-petit);color:var(--lien);cursor:pointer;padding:0 0 10px;}
+.desc-trad.muet{color:var(--dim);cursor:default;}
+.liste-actu{display:flex;flex-direction:column;gap:10px;margin-top:8px;}
+.carte-actu{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:14px 16px 4px;display:flex;flex-direction:column;gap:6px;}
+.ca-tete{display:flex;align-items:center;gap:8px;font-size:var(--fs-corps);color:var(--dim);}
+.ca-source{font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.carte-actu h3{margin:0;font-size:var(--fs-bouton);line-height:22px;font-weight:600;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+.ca-pied{display:flex;justify-content:space-between;align-items:center;}
+.actu-suite{font-size:var(--fs-onglet);}
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
@@ -738,7 +786,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "269";
+const APP_VERSION = "270";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1381,6 +1429,7 @@ function _pilePlacer(){try{const c=document.getElementById("pileBas");if(!c)retu
   let dep=0;if(navVisible){const pc=nav.querySelector(".nav-piece");if(pc)dep=Math.max(0,nav.getBoundingClientRect().top-pc.getBoundingClientRect().top);}
   c.style.bottom=navVisible?(hNav+dep+8)+"px":"calc(env(safe-area-inset-bottom,0px) + 10px)";
   document.documentElement.style.setProperty("--hauteur-nav",(navVisible?hNav:0)+"px");
+  document.documentElement.style.setProperty("--hauteur-nav-piece",(navVisible?hNav+dep:0)+"px");// v270 : barre + pièce qui dépasse
   let hPers=0;[].forEach.call(c.children,function(b){hPers+=b.getBoundingClientRect().height+8;});
   // v267 : la marge du bas suit la hauteur RÉELLE de la barre (zone de sécurité de l'iPhone comprise) et la pièce
   // Conviction qui dépasse : le dernier élément d'une page reste visible et touchable, bandeaux ou pas.
@@ -3554,6 +3603,23 @@ function _barreHaut(detail){const titre=detail?"":(_TITRES_PAGE[tab]||"");const 
 function _boutonOeil(){const pv=isPriv();return `<button type="button" class="bouton-rond${pv?" actif":""}" aria-pressed="${pv}" aria-label="${pv?"Mode discret activé : afficher les montants":"Masquer les montants"}" onclick="togglePriv()">${_svgTrait(pv?"oeilBarre":"oeil")}</button>`;}
 // Grands montants (police des chiffres Diamond) : chaque espace des milliers ou insécable passe dans un
 // élément en Poppins. Le texte lu (copier-coller, lecteur d'écran) ne change pas.
+// v270 : tuiles alignées par l'app elle-même, sans dépendre de subgrid (Safari iOS décalait les montants quand une
+// seule tuile d'une rangée avait une ligne secondaire) : dans chaque rangée, les libellés prennent la même hauteur.
+const _GRILLES_TUILES=".tuiles,.env-tuiles,.mp-tuiles,.tuiles-graphe";
+function _alignerTuiles(r){try{(r||document).querySelectorAll(_GRILLES_TUILES).forEach(g=>{const C=[].slice.call(g.children).filter(c=>c.firstElementChild);
+  C.forEach(c=>{c.firstElementChild.style.minHeight="";});const rang={};
+  C.forEach(c=>{const t=Math.round(c.getBoundingClientRect().top);(rang[t]=rang[t]||[]).push(c);});
+  Object.keys(rang).forEach(k=>{const L=rang[k];if(L.length<2)return;const hm=Math.max.apply(null,L.map(c=>c.firstElementChild.getBoundingClientRect().height));L.forEach(c=>{c.firstElementChild.style.minHeight=_nCss(hm,1)+"px";});});});}catch(e){}}
+window.addEventListener("resize",()=>{_ajusterValeurs(document);_alignerTuiles(document);_ongletActifVisible(document);});
+// v270 : une valeur de tuile qui ne tient pas descend d'un cran dans l'échelle du socle (18 → 15 → 14 → 13 → 12 px), jamais coupée.
+const _CRANS_VALEUR=["cran-1","cran-2","cran-3","cran-4"];
+function _ajusterValeurs(r){try{(r||document).querySelectorAll(".tuiles-graphe .tg-val,.mp-tuiles .mp-val").forEach(v=>{v.classList.remove.apply(v.classList,_CRANS_VALEUR);
+  for(let i=0;i<_CRANS_VALEUR.length&&v.scrollWidth>v.clientWidth+1;i++){if(i)v.classList.remove(_CRANS_VALEUR[i-1]);v.classList.add(_CRANS_VALEUR[i]);}});}catch(e){}}
+try{document.fonts&&document.fonts.ready.then(()=>_alignerTuiles(document));}catch(e){}
+// v270 : dans une rangée d'onglets qui défile (pastilles de la fiche, barres d'onglets), l'onglet actif est ramené dans la vue.
+function _ongletActifVisible(r){try{(r||document).querySelectorAll(".onglets-pilules,.segment").forEach(c=>{if(c.scrollWidth<=c.clientWidth+1)return;const a=c.querySelector(".actif");if(!a)return;
+  const cr=c.getBoundingClientRect(),ar=a.getBoundingClientRect();if(ar.left>=cr.left-1&&ar.right<=cr.right+1)return;
+  c.scrollLeft=Math.max(0,ar.left-cr.left+c.scrollLeft-(c.clientWidth-ar.width)/2);});}catch(e){}}
 // Repérés par leur police calculée : aucune liste de tailles à tenir à jour ici.
 function _espacesChiffres(racine){try{if(!racine)return;racine.querySelectorAll(".mono,.montant-grand").forEach(g=>{
   if(!/[\u00a0\u202f]/.test(g.textContent))return;
@@ -4313,7 +4379,7 @@ if($){
    $.classList.toggle("sans-anim",_sig===_dernierEcran);
    _dernierEcran=_sig;}
   h=h.replace("<!--BARRE-HAUT-->",h.indexOf('class="entete-detail"')>=0?'<div id="ptr" class="ptr" aria-hidden="true"></div>':_barreHaut(h.indexOf('class="retour"')>=0));// v265 : un bouton de retour = page de détail ; v268 : en-tête propre de la maquette
-  $.innerHTML=h;_espacesChiffres($);
+  $.innerHTML=h;_espacesChiffres($);_ajusterValeurs($);_alignerTuiles($);_ongletActifVisible($);
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
@@ -6204,6 +6270,10 @@ function drawAChart(){
     // Couleurs lues dans le socle. Hausse = aplat vert borde de encre (jamais de vert en trait fin) ;
     // baisse = rouge. Le trait est encre au-dessus du point de depart, rouge en dessous.
     const hau=_css("hausse"), bai=_css("baisse"), encre=_css("txt"), mut=_css("mut"), fondC=_css("card"), bulle=_css("bulle"), surB=_css("sur-bulle");
+    // v270 (maquette B2) : grille « onglets », libellés gris, trait navy, dégradé menthe
+    const grille=_css("grille-graphe"), gris=_css("dim"), degr=_css("degrade-graphe");
+    const _rgba=(c,a)=>{const m=String(c).trim().match(/^#([0-9a-f]{6})$/i);if(!m)return c;const n=parseInt(m[1],16);return "rgba("+(n>>16&255)+","+(n>>8&255)+","+(n&255)+","+a+")";};
+    const _pf=document.getElementById("aPointFin"),_bh=document.getElementById("aBulleHaut");if(_pf)_pf.style.display="none";if(_bh)_bh.style.display="none";
     if(!bars.length){ctx.fillStyle=mut;ctx.font=Math.round(H*0.075)+"px "+_css("police-texte");ctx.textAlign="center";ctx.fillText("Chargement…",W/2,H/2);return;}
     const lo=Math.min.apply(null,bars.map(b=>b.l)), hi=Math.max.apply(null,bars.map(b=>b.h));
     const pad=(hi-lo)*0.10||1, mn=lo-pad, mx=hi+pad;
@@ -6215,14 +6285,14 @@ function drawAChart(){
     ctx.font=FS+"px "+_css("police-texte");
     for(let g=0;g<=4;g++){
       const v=mn+(mx-mn)*g/4, y=yf(v);
-      ctx.strokeStyle=mut;ctx.globalAlpha=0.5;ctx.lineWidth=Math.max(1,DPR*0.8);
-      ctx.beginPath();ctx.setLineDash([DPR*3,DPR*3]);ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
-      ctx.setLineDash([]);ctx.globalAlpha=1;
-      ctx.fillStyle=mut;ctx.textAlign="left";ctx.fillText(vg(v,v>=1000?0:v>=100?1:2), W-PR+FS*0.5, y+FS*0.35);
+      ctx.strokeStyle=grille;ctx.lineWidth=Math.max(1,DPR*0.8);
+      ctx.beginPath();ctx.setLineDash([DPR*3,DPR*4]);ctx.moveTo(PL,y);ctx.lineTo(W-PR,y);ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle=gris;ctx.textAlign="left";ctx.fillText(vg(v,v>=1000?0:v>=100?1:2), W-PR+FS*0.5, y+FS*0.35);
     }
     const _etendue=(bars.length>1&&bars[0].t&&bars[bars.length-1].t)?(bars[bars.length-1].t-bars[0].t):0;
     const nlab=Math.min(4,bars.length);
-    ctx.textAlign="center";ctx.fillStyle=mut;
+    ctx.textAlign="center";ctx.fillStyle=gris;
     for(let li=0;li<nlab;li++){
       const idx=Math.round(li*(bars.length-1)/(nlab-1||1));
       const d=new Date(bars[idx].t*1000);
@@ -6230,23 +6300,19 @@ function drawAChart(){
     }
     const baseline=bars[0].c;
     if(aChartType==="line"){
-      const up=bars[bars.length-1].c>=baseline;
+      // v270 : un seul trait navy et un dégradé menthe dessous (maquette B2)
       ctx.beginPath();bars.forEach((b,k)=>{const x=xf(k),y=yf(b.c);k?ctx.lineTo(x,y):ctx.moveTo(x,y);});
       ctx.lineTo(xf(bars.length-1),PT+ih);ctx.lineTo(PL,PT+ih);ctx.closePath();
-      ctx.fillStyle=(up?hau:bai);ctx.globalAlpha=(up?0.32:0.12);ctx.fill();ctx.globalAlpha=1;
-      ctx.lineWidth=DPR*1.6;ctx.lineJoin="round";ctx.lineCap="round";
-      for(let k=0;k<bars.length-1;k++){
-        const x1=xf(k),y1=yf(bars[k].c),x2=xf(k+1),y2=yf(bars[k+1].c);
-        const v1=bars[k].c,v2=bars[k+1].c,s1=v1>=baseline,s2=v2>=baseline;
-        if(s1===s2){
-          ctx.strokeStyle=s1?encre:bai;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();
-        }else{
-          const t=(v2!==v1)?((baseline-v1)/(v2-v1)):0.5;
-          const mx2=x1+(x2-x1)*t, my2=y1+(y2-y1)*t;
-          ctx.strokeStyle=s1?encre:bai;ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(mx2,my2);ctx.stroke();
-          ctx.strokeStyle=s2?encre:bai;ctx.beginPath();ctx.moveTo(mx2,my2);ctx.lineTo(x2,y2);ctx.stroke();
-        }
-      }
+      const gr=ctx.createLinearGradient(0,PT,0,PT+ih);gr.addColorStop(0,_rgba(degr,0.28));gr.addColorStop(1,_rgba(degr,0));ctx.fillStyle=gr;ctx.fill();
+      ctx.lineWidth=DPR*2;ctx.lineJoin="round";ctx.lineCap="round";ctx.strokeStyle=encre;
+      ctx.beginPath();bars.forEach((b,k)=>{const x=xf(k),y=yf(b.c);k?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
+      // plus haut : rond blanc cerclé de navy, et la bulle ; dernier cours : point qui pulse (repères posés sur le graphique)
+      let ih2=0;bars.forEach((b,k)=>{if(b.h>bars[ih2].h)ih2=k;});const xh=xf(ih2),yh=yf(bars[ih2].h);
+      ctx.beginPath();ctx.arc(xh,yh,DPR*5,0,Math.PI*2);ctx.fillStyle=fondC;ctx.fill();ctx.lineWidth=DPR*2;ctx.strokeStyle=encre;ctx.stroke();
+      if(_pf){_pf.style.display="block";_pf.style.left=_nCss(xf(bars.length-1)/DPR,1)+"px";_pf.style.top=_nCss(yf(bars[bars.length-1].c)/DPR,1)+"px";}
+      if(_bh){_bh.innerHTML=`Plus haut<br> <strong>${fmt2_(bars[ih2].h)} ${curSym(aCur)}</strong>`;_bh.style.display="block";
+        const bw=_bh.offsetWidth||90,bhh=_bh.offsetHeight||40,cx=xh/DPR,cy=yh/DPR;let lx=cx-bw-10;if(lx<0)lx=Math.min(cx+10,CW-bw);
+        _bh.style.left=_nCss(Math.max(0,lx),1)+"px";_bh.style.top=_nCss(Math.max(0,Math.min(CH-bhh,cy-6)),1)+"px";}
     }else{
       const cw=Math.max(DPR,iw/bars.length*0.62);
       bars.forEach((b,k)=>{const x=xf(k);const up=b.c>=b.o;ctx.strokeStyle=up?encre:bai;ctx.fillStyle=up?hau:bai;ctx.lineWidth=Math.max(1,DPR*0.8);
@@ -6542,17 +6608,21 @@ if(fundOk){h+=fBars("Revenus",fd.revenue,"var(--d1)","rev");h+=fBars("Bénéfice
 if(!sumOk&&fundOk)h+=`<div style="font-size:var(--fs-legende);color:var(--mut);padding:8px 2px;line-height:1.4">Ratios (PER, marges, avis analystes…) indisponibles chez notre source pour cette valeur.</div>`;
 return h;}
 
+// v270 : maquette B4 — fiche d'identité clé / valeur traduite, texte coupé à 6 lignes + « Lire la suite », site en lien discret
+const _TR_SECTEUR={"Technology":"Technologie","Communication Services":"Services de communication","Consumer Cyclical":"Consommation cyclique","Consumer Defensive":"Consommation de base","Financial Services":"Services financiers","Financial":"Services financiers","Healthcare":"Santé","Industrials":"Industrie","Energy":"Énergie","Utilities":"Services aux collectivités","Real Estate":"Immobilier","Basic Materials":"Matériaux de base"};
+const _TR_PAYS={"United States":"États-Unis","France":"France","Germany":"Allemagne","Netherlands":"Pays-Bas","United Kingdom":"Royaume-Uni","Switzerland":"Suisse","Italy":"Italie","Spain":"Espagne","Belgium":"Belgique","Luxembourg":"Luxembourg","Ireland":"Irlande","Denmark":"Danemark","Sweden":"Suède","Norway":"Norvège","Finland":"Finlande","Austria":"Autriche","Portugal":"Portugal","Canada":"Canada","Japan":"Japon","China":"Chine","Hong Kong":"Hong Kong","Taiwan":"Taïwan","South Korea":"Corée du Sud","India":"Inde","Singapore":"Singapour","Australia":"Australie","Israel":"Israël","Brazil":"Brésil","Mexico":"Mexique","Argentina":"Argentine","Uruguay":"Uruguay","Bermuda":"Bermudes","Cayman Islands":"Îles Caïmans","Jersey":"Jersey","Guernsey":"Guernesey","Greece":"Grèce","Poland":"Pologne","Czech Republic":"République tchèque","South Africa":"Afrique du Sud","Saudi Arabia":"Arabie saoudite","United Arab Emirates":"Émirats arabes unis","Monaco":"Monaco","Indonesia":"Indonésie","Thailand":"Thaïlande","Malaysia":"Malaisie","Chile":"Chili","Colombia":"Colombie","Peru":"Pérou","New Zealand":"Nouvelle-Zélande","Kazakhstan":"Kazakhstan","Turkey":"Turquie","Cyprus":"Chypre","Malta":"Malte","Panama":"Panama","Puerto Rico":"Porto Rico"};
+const _TR_INDUSTRIE={"Internet Content & Information":"Contenus et informations en ligne","Semiconductors":"Semi-conducteurs","Semiconductor Equipment & Materials":"Équipements et matériaux pour semi-conducteurs","Software - Infrastructure":"Logiciels — infrastructure","Software - Application":"Logiciels — applications","Information Technology Services":"Services informatiques","Consumer Electronics":"Électronique grand public","Computer Hardware":"Matériel informatique","Communication Equipment":"Équipements de communication","Electronic Components":"Composants électroniques","Scientific & Technical Instruments":"Instruments scientifiques et techniques","Internet Retail":"Commerce en ligne","Auto Manufacturers":"Constructeurs automobiles","Auto Parts":"Équipementiers automobiles","Specialty Retail":"Commerce spécialisé","Discount Stores":"Magasins discount","Home Improvement Retail":"Bricolage et aménagement","Apparel Retail":"Vêtements (distribution)","Apparel Manufacturing":"Fabrication de vêtements","Luxury Goods":"Luxe","Footwear & Accessories":"Chaussures et accessoires","Restaurants":"Restauration","Lodging":"Hôtellerie","Travel Services":"Services de voyage","Leisure":"Loisirs","Gambling":"Jeux d'argent","Resorts & Casinos":"Complexes et casinos","Residential Construction":"Construction résidentielle","Furnishings, Fixtures & Appliances":"Ameublement et électroménager","Packaged Foods":"Agroalimentaire","Beverages - Non-Alcoholic":"Boissons sans alcool","Beverages - Brewers":"Brasseurs","Beverages - Wineries & Distilleries":"Vins et spiritueux","Confectioners":"Confiserie","Household & Personal Products":"Produits ménagers et d'hygiène","Grocery Stores":"Supermarchés","Tobacco":"Tabac","Farm Products":"Produits agricoles","Banks - Diversified":"Banques diversifiées","Banks - Regional":"Banques régionales","Asset Management":"Gestion d'actifs","Capital Markets":"Marchés de capitaux","Credit Services":"Services de crédit","Insurance - Diversified":"Assurance diversifiée","Insurance - Life":"Assurance vie","Insurance - Property & Casualty":"Assurance dommages","Insurance - Reinsurance":"Réassurance","Insurance Brokers":"Courtage d'assurance","Financial Data & Stock Exchanges":"Données financières et bourses","Financial Conglomerates":"Conglomérats financiers","Drug Manufacturers - General":"Laboratoires pharmaceutiques","Drug Manufacturers - Specialty & Generic":"Pharmacie de spécialité et génériques","Biotechnology":"Biotechnologies","Medical Devices":"Dispositifs médicaux","Medical Instruments & Supplies":"Instruments et fournitures médicales","Diagnostics & Research":"Diagnostic et recherche","Healthcare Plans":"Assurance santé","Medical Care Facilities":"Établissements de soins","Health Information Services":"Services d'information santé","Aerospace & Defense":"Aéronautique et défense","Specialty Industrial Machinery":"Machines industrielles spécialisées","Farm & Heavy Construction Machinery":"Engins agricoles et de chantier","Industrial Distribution":"Distribution industrielle","Electrical Equipment & Parts":"Équipements électriques","Engineering & Construction":"Ingénierie et construction","Building Products & Equipment":"Matériaux et équipements de construction","Conglomerates":"Conglomérats","Railroads":"Transport ferroviaire","Airlines":"Compagnies aériennes","Trucking":"Transport routier","Integrated Freight & Logistics":"Fret et logistique","Marine Shipping":"Transport maritime","Waste Management":"Gestion des déchets","Rental & Leasing Services":"Location et crédit-bail","Security & Protection Services":"Sécurité et protection","Specialty Business Services":"Services aux entreprises","Consulting Services":"Conseil","Staffing & Employment Services":"Travail temporaire et recrutement","Pollution & Treatment Controls":"Dépollution et traitement","Tools & Accessories":"Outillage","Oil & Gas Integrated":"Pétrole et gaz intégrés","Oil & Gas E&P":"Exploration et production pétrolières","Oil & Gas Midstream":"Transport et stockage d'hydrocarbures","Oil & Gas Refining & Marketing":"Raffinage et distribution","Oil & Gas Equipment & Services":"Équipements et services pétroliers","Uranium":"Uranium","Solar":"Solaire","Utilities - Regulated Electric":"Électricité réglementée","Utilities - Renewable":"Énergies renouvelables","Utilities - Diversified":"Services aux collectivités diversifiés","Utilities - Regulated Water":"Eau réglementée","Utilities - Regulated Gas":"Gaz réglementé","Utilities - Independent Power Producers":"Producteurs d'électricité indépendants","Telecom Services":"Télécommunications","Entertainment":"Divertissement","Electronic Gaming & Multimedia":"Jeux vidéo et multimédia","Advertising Agencies":"Agences de publicité","Publishing":"Édition","Broadcasting":"Radio et télévision","REIT - Diversified":"Foncières diversifiées","REIT - Retail":"Foncières de commerce","REIT - Office":"Foncières de bureaux","REIT - Industrial":"Foncières logistiques","REIT - Residential":"Foncières résidentielles","REIT - Healthcare Facilities":"Foncières de santé","REIT - Specialty":"Foncières spécialisées","Real Estate Services":"Services immobiliers","Real Estate - Development":"Promotion immobilière","Real Estate - Diversified":"Immobilier diversifié","Specialty Chemicals":"Chimie de spécialité","Chemicals":"Chimie","Agricultural Inputs":"Intrants agricoles","Gold":"Or","Silver":"Argent","Copper":"Cuivre","Steel":"Acier","Aluminum":"Aluminium","Other Industrial Metals & Mining":"Métaux industriels et mines","Other Precious Metals & Mining":"Métaux précieux et mines","Building Materials":"Matériaux de construction","Paper & Paper Products":"Papier","Packaging & Containers":"Emballage","Lumber & Wood Production":"Bois","Coking Coal":"Charbon à coke","Thermal Coal":"Charbon thermique","Shell Companies":"Sociétés de rachat (SPAC)","Personal Services":"Services à la personne","Education & Training Services":"Éducation et formation","Department Stores":"Grands magasins","Pharmaceutical Retailers":"Pharmacies","Medical Distribution":"Distribution médicale","Food Distribution":"Distribution alimentaire","Recreational Vehicles":"Véhicules de loisirs","Textile Manufacturing":"Textile","Metal Fabrication":"Travail des métaux"};
+// Yahoo écrit parfois « Software—Infrastructure » (tiret cadratin) : même clé que « Software - Infrastructure »
+function _trFr(T,v){if(!v)return v;const k=String(v).replace(/\s*[—–]\s*/g," - ");return T[v]||T[k]||v;}
+let _descPlus=false;
+window._descSuite=()=>{_descPlus=!_descPlus;R();};
 function aDescHtml(){const f=aData.sum;if(f===undefined)return `<div style="font-size:var(--fs-corps);color:var(--mut);padding:12px 2px">Chargement…</div>`;if(!f||f.error)return `<div style="font-size:var(--fs-corps);color:var(--mut);padding:12px 2px;line-height:1.5">Description indisponible pour cette valeur.</div>`;
-let h=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px">`;
-const kv=[["ISIN",ISIN_RE.test(aSym||"")?aSym:null],["Secteur",f.secteur],["Industrie",f.industrie],["Pays",f.pays],["Employés",f.employes!=null?Number(f.employes).toLocaleString("fr-FR"):null],["Capitalisation",f.cap!=null?_fmtBig(f.cap):null]];
-kv.forEach(r=>{if(r[1])h+=`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:7px 10px"><div style="font-size:var(--fs-legende);color:var(--mut)">${r[0]}</div><div style="font-size:var(--fs-corps);font-weight:600">${esc(String(r[1]))}</div></div>`;});
-h+=`</div>`;
-if(f.site)h+=`<a href="${esc(f.site)}" target="_blank" rel="noopener" style="font-size:var(--fs-petit);color:var(--lien);display:inline-block;margin-bottom:10px">🔗 ${esc(f.site.replace(/^https?:\/\//,""))}</a>`;
-const txt=aData.descFr||f.desc;
-if(txt){h+=`<div style="font-size:var(--fs-corps);line-height:1.6;color:var(--txt)">${esc(txt)}</div>`;if(!aData.descFr)h+=`<div id="trBtn" onclick="trDesc()" style="margin-top:8px;font-size:var(--fs-petit);color:var(--lien);cursor:pointer">🌐 Traduire en français</div>`;else h+=`<div style="margin-top:6px;font-size:var(--fs-legende);color:var(--mut)">Traduit automatiquement</div>`;}
-else h+=`<div style="font-size:var(--fs-corps);color:var(--mut)">Aucune description disponible pour cette valeur.</div>`;
-return h;}
-
+ const kv=[["Secteur",_trFr(_TR_SECTEUR,f.secteur)],["Industrie",_trFr(_TR_INDUSTRIE,f.industrie)],["Pays",_trFr(_TR_PAYS,f.pays)],["Employés",f.employes!=null?Number(f.employes).toLocaleString("fr-FR"):null],["Capitalisation",f.cap!=null?_fmtBig(f.cap)+curSym(aCur):null]].filter(r=>r[1]);
+ let h=kv.length?`<div class="card cle-valeur">${kv.map(r=>`<div class="cv-ligne"><span>${r[0]}</span><span>${esc(String(r[1]))}</span></div>`).join("")}</div>`:"";
+ const txt=aData.descFr||f.desc;const site=f.site?String(f.site):"";
+ if(txt){h+=`<div class="card carte-desc"><p class="desc-texte${_descPlus?" deplie":""}">${esc(txt)}</p><div class="desc-pied"><button type="button" class="desc-suite" onclick="_descSuite()">${_descPlus?"Réduire":"Lire la suite"}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>${site?`<a class="desc-site" href="${escAttr(site)}" target="_blank" rel="noopener"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"></path><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"></path></svg>${esc(site.replace(/^https?:\/\//,"").replace(/\/$/,""))}</a>`:""}</div>${!aData.descFr?`<div id="trBtn" class="desc-trad" onclick="trDesc()">Traduire en français</div>`:`<div class="desc-trad muet">Traduit automatiquement</div>`}</div>`;}
+ else{h+=`<div class="card" style="font-size:var(--fs-corps);color:var(--mut)">Aucune description disponible pour cette valeur.</div>`;if(site)h+=`<a class="desc-site" href="${escAttr(site)}" target="_blank" rel="noopener">${esc(site.replace(/^https?:\/\//,""))}</a>`;}
+ return h;}
 function _achatCarteFiche(){const tk=aSym.includes(".")?aSym.split(".")[0]:aSym;
   const cours=(aData.ohlc&&aData.ohlc.length)?aData.ohlc[aData.ohlc.length-1].c:null;
   const n=_achatRows("",aSym).length;
@@ -6586,11 +6656,19 @@ async function loadANews(){
   }catch(e){aData.news=[];}
   if(aSym)R();
 }
+// v270 : carte d'article des maquettes (A9 / B5) — source, date du jour, titre sur 3 lignes, « Lire la suite ».
+// « Carnet » (noter dans le carnet de conviction) viendra avec la séance 15 ; le point « non lu », avec la séance 11b.
+function _jourRelatif(t){if(!t)return "";const d=new Date(t),n=new Date();const j0=new Date(n.getFullYear(),n.getMonth(),n.getDate()).getTime();
+ if(t>=j0)return "aujourd'hui";if(t>=j0-86400000)return "hier";return "le "+String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");}
+function _carteActu(a,i){return `<article class="carte-actu cv-rise" style="animation-delay:${_nCss(Math.min(i||0,8)*0.07,2)}s"><div class="ca-tete"><span class="ca-source">${esc(a.publisher||"")}</span><span class="ca-date">${_jourRelatif(a.t)}</span></div><h3>${esc(a.title||"")}</h3><div class="ca-pied"><a class="actu-suite" href="${escAttr(a.link||"#")}" target="_blank" rel="noopener">Lire la suite<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></a></div></article>`;}
 function aNewsHtml(){
   if(aData.news==null)return `<div class="card" style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:20px">Chargement…</div>`;
   if(!aData.news.length)return `<div class="card" style="font-size:var(--fs-corps);color:var(--mut);text-align:center;padding:24px;line-height:1.6">Pas d'actualité récente pour ce titre.</div>`;
-  return aData.news.map(a=>`<a href="${escAttr(a.link)}" target="_blank" rel="noopener" class="card card-tap" style="display:block;text-decoration:none;color:inherit;margin-bottom:6px;padding:12px 13px"><div style="font-size:var(--fs-corps);font-weight:600;line-height:1.45">${esc(a.title)}</div><div style="display:flex;justify-content:space-between;gap:8px;margin-top:5px"><span style="font-size:var(--fs-legende);color:var(--mut)">${esc(a.publisher)}</span><span style="font-size:var(--fs-legende);color:var(--mut)">${a.t?_relTime(a.t):""}</span></div></a>`).join("");
+  return `<div class="liste-actu">${aData.news.map(_carteActu).join("")}</div>`;
 }
+// v270 : date des prochains résultats (même source que l'onglet Fondamentaux), quand ses données ne sont pas encore là
+function _resultatsFicheHtml(){const tk=String(aData.tkGuess||_ficheOuverteTk||(aSym||"").split(".")[0]).toUpperCase();const et=_dateResultats(tk,null);
+ return et?`<div class="card mp-resultats">📅 Prochains résultats · ${new Date(et*1000).toLocaleDateString("fr-FR")}</div>`:"";}
 // v269 — onglet « Ma position » (maquette B1) : fusion de la page de la position et de « Mon portefeuille »
 function _maPositionHtml(){const tk=String(aData.tkGuess||_ficheOuverteTk||(aSym||"").split(".")[0]).toUpperCase();const L=_lignesTitre(tk);
  const conv=(D.prefs&&D.prefs.conv&&D.prefs.conv[tk])||0,dorm=_convDormante(tk),these=((D.prefs&&D.prefs.notes&&D.prefs.notes[tk])||"").trim();
@@ -6603,19 +6681,18 @@ function _maPositionHtml(){const tk=String(aData.tkGuess||_ficheOuverteTk||(aSym
  const v=(p.qty||0)*(_coursValo(p)||0),vE=v*toEur(cur),pv=_plDevPos(p),pvPct=_plPctPos(p),pvE=_posOk(p)?vE-_invEur(p):null;
  const horsPat=_horsPatrimoine(poche,p);const bl=_bPos(true);const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;const F0=x=>Math.round(x).toLocaleString("fr-FR");
  const priv=isPriv();
- let h=_achatCarteFiche();
+ let h="";// v270 : maquette B1 — ni carte « Plan d'achat » (dans « Mes objectifs ») ni « Prochains résultats » (onglet Fondamentaux)
  if(L.length>1)h+=`<div class="segment clair mp-enveloppes" role="tablist">${L.map(z=>`<button type="button" role="tab" aria-selected="${z.poche===poche}"${z.poche===poche?' class="actif"':""} onclick="_mpPoche('${escAttr(z.poche)}')">${esc(z.poche)}</button>`).join("")}</div>`;
  const T=[["Quantité × PRU",priv?"•••":`${_nbFr(p.qty)} × ${fmt2_(p.pru)} ${psym}`,""],
    ["Valeur",priv?"•••":(_fxConnu(cur)?F0(vE)+" €":F0(_enUnite(v,cur,dc))+" "+dsym),_fxConnu(cur)?(cur!=="EUR"?(priv?"":F0(_enUnite(v,cur,dc))+" "+dsym):""):_fxEtatCourt(cur)],
    [pv>=0?"Plus-value":"Moins-value",priv?"•••":`${pv>=0?"▲ +":"▼ −"}${F0(Math.abs(pv))} ${psym}`,`${pvPct>=0?"+":"−"}${vg(Math.abs(pvPct),1)}\u00a0%${pc!=="EUR"&&pvE!=null&&!priv?` · ${pvE>=0?"+":"−"}${F0(Math.abs(pvE))} €`:""}`,pv>=0?"hausse":"baisse"],
    ["Poids en bourse",!_fxConnu(cur)||horsPat?"—":vg(poids,1)+"\u00a0%",horsPat?"hors patrimoine":"dans le "+esc(poche)]];
  h+=`<div class="mp-tuiles">${T.map(t=>`<div><span class="mp-lib">${t[0]}</span><span class="mp-val${t[3]?" "+t[3]:""}">${t[1]}</span>${t[2]?`<span class="mp-sous">${t[2]}</span>`:""}</div>`).join("")}</div>`;
- const et=_nextEarn(p);if(et)h+=`<div class="card mp-resultats">Prochains résultats · ${new Date(et*1000).toLocaleDateString("fr-FR")} <span class="pilule pilule-mini pilule-info">auto</span></div>`;
  h+=carte;
  const nPal=_paliersRows(poche,tk).length+_achatRows(poche,tk).length;
  h+=`<div class="card liste-suivi mp-liens">`
    +`<div class="ligne-suivi" role="button" tabindex="0" onclick="setATab('chart')"><span class="ls-icone"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span><span class="ls-texte"><span class="ls-titre">Fiche du titre</span><span class="ls-sous">Graphique, fondamentaux, description, actu</span></span>${_SVG_CHEVRON(20)}</div>`
-   +`<div class="ligne-suivi" role="button" tabindex="0" onclick="openObjectifsSommaire('${escAttr(poche)}','${escAttr(tk)}')"><span class="ls-icone"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="1"></circle></svg></span><span class="ls-texte"><span class="ls-titre">Mes objectifs</span><span class="ls-sous">Plan d'achat, plan de sortie, alerte${nPal?" · "+nPal+" palier"+(nPal>1?"s":""):""}</span></span>${_SVG_CHEVRON(20)}</div>`
+   +`<div class="ligne-suivi" role="button" tabindex="0" onclick="openObjectifsSommaire('${escAttr(poche)}','${escAttr(tk)}')"><span class="ls-icone"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle><circle cx="12" cy="12" r="1"></circle></svg></span><span class="ls-texte"><span class="ls-titre">Mes objectifs</span><span class="ls-sous">Plan d'achat, plan de sortie, alerte</span></span>${_SVG_CHEVRON(20)}</div>`
    +`</div>`;
  h+=`<div class="barre-fixe"><button type="button" class="principal" onclick="reinforce('${escAttr(poche)}','${escAttr(tk)}')"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Acheter</button><button type="button" class="secondaire" onclick="sellPos('${escAttr(poche)}','${escAttr(tk)}')">Vendre</button><button type="button" class="carre" aria-label="Modifier la position" onclick="ePos('${escAttr(poche)}','${escAttr(tk)}')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13 7l4 4"></path></svg></button></div>`;
  return h;}
@@ -6719,15 +6796,20 @@ if(cours!=null&&_pt&&!_crypto)h+=_heureEtHorsSeance(_pt,curSym(aCur));
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["actu","Actu"],["portf","Ma position"]];
 h+=`<div class="onglets-pilules" role="tablist">`+tabs.map(t=>`<button type="button" role="tab" aria-selected="${aTab===t[0]}" onclick="setATab('${t[0]}')"${aTab===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
 if(aTab==="chart"){
-h+=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px"><div style="display:flex;border:1px solid var(--bdr);border-radius:var(--r-moyen);overflow:hidden">${[["line","Ligne"],["candle","Bougies"]].map(t=>`<span onclick="setAType('${t[0]}')" style="font-size:var(--fs-petit);padding:6px 12px;cursor:pointer;${aChartType===t[0]?"background:var(--action);color:var(--sur-action);font-weight:700":"color:var(--dim)"}">${t[1]}</span>`).join("")}</div></div>`;
+// v270 : maquette B2 — carte « Cours sur … », bascule Ligne / Bougies à icônes, point qui pulse, bulle « Plus haut »,
+// périodes en pastilles sous le graphique, 3 tuiles
+const _titreG=aPeriod==="1d"?"Cours du jour":"Cours sur "+_periodeFr(_perAff);
+const _bt=(t,lib,svg)=>`<button type="button" aria-label="${lib}" aria-pressed="${aChartType===t}" class="${aChartType===t?"actif":""}" onclick="setAType('${t}')">${svg}</button>`;
+h+=`<div class="card carte-graphe"><div class="cg-tete"><span class="cg-titre">${_titreG}</span><div class="bascule-type" role="group" aria-label="Type de graphique">${_bt("line","Ligne",'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 17l5-6 4 3 8-9"></path></svg>')}${_bt("candle","Bougies",'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M17 4v16"></path><rect x="5" y="8" width="4" height="7" rx="1"></rect><rect x="15" y="6" width="4" height="9" rx="1"></rect></svg>')}</div></div>`;
 h+=(aData.ohlcErr&&!bars.length)
-  ? `<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:26px 14px;text-align:center"><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6">Graphique momentanément indisponible.</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px">La source de cours n'a pas répondu — réessaie dans un instant.</div></div>`
-  : `<canvas id="aCanvas" style="width:100%;height:210px;display:block;background:var(--inp);border-radius:var(--r-moyen)"></canvas>`;
-if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));h+=`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:10px">`+[["Haut",fmt2_(hi2)+" "+curSym(aCur)],["Bas",fmt2_(lo2)+" "+curSym(aCur)],[(aPeriod==="1d"?"Var. jour":"Perf"),(dp==null?`<span style="color:var(--mut)">—</span>`:`<span style="${_vs(dp>=0)}">${dp>=0?"+":"−"}${vg(Math.abs(dp),1)}\u00a0%</span>`)]].map(x=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:7px 9px"><div style="font-size:var(--fs-legende);color:var(--mut)">${x[0]}</div><div class="mono" style="font-size:var(--fs-corps);font-weight:600">${x[1]}</div></div>`).join("")+`</div>`;}
-h+=`<div style="display:flex;justify-content:space-between;margin-top:10px">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<span onclick="setAPeriod('${pp[0]}')" style="font-size:var(--fs-petit);padding:5px 9px;cursor:pointer;border-radius:var(--r-moyen);${aPeriod===pp[0]?"background:var(--action-f);color:var(--txt);font-weight:700":"color:var(--dim)"}">${pp[1]}</span>`).join("")+`</div>`;
+  ? `<div class="cg-erreur"><div>Graphique momentanément indisponible.</div><div>La source de cours n'a pas répondu — réessaie dans un instant.</div></div>`
+  : `<div class="graphe-zone"><canvas id="aCanvas" class="cv-devoile"></canvas><span id="aPointFin" class="cv-pulse" aria-hidden="true"></span><div id="aBulleHaut" class="cv-rise"></div></div>`;
+h+=`<div class="periodes" role="group" aria-label="Période">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<button type="button" aria-pressed="${aPeriod===pp[0]}" class="${aPeriod===pp[0]?"actif":""}" onclick="setAPeriod('${pp[0]}')">${pp[1]}</button>`).join("")+`</div></div>`;
+if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));
+  h+=`<div class="tuiles-graphe">`+[["Plus haut",fmt2_(hi2)+" "+curSym(aCur),""],["Plus bas",fmt2_(lo2)+" "+curSym(aCur),""],[aPeriod==="1d"?"Aujourd'hui":"Sur "+_periodeFr(_perAff),dp==null?"—":`<span class="tg-fleche">${dp>=0?"▲":"▼"}</span> ${dp>=0?"+":"−"}${vg(Math.abs(dp),1)}\u00a0%`,dp==null?"":(dp>=0?"hausse":"baisse")]].map(x=>`<div><span class="tg-lib">${x[0]}</span><span class="tg-val${x[2]?" "+x[2]:""}">${x[1]}</span></div>`).join("")+`</div>`;}
 if(_crypto&&aPeriod==="5y"&&bars.length)h+=`<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Historique limité à 1 an sur les cryptos — c'est ce que fournit la source.</div>`;
 }
-if(aTab==="fund")h+=aFundHtml();
+if(aTab==="fund")h+=((!aData.sum||aData.sum.error)?_resultatsFicheHtml():"")+aFundHtml();// v270 : la date y est déjà quand les données sont là ; sinon, la même date, en tête
 if(aTab==="desc")h+=aDescHtml();
 if(aTab==="actu"){h+=aNewsHtml();setTimeout(loadANews,0);}
 if(aTab==="portf")h+=_maPositionHtml();
