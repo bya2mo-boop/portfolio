@@ -25,7 +25,7 @@
    la table de traduction des listes de suivi, le PDF d'impression).
    MODE JOUR = valeurs de base (aucun eclair d'un autre theme au demarrage). */
 :root{
-/* 1. Les dix couleurs de la charte (Margot Michel). Aucune autre couleur de base. */
+/* 1. Les huit couleurs de la charte (Margot Michel). */
 --c-emeraude:#00cab3;
 --c-menthe:#b4f3e2;
 --c-navy:#003d43;
@@ -34,64 +34,106 @@
 --c-bleu:#3069ed;
 --c-mauve:#c27aa9;
 --c-rose:#f1b5df;
---c-hausse:#71dba1;
---c-baisse:#ea5430;
+/* 1b. Les 36 teintes des maquettes de la refonte (Margot Michel et Alissandre), ajoutées au socle le 23/11/2026
+   (décision de Margot : « ça décline mieux l'identité »). Chaque valeur est relevée telle quelle dans les fichiers
+   des maquettes (=maquette) ; le banc vérifie qu'elle y figure. Elles remplacent l'ancien vert de hausse et
+   l'ancien rouge de baisse de la charte, en mode jour. Liste commentée pour Margot : pour-margot/couleurs.html. */
+--c-baisse:#b8432a;/*=maquette*/
+--c-baisse-fond:#fdeee9;/*=maquette*/
+--c-gris:#4a6a6e;/*=maquette*/
+--c-ligne:#dbe3f2;/*=maquette*/
+--c-onglets:#e2e9f7;/*=maquette*/
+--c-emeraude-fonce:#007a6c;/*=maquette*/
+--c-emeraude-moyen:#008f80;/*=maquette*/
+--c-emeraude-tranche:#00a594;/*=maquette*/
+--c-bleu-fonce:#1d4bb8;/*=maquette*/
+--c-mauve-fonce:#94557e;/*=maquette*/
+--c-mauve-sombre:#8f4f78;/*=maquette*/
+--c-navy-fonce:#00262a;/*=maquette*/
+--c-menthe-claire:#e3faf3;/*=maquette*/
+--c-bleu-pale:#e3ebfd;/*=maquette*/
+--c-mauve-pale:#f8e8f2;/*=maquette*/
+--c-rose-pale:#f6e3ef;/*=maquette*/
+--c-gris-pale:#eef1f6;/*=maquette*/
+--c-emeraude-pale:#d4f6ef;/*=maquette*/
+--c-ardoise-pale:#c9d4e6;/*=maquette*/
+--c-ligne-claire:#dfe6f2;/*=maquette*/
+--c-bleu-trait:#dbe5fd;/*=maquette*/
+--c-blanc-bleute:#fbfcff;/*=maquette*/
+--c-rose-tranche:#c98bb7;/*=maquette*/
+--c-graph-bleu-clair:#8fa9f5;/*=maquette*/
+--c-graph-bleu-pale:#c3d1f8;/*=maquette*/
+--c-graph-gris-vert:#9fb5b8;/*=maquette*/
+--c-graph-gris:#7d9497;/*=maquette*/
+--c-graph-gris-clair:#b9c8cb;/*=maquette*/
+--c-graph-canard:#2e6b70;/*=maquette*/
+--c-graph-bleu-moyen:#5b86f0;/*=maquette*/
+--c-graph-vert-gris:#7fbfb5;/*=maquette*/
+--c-corail:#ff7468;/*=maquette*/
+--c-corail-clair:#ffb3a3;/*=maquette*/
+--c-corail-fond:#1a3135;/*=maquette*/
+--c-corail-doux:#e9927c;/*=maquette*/
+--c-sur-navy:#d6e6e8;/*=maquette*/
 /* 2. Fonds, textes, lignes. Les tons derives sont PRECALCULES ; la recette est notee a cote de chaque valeur (=mix A p B : p % de A + le reste de B ; =alpha A p : A a p % d'opacite) et le banc la recalcule. */
 --bg:var(--c-lune);
 --card:var(--c-blanc);
 --navbg:var(--c-blanc);
 --txt:var(--c-navy);
---dim:#437178;/*=mix navy 72 lune*/
---mut:#60878e;/*=mix navy 60 lune*/
---bdr:#cad8e1;/*=mix navy 16 lune*/
---sep:#dbe4ee;/*=mix navy 9 lune*/
---inp:#e5ecf6;/*=mix navy 5 lune*/
---appui:#dee6f0;/*=mix navy 8 lune*/
+/* v261 : un seul gris secondaire, celui des maquettes (décision de Yanis) ; bordures et fonds des maquettes. */
+--dim:var(--c-gris);
+--mut:var(--c-gris);
+--bdr:var(--c-ligne);
+--sep:var(--c-onglets);
+--inp:var(--c-onglets);
+--appui:var(--c-ligne-claire);
 --mut-f:rgba(0,61,67,.08);/*=alpha navy 8*/
 --voile:rgba(0,61,67,.55);/*=alpha navy 55*/
 --ombre:rgba(0,61,67,.18);/*=alpha navy 18*/
 --ombre-f:rgba(0,61,67,.10);/*=alpha navy 10*/
 --bulle:rgba(0,61,67,.92);/*=alpha navy 92*/
 --sur-bulle:var(--c-blanc);
-/* 3. Action (boutons principaux, onglet actif, interrupteurs) : emeraude, texte TOUJOURS navy. L'emeraude n'est jamais une couleur de texte. */
+/* 3. Action (boutons principaux, onglet actif, interrupteurs) : emeraude, texte TOUJOURS navy. L'emeraude #00cab3 n'est jamais une couleur de texte ;
+   l'emeraude FONCEE des maquettes (#007a6c) l'est (liens, montants positifs) : décision de Margot du 23/11/2026. */
 --action:var(--c-emeraude);
 --sur-action:var(--c-navy);
---action-f:rgba(0,202,179,.14);/*=alpha emeraude 14*/
---action-ff:rgba(0,202,179,.07);/*=alpha emeraude 7*/
+--action-f:var(--c-emeraude-pale);
+--action-ff:var(--c-menthe-claire);
 --action-m:rgba(0,202,179,.50);/*=alpha emeraude 50*/
---lien:var(--c-navy);
-/* 4. Hausse (etiquette verte, texte navy) et baisse (texte rouge gras, toujours avec son signe). */
---hausse:var(--c-hausse);
+--lien:var(--c-emeraude-fonce);
+--positif:var(--c-emeraude-fonce);
+/* 4. Hausse (pastille menthe, texte navy) et baisse (texte #b8432a gras sur fond rose pâle, toujours avec son signe) :
+   celles des maquettes, qui remplacent l'ancien vert et l'ancien rouge (décision de Margot, 23/11/2026). */
+--hausse:var(--c-menthe);
 --sur-hausse:var(--c-navy);
---hausse-f:rgba(113,219,161,.30);/*=alpha hausse 30*/
+--hausse-f:var(--c-menthe-claire);
 --baisse:var(--c-baisse);
---baisse-f:rgba(234,84,48,.12);/*=alpha baisse 12*/
---baisse-m:rgba(234,84,48,.40);/*=alpha baisse 40*/
+--baisse-f:var(--c-baisse-fond);
+--baisse-m:rgba(184,67,42,.40);/*=alpha baisse 40*/
 /* 5. Danger (supprimer, erreur), avertissement (aplat mauve clair, texte navy), information (bleu), reussite (navy). */
 --danger:var(--c-baisse);
 --sur-danger:var(--c-blanc);
---danger-f:rgba(234,84,48,.10);/*=alpha baisse 10*/
---danger-m:rgba(234,84,48,.40);/*=alpha baisse 40*/
+--danger-f:var(--c-baisse-fond);
+--danger-m:rgba(184,67,42,.40);/*=alpha baisse 40*/
 --avert:var(--c-mauve);
---avert-f:#f2e2ec;/*=mix mauve 22 blanc*/
+--avert-f:var(--c-mauve-pale);
 --sur-avert:var(--c-navy);
---avert-t:#7e6585;/*=mix mauve 65 navy*/
+--avert-t:var(--c-mauve-fonce);
 --info:var(--c-bleu);
 --sur-info:var(--c-blanc);
---info-t:#2c65df;/*=mix bleu 92 navy*/
---info-f:rgba(48,105,237,.10);/*=alpha bleu 10*/
+--info-t:var(--c-bleu-fonce);
+--info-f:var(--c-bleu-pale);
 --info-m:rgba(48,105,237,.40);/*=alpha bleu 40*/
 --ok:var(--c-navy);
 /* 6. Echelles de qualite, du meilleur au moins bon : navy, bleu, mauve, rouge ; gris discret = sans donnee. -t = version texte (contraste suffisant), sur- = texte pose sur l'aplat, -f = fond leger. */
 --q1:var(--c-navy);
 --q2:var(--c-bleu);
 --q3:var(--c-mauve);
---q3b:#d6676c;/*=mix baisse 50 mauve*/
+--q3b:#bd5f6a;/*=mix baisse 50 mauve*/
 --q4:var(--c-baisse);
 --q0:var(--mut);
 --q1-t:var(--c-navy);
---q2-t:#2c65df;/*=mix bleu 92 navy*/
---q3-t:#7e6585;/*=mix mauve 65 navy*/
+--q2-t:var(--c-bleu-fonce);
+--q3-t:var(--c-mauve-fonce);
 --q4-t:var(--c-baisse);
 --sur-q1:var(--c-blanc);
 --sur-q2:var(--c-blanc);
@@ -100,7 +142,7 @@
 --q1-f:rgba(0,61,67,.10);/*=alpha navy 10*/
 --q2-f:rgba(48,105,237,.10);/*=alpha bleu 10*/
 --q3-f:rgba(194,122,169,.22);/*=alpha mauve 22*/
---q4-f:rgba(234,84,48,.12);/*=alpha baisse 12*/
+--q4-f:var(--c-baisse-fond);
 /* 7. Palette de donnees (enveloppes, secteurs, parts, familles, comparateur, listes de suivi) : bleu, mauve, rose, menthe, navy et leurs melanges. Ni emeraude, ni vert de hausse, ni rouge de baisse. Ordre alterne clair / fonce : deux voisines restent distinctes en niveaux de gris ; les premieres sont les plus differentes entre elles (un camembert de 4 a 6 parts n'utilise qu'elles). */
 --d1:var(--c-bleu);
 --d2:var(--c-navy);
@@ -131,10 +173,22 @@
 --carte-5:#185398;/*=mix bleu 50 navy*/
 --carte-6:var(--c-navy);
 }
-/* MODE NUIT — emplacement reserve (fond navy). Ses valeurs viendront de la charte : ne rien
-   inventer ici. Le jour venu, il suffira de redefinir les roles ci-dessus dans un bloc
-   html.nuit{ ... } ; la bascule existe deja (applyTheme / toggleTheme, preference enregistree),
-   seul son bouton est masque pendant la beta. */
+/* MODE NUIT — emplacement reserve. Les 10 teintes de la maquette « Résumé – mode nuit » sont rangées ici, en
+   réserve (aucun rôle ne les utilise : la bêta est en mode jour seul). Le jour venu, il suffira de redéfinir les rôles
+   ci-dessus dans un bloc html.nuit{ ... } ; la bascule existe déjà (applyTheme / toggleTheme, préférence
+   enregistrée), seul son bouton est masqué pendant la bêta. */
+:root{
+--nuit-fond:#062b30;/*=maquette*/
+--nuit-carte:#0c3a40;/*=maquette*/
+--nuit-ligne:#1d4c52;/*=maquette*/
+--nuit-onglet:#11585a;/*=maquette*/
+--nuit-fond-2:#0f4a4a;/*=maquette*/
+--nuit-fond-3:#0a3237;/*=maquette*/
+--nuit-texte:#a9bec1;/*=maquette*/
+--nuit-hausse:#5ee0c9;/*=maquette*/
+--nuit-baisse:#ff9b85;/*=maquette*/
+--nuit-baisse-fond:#4a2a2a;/*=maquette*/
+}
 /* Lien dans un texte : navy souligne d'emeraude. La regle vit ici pour que tous les liens
    changent ensemble ; elle s'applique a tout element dont le style dit color:var(--lien). */
 [style*="color:var(--lien)"]{text-decoration:underline;text-decoration-color:var(--action);text-decoration-thickness:2px;text-underline-offset:3px}
@@ -357,7 +411,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "260";
+const APP_VERSION = "261";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -414,7 +468,8 @@ const BOUTON_THEME_VISIBLE=false;
 let _cssMem={};
 function _css(n){if(_cssMem[n]===undefined){try{_cssMem[n]=getComputedStyle(document.documentElement).getPropertyValue("--"+n).trim();}catch(e){_cssMem[n]="";}}return _cssMem[n];}
 function _ca(c,a){let h=String(c||"").trim();const m=/^var\(--([\w-]+)\)$/.exec(h);if(m)h=_css(m[1]);const x=/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(h);if(!x)return c;let v=x[1];if(v.length===3)v=v[0]+v[0]+v[1]+v[1]+v[2]+v[2];const n=parseInt(v,16);return "rgba("+((n>>16)&255)+","+((n>>8)&255)+","+(n&255)+","+a+")";}
-function _vs(pos,nu){return pos?("background:var(--hausse);color:var(--sur-hausse);"+(nu?"":"border-radius:var(--r-petit);padding:0 .4em;")):"color:var(--baisse);font-weight:700;";}
+// v261 : hausse = pastille menthe, texte navy ; baisse = texte « baisse » des maquettes, gras, sur fond rose pâle (décision de Margot).
+function _vs(pos,nu){return (pos?"background:var(--hausse);color:var(--sur-hausse);":"background:var(--baisse-f);color:var(--baisse);font-weight:700;")+(nu?"":"border-radius:var(--r-petit);padding:0 .4em;");}
 function applyTheme(){_cssMem={};try{const t=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";document.documentElement.classList.toggle("light",t==="light");}catch(e){}}
 window.toggleTheme=()=>{try{const cur=(window.D&&D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark";const nx=cur==="light"?"dark":"light";try{localStorage.setItem("cvTheme",nx)}catch(e){}if(window.D&&D){D.prefs=D.prefs||{};D.prefs.theme=nx;}applyTheme();R();if(window.D&&D&&typeof saveLocal==="function")saveLocal();if(window.D&&D&&typeof pushToSupabase==="function"&&currentUser)setTimeout(pushToSupabase,50);}catch(e){}};
 applyTheme();
