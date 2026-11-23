@@ -109,6 +109,9 @@
 /* 4. Hausse (pastille menthe, texte navy) et baisse (texte #b8432a gras sur fond rose pâle, toujours avec son signe) :
    celles des maquettes, qui remplacent l'ancien vert et l'ancien rouge (décision de Margot, 23/11/2026). */
 --hausse:var(--c-menthe);
+/* v264 : barre du bas (pastille de l'onglet actif) et pièce Conviction, couleurs des maquettes */
+--nav-actif:var(--c-menthe);--bouton-actif:var(--c-menthe);
+--piece-tranche:var(--c-emeraude-moyen);--piece-face:var(--c-emeraude);--piece-coeur:var(--c-menthe);
 --sur-hausse:var(--c-navy);
 --hausse-f:var(--c-menthe-claire);
 --baisse:var(--c-baisse);
@@ -397,8 +400,37 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
    distingue par sa couleur et son soulignement emeraude, jamais par une graisse. */
 .onglet{font-family:var(--police-titre);font-synthesis:none;font-weight:400;color:var(--dim);padding-bottom:8px;cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent}
 .onglet.actif{color:var(--txt);border-bottom-color:var(--action)}
-.nav-btn{background:none;border:none;cursor:pointer;padding:4px 6px;color:var(--mut);font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-corps);position:relative;transition:color .2s;-webkit-appearance:none;appearance:none}
-.nav-btn.active{color:var(--txt);font-weight:400}
+/* BARRE DU BAS (v264, maquettes) : icône au trait 22 px dans une pastille 56 x 32, libellé Poppins 12 px ;
+   l'onglet actif a la pastille menthe et le libellé en gras ; Conviction au centre, dans la pièce surélevée. */
+.nav-btn{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;background:none;border:none;cursor:pointer;padding:8px 0 0;min-height:var(--toucher);color:var(--dim);font-family:var(--police-texte);position:relative;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent}
+.nav-btn.active{color:var(--txt)}
+.nav-ico{position:relative;width:56px;height:32px;border-radius:var(--r-pilule);display:flex;align-items:center;justify-content:center}
+.nav-btn.active .nav-ico{background:var(--nav-actif)}
+.nav-ico svg,.nav-piece svg{display:block;flex-shrink:0}
+.nav-lib{font-size:var(--fs-legende);font-weight:500;line-height:16px;white-space:nowrap}
+.nav-btn.active .nav-lib,.nav-btn.centre .nav-lib{font-weight:700}
+.nav-btn.centre{margin-top:-22px;padding-top:0}
+.nav-piece{width:60px;height:60px;border-radius:var(--r-rond);background:var(--card);display:flex;align-items:center;justify-content:center;box-shadow:var(--ombre-haut);}
+.nav-alerte{position:absolute;top:2px;right:12px;width:8px;height:8px;border-radius:var(--r-rond);background:var(--avert)}
+/* BARRE DU HAUT (v264, maquettes) : grand titre de page, ligne d'état (toucher = actualiser), 3 boutons ronds.
+   Pages de détail : barre compacte, sans titre (leur en-tête « ‹ » reste). */
+.barre-haut{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:4px 0 14px}
+.barre-haut.compacte{align-items:center;margin-bottom:6px}
+.barre-gauche{display:flex;flex-direction:column;gap:0;min-width:0}
+.barre-titre{margin:0;font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-titre);line-height:36px;letter-spacing:-.5px;color:var(--txt)}
+.etat-ligne{display:flex;align-items:center;gap:8px;min-height:var(--toucher);margin:-6px 0 -10px;padding:0;background:none;border:none;font-family:var(--police-texte);font-size:var(--fs-corps);color:var(--dim);cursor:pointer;text-align:left;-webkit-tap-highlight-color:transparent}
+.barre-haut.compacte .etat-ligne{margin:0}
+.etat-point{width:8px;height:8px;border-radius:var(--r-rond);background:var(--action);flex-shrink:0}
+.etat-point.attente{background:var(--avert)}.etat-point.erreur{background:var(--danger)}.etat-point.hors{background:var(--mut)}
+.barre-boutons{display:flex;gap:8px;flex-shrink:0}
+.bouton-rond{width:var(--toucher);height:var(--toucher);border-radius:var(--r-grand);border:1px solid var(--bdr);background:var(--card);color:var(--txt);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;-webkit-appearance:none;appearance:none}
+.bouton-rond.actif{background:var(--bouton-actif);border-color:var(--bouton-actif)}
+.bouton-rond svg{display:block;flex-shrink:0}
+/* Rafraîchir en tirant : indication qui s'ouvre au-dessus de la barre pendant le geste */
+.ptr{height:0;overflow:hidden;display:flex;align-items:flex-end;justify-content:center;font-size:var(--fs-legende);color:var(--dim)}
+/* Grands montants : l'espace des milliers est écrite dans cet élément, en Poppins (Safari iOS ne prenait
+   pas la police de repli pour U+202F dans Diamond Grotesk, qui n'a pas ce caractère). */
+.esp-chiffres{font-family:var(--police-texte);font-synthesis:none}
 /* TITRES DE SECTION (majuscules) et TITRES DE CARTES de navigation : Diamond Grotesk Regular,
    un cran plus grands qu'en v253 (pour compenser l'absence de gras). */
 .section{font-family:var(--police-titre);font-synthesis:none;font-size:var(--fs-corps);color:var(--dim);text-transform:uppercase;letter-spacing:1px;font-weight:400;margin-bottom:8px}
@@ -419,15 +451,15 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
-body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:max(8px,env(safe-area-inset-top,0px)) 16px 90px}
+body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:max(8px,env(safe-area-inset-top,0px)) 16px calc(84px + env(safe-area-inset-bottom,0px))}
 @media(min-width:760px){body{max-width:720px}.nav-inner{max-width:720px}}
 .card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-carte);padding:16px;margin-bottom:10px}
 .card-tap{cursor:pointer}.card-tap:active{background:var(--appui)}
 .mono{font-family:var(--police-texte)}
 .chip{display:inline-flex;padding:3px 8px;border-radius:var(--r-petit);font-size:var(--fs-corps);font-weight:600}
 .chip-s{background:var(--q1);color:var(--sur-q1)}.chip-a{background:var(--q2);color:var(--sur-q2)}.chip-b{background:var(--q3);color:var(--sur-q3)}.chip-c{background:var(--q4);color:var(--sur-q4)}
-.nav{position:fixed;bottom:0;left:0;right:0;background:var(--navbg);border-top:1px solid var(--bdr);padding:8px 0 max(12px,env(safe-area-inset-bottom,0px));z-index:100}
-.nav-inner{display:flex;justify-content:space-around;max-width:480px;margin:0 auto}
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--navbg);border-top:1px solid var(--bdr);padding:0 6px max(8px,env(safe-area-inset-bottom,0px));z-index:100}
+.nav-inner{display:flex;align-items:flex-start;max-width:480px;margin:0 auto}
 .modal-bg{position:fixed;inset:0;background:var(--voile);z-index:200;display:flex;align-items:flex-end;justify-content:center}
 .modal{width:100%;max-width:480px;max-height:85vh;overflow-y:auto;background:var(--card);border-radius:var(--r-grand) var(--r-grand) 0 0;padding:20px 16px max(20px,env(safe-area-inset-bottom,0px));border:1px solid var(--bdr)}
 .field{margin-bottom:10px}.field label{display:block;font-size:var(--fs-legende);color:var(--dim);text-transform:uppercase;margin-bottom:3px}
@@ -499,7 +531,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "263";
+const APP_VERSION = "264";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1099,7 +1131,7 @@ let _pendingSale=null;
 // Sans cette correction, la modal de login ne pouvait jamais être fermée
 // (currentUser est null au moment où l'on affiche la page d'auth).
 // _pendingSale est vidé uniquement quand un utilisateur est connecté.
-function sm(h){document.getElementById("modal-root").innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`;_pilePlacer();}
+function sm(h){const r=document.getElementById("modal-root");r.innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal" onclick="event.stopPropagation()">${h}</div></div>`;_espacesChiffres(r);_pilePlacer();}
 function cm(){
   document.getElementById("modal-root").innerHTML="";
   if(currentUser) _pendingSale=null; // ne vider _pendingSale que si connecté
@@ -1115,10 +1147,12 @@ function _pile(){let c=document.getElementById("pileBas");if(!c){c=document.crea
 function _pilePlacer(){try{const c=document.getElementById("pileBas");if(!c)return;
   const nav=document.querySelector(".nav");const navVisible=!!(nav&&getComputedStyle(nav).display!=="none"&&nav.getBoundingClientRect().height>0);
   const hNav=navVisible?nav.getBoundingClientRect().height:0;
-  c.style.bottom=navVisible?(hNav+8)+"px":"calc(env(safe-area-inset-bottom,0px) + 10px)";
+  // v264 : la pièce Conviction dépasse au-dessus de la barre ; la pile passe au-dessus d'elle
+  let dep=0;if(navVisible){const pc=nav.querySelector(".nav-piece");if(pc)dep=Math.max(0,nav.getBoundingClientRect().top-pc.getBoundingClientRect().top);}
+  c.style.bottom=navVisible?(hNav+dep+8)+"px":"calc(env(safe-area-inset-bottom,0px) + 10px)";
   let hPers=0;[].forEach.call(c.children,function(b){hPers+=b.getBoundingClientRect().height+8;});
-  document.body.style.paddingBottom=hPers?(hNav+hPers+24)+"px":"";
-  const m=document.querySelector("#modal-root .modal");if(m)m.style.paddingBottom=hPers?(hNav+hPers+24)+"px":"";
+  document.body.style.paddingBottom=hPers?(hNav+dep+hPers+24)+"px":"";
+  const m=document.querySelector("#modal-root .modal");if(m)m.style.paddingBottom=hPers?(hNav+dep+hPers+24)+"px":"";
 }catch(e){}}
 function _bandeau(o){const c=_pile();let b=o.id?document.getElementById(o.id):null;
   if(!b){b=document.createElement("div");if(o.id)b.id=o.id;
@@ -2730,7 +2764,7 @@ if(D.poches.Crypto)D.poches.Crypto.positions.forEach(p=>{const _ce=curOf(p)==="E
     rc(D);
     const now=new Date();
     const ts=now.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
-    st.lastUp=ts;st.ok=(cnt>0);st.count=cnt;
+    st.lastUp=ts;st.lastUpAt=Date.now();st.ok=(cnt>0);st.count=cnt;
 
     const immoEq = D.immobilier ? D.immobilier.equityNette || 0 : 0;
     const tv = Object.values(D.poches).reduce((s,p)=>s+p.valeur,0) + D.cash + immoEquityInTotal(D) - pocheExclSum(D);
@@ -3109,11 +3143,67 @@ function applyMortgagePayments(){
   return applied;
 }
 
+// v264 : ligne d'état de la barre du haut (décision 6 de Yanis). Une seule phrase, par ordre de priorité.
+function _ilYa(t){const s=(Date.now()-t)/1000;if(s<60)return "à l'instant";if(s<3600)return "il y a "+Math.floor(s/60)+" min";
+ if(s<86400)return "il y a "+Math.floor(s/3600)+" h";const d=new Date(t);return "le "+String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");}
+function _etatLigne(){
+ if(navigator.onLine===false)return{t:"Hors ligne",c:"hors"};
+ if(st.loading&&Date.now()-st.loadingSince<30000)return{t:"Mise à jour…",c:"attente"};
+ if(st.sync===false)return{t:"Synchro en attente",c:"attente"};
+ if(!st.lastUpAt)return{t:"Cours en attente",c:"hors"};
+ if(st.ok===false)return{t:"Cours non actualisés · "+_ilYa(st.lastUpAt),c:"erreur"};
+ return{t:"À jour · "+_ilYa(st.lastUpAt),c:"ok"};}
 function updateCountdown(){
   applyTheme();
   const u=document.getElementById("upStat");
-  if(u)u.textContent=(st.loading&&Date.now()-st.loadingSince<30000)?"Mise à jour…":(st.lastUp||"—");
+  if(u){const e=_etatLigne();if(u.textContent!==e.t)u.textContent=e.t;const pt=u.previousElementSibling;if(pt){const k="etat-point "+e.c+(e.c==="ok"?" cv-pulse":"");if(pt.className!==k)pt.className=k;}}
 }
+window.addEventListener("online",()=>{try{updateCountdown();}catch(e){}});
+window.addEventListener("offline",()=>{try{updateCountdown();}catch(e){}});
+// Icônes au trait des maquettes (copiées telles quelles ; couleur = celle du texte)
+const _ICO={
+ rech:'<circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path>',
+ oeil:'<path d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7S2.5 12 2.5 12z"></path><circle cx="12" cy="12" r="3"></circle>',
+ oeilBarre:'<path d="M3 3l18 18"></path><path d="M10.6 5.1A10 10 0 0 1 12 5c6 0 9.5 7 9.5 7a17 17 0 0 1-2.6 3.4"></path><path d="M6.6 6.6A17 17 0 0 0 2.5 12s3.5 7 9.5 7a9.6 9.6 0 0 0 5.4-1.6"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path>',
+ compte:'<circle cx="12" cy="8" r="4"></circle><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"></path>',
+ bourse:'<path d="M3 17l5-5 4 4 8-8"></path><path d="M15 8h5v5"></path>',
+ analyse:'<path d="M12 3a9 9 0 1 0 9 9h-9z"></path><path d="M15 3.5A9 9 0 0 1 20.5 9H15z"></path>',
+ news:'<rect x="3" y="4" width="18" height="16" rx="3"></rect><path d="M7 9h10M7 13h10M7 17h6"></path>',
+ home:'<path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path>'};
+function _svgTrait(k){return `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${_ICO[k]}</svg>`;}
+// Pièce Conviction de la barre du bas (maquettes), couleurs par les rôles du socle
+function _svgPieceNav(){return `<svg width="50" height="50" viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="26.5" rx="21" ry="20.5" style="fill:var(--piece-tranche)"></ellipse><circle cx="24" cy="23" r="21" style="fill:var(--piece-face)"></circle><circle cx="24" cy="23" r="14.5" style="fill:var(--piece-coeur)"></circle><g transform="translate(15 14) scale(0.75)"><path d="M12 2C12.8 8 16 11.2 22 12C16 12.8 12.8 16 12 22C11.2 16 8 12.8 2 12C8 11.2 11.2 8 12 2Z" style="fill:var(--piece-face)"></path></g></svg>`;}
+const _TITRES_PAGE={bourse:"Bourse",analyse:"Analyse",conv:"Conviction",news:"Actus",home:"Patrimoine"};
+// Barre du haut. detail = la page a son propre en-tête « ‹ » : barre compacte, sans grand titre.
+function _barreHaut(detail){const titre=detail?"":(_TITRES_PAGE[tab]||"");const e=_etatLigne();const pv=isPriv();
+ return `<div id="ptr" class="ptr" aria-hidden="true"></div><div class="barre-haut${titre?"":" compacte"}"><div class="barre-gauche">${titre?`<h1 class="barre-titre">${titre}</h1>`:""}<button type="button" class="etat-ligne" onclick="refreshPrices()" title="Toucher pour actualiser les cours"><span class="etat-point ${e.c}${e.c==="ok"?" cv-pulse":""}"></span><span id="upStat">${e.t}</span></button></div>`
+  +`<div class="barre-boutons"><button type="button" class="bouton-rond" aria-label="Rechercher" onclick="openSearchModal('view')">${_svgTrait("rech")}</button>`
+  +`<button type="button" class="bouton-rond${pv?" actif":""}" aria-pressed="${pv}" aria-label="${pv?"Mode discret activé : afficher les montants":"Masquer les montants"}" onclick="togglePriv()">${_svgTrait(pv?"oeilBarre":"oeil")}</button>`
+  +`<button type="button" class="bouton-rond" aria-label="Mon compte et paramètres" onclick="eSettings()">${_svgTrait("compte")}</button></div></div>`;}
+// Grands montants (police des chiffres Diamond) : chaque espace des milliers ou insécable passe dans un
+// élément en Poppins. Le texte lu (copier-coller, lecteur d'écran) ne change pas.
+// Repérés par leur police calculée : aucune liste de tailles à tenir à jour ici.
+function _espacesChiffres(racine){try{if(!racine)return;racine.querySelectorAll(".mono,.montant-grand").forEach(g=>{
+  if(!/[\u00a0\u202f]/.test(g.textContent))return;
+  if(getComputedStyle(g).fontFamily.indexOf("Diamond Grotesk Chiffres")<0)return;
+  const w=document.createTreeWalker(g,NodeFilter.SHOW_TEXT,null);const L=[];let n;
+  while((n=w.nextNode())){if(/[\u00a0\u202f]/.test(n.nodeValue)&&!(n.parentElement&&n.parentElement.classList.contains("esp-chiffres")))L.push(n);}
+  L.forEach(t=>{const f=document.createDocumentFragment();t.nodeValue.split(/([\u00a0\u202f])/).forEach(m=>{if(!m)return;
+    if(m==="\u00a0"||m==="\u202f"){const sp=document.createElement("span");sp.className="esp-chiffres";sp.textContent=m;f.appendChild(sp);}
+    else f.appendChild(document.createTextNode(m));});t.parentNode.replaceChild(f,t);});});}catch(e){}}
+// Rafraîchir en tirant l'écran vers le bas, depuis le haut de la page (pas dans une fenêtre, un champ ou un graphique)
+const _PTR_SEUIL=80;let _ptrY0=null,_ptrD=0;
+function _ptrReset(){_ptrY0=null;_ptrD=0;const p=document.getElementById("ptr");if(p){p.style.height="0";p.textContent="";}}
+document.addEventListener("touchstart",e=>{_ptrY0=null;_ptrD=0;try{
+  if(!currentUser||e.touches.length!==1||window.scrollY>0)return;
+  if(document.querySelector("#modal-root .modal"))return;
+  const c=e.target&&e.target.closest?e.target:null;if(c&&c.closest("input,textarea,select,canvas,.modal,#nav,[data-sans-tirer]"))return;
+  _ptrY0=e.touches[0].clientY;}catch(x){}},{passive:true});
+document.addEventListener("touchmove",e=>{if(_ptrY0==null)return;try{const d=e.touches[0].clientY-_ptrY0;const p=document.getElementById("ptr");
+  if(d<=0||window.scrollY>0){_ptrD=0;if(p){p.style.height="0";p.textContent="";}return;}
+  _ptrD=d;if(p){p.style.height=Math.min(40,Math.round(d*0.4))+"px";p.textContent=d>=_PTR_SEUIL?"Relâche pour actualiser":"Tire pour actualiser";}}catch(x){}},{passive:true});
+document.addEventListener("touchend",()=>{const go=_ptrY0!=null&&_ptrD>=_PTR_SEUIL;_ptrReset();if(go){try{refreshPrices();}catch(x){}}},{passive:true});
+document.addEventListener("touchcancel",_ptrReset,{passive:true});
 
 // ══════════════ GRAPHIQUES & DONUT ══════════════
 function dn(data,colors,sz=120){const tot=data.reduce((s,d)=>s+d[1],0)||1;let a=0;const g=.02,cx=sz/2,cy=sz/2,R=sz*.42,r=sz*.28;let p="";data.forEach((d,i)=>{const f=d[1]/tot;if(f<.001){a+=f;return}const s1=a*Math.PI*2-Math.PI/2+g,e1=(a+f)*Math.PI*2-Math.PI/2-g,l=f>.5?1:0;p+=`<path d="M${cx+R*Math.cos(s1)},${cy+R*Math.sin(s1)} A${R},${R} 0 ${l} 1 ${cx+R*Math.cos(e1)},${cy+R*Math.sin(e1)} L${cx+r*Math.cos(e1)},${cy+r*Math.sin(e1)} A${r},${r} 0 ${l} 0 ${cx+r*Math.cos(s1)},${cy+r*Math.sin(s1)} Z" fill="${colors[i%colors.length]}" stroke="var(--contour-donnee)" stroke-width="1" stroke-linejoin="round"/>`;a+=f});return `<svg width="${sz}" height="${sz}" viewBox="0 0 ${sz} ${sz}">${p}</svg>`;}
@@ -3247,7 +3337,7 @@ window.dismissAllAlerts=()=>{const d=ga();D.prefs=D.prefs||{};D.prefs.dismissedA
 window.choosePoche=()=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Choisir l'enveloppe</h3><button class="btn-x" onclick="cm()">✕</button></div><div style="display:flex;flex-direction:column;gap:8px">${poches.map(p=>`<div class="card card-tap" onclick="cm();aPos('${escAttr(p)}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="width:4px;height:28px;border-radius:var(--r-petit);background:${_pocheColor(p)}"></div><span style="font-size:var(--fs-corps-fort);font-weight:600">${esc(p)}</span></div>`).join('')}</div>`)};
 // Supprimer une enveloppe vide
 window.dEnv=(name)=>{if(!D.poches[name])return;if(D.poches[name].positions.length>0)return toast("Supprime d'abord les positions de cette enveloppe.");if(!confirm("Supprimer l'enveloppe "+name+" ?"))return;delete D.poches[name];sel=null;tab="home";save()};
-window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Paramètres</h3><button class="btn-x" onclick="cm()">✕</button></div><div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:12px;margin-bottom:15px"><div class="section" style="margin-bottom:8px">Compte (Supabase)</div><div style="font-size:var(--fs-corps);margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label class="section mini" style="margin-bottom:6px;display:block">Exportation</label><button class="btn btn-s" style="width:100%" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label class="section mini" style="margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p btn-sm" style="width:100%" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label class="section mini" style="margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn btn-s btn-sm" style="width:100%;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d btn-sm" style="width:100%" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:var(--fs-petit);color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
+window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Paramètres</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="mono" style="font-size:var(--fs-corps-fort);font-weight:600;color:var(--txt);margin:-6px 0 14px">Version ${APP_VERSION}</div><div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:12px;margin-bottom:15px"><div class="section" style="margin-bottom:8px">Compte (Supabase)</div><div style="font-size:var(--fs-corps);margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label class="section mini" style="margin-bottom:6px;display:block">Exportation</label><button class="btn btn-s" style="width:100%" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label class="section mini" style="margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p btn-sm" style="width:100%" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label class="section mini" style="margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn btn-s btn-sm" style="width:100%;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d btn-sm" style="width:100%" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:var(--fs-petit);color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
 window.exportData=()=>{try{const data={app:"Convicto",exportedAt:new Date().toISOString(),user:(currentUser&&currentUser.email)||null,portfolio:D,history:H};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="portfolio-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast("Données exportées ✓");}catch(e){toast("Export impossible : "+e.message);}};
 window.confirmDeleteAccount=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700;color:var(--danger)">Supprimer mon compte</h3><button class="btn-x" onclick="eSettings()">✕</button></div><div style="background:var(--danger-f);border:1px solid var(--danger-m);border-radius:var(--r-moyen);padding:12px;font-size:var(--fs-corps);color:var(--txt);line-height:1.5;margin-bottom:14px">Action <b>définitive</b>. Tout sera effacé : enveloppes, positions, immobilier, budget, historique et ton compte.<br><b>Pense à exporter tes données avant.</b></div><label style="font-size:var(--fs-petit);color:var(--dim);display:block;margin-bottom:6px">Tape <b>SUPPRIMER</b> pour confirmer</label><input id="delConfirm" autocomplete="off" placeholder="SUPPRIMER" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:11px;color:var(--txt);margin-bottom:14px"><button class="btn btn-d" style="width:100%" onclick="doDeleteAccount()">Supprimer définitivement</button>`);setTimeout(()=>{const e=document.getElementById("delConfirm");if(e)e.focus();},40);};
 window.doDeleteAccount=async()=>{const el=document.getElementById("delConfirm");const v=el?el.value:"";if((v||"").trim().toUpperCase()!=="SUPPRIMER")return toast("Tape SUPPRIMER pour confirmer");toast("Suppression en cours…");try{await sb.functions.invoke("delete-account");}catch(e){}try{if(window.currentPfId){await sb.from("positions").delete().eq("portfolio_id",window.currentPfId);await sb.from("cashflows").delete().eq("portfolio_id",window.currentPfId);}}catch(e){}try{if(currentUser)await sb.from("portfolios").delete().eq("user_id",currentUser.id);}catch(e){}try{if(currentUser){localStorage.removeItem("pf-data-"+currentUser.id);localStorage.removeItem("pf-hist-"+currentUser.id);localStorage.removeItem("sb-migrated-"+currentUser.id);}}catch(e){}try{await sb.auth.signOut();}catch(e){}toast("Compte supprimé.");setTimeout(()=>location.reload(),700);};
@@ -3552,7 +3642,7 @@ const navEl = document.querySelector('.nav'); if(navEl) navEl.style.display = 'b
 
 if(!D)return; const d=ga(); const $=document.getElementById("app"); if(!$) return; let h="";
 
-h+=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="display:flex;align-items:center;gap:6px">${currentUser?`<span onclick="eSettings()" title="${esc(currentUser.email||"")}" style="width:22px;height:22px;border-radius:var(--r-rond);background:var(--mut-f);color:var(--txt);display:inline-flex;align-items:center;justify-content:center;font-size:var(--fs-petit);font-weight:700;cursor:pointer;flex-shrink:0">${esc((currentUser.email||"?").trim().charAt(0).toUpperCase())}</span>`:""}<div style="width:8px;height:8px;border-radius:var(--r-rond);background:${(st.loading && Date.now()-st.loadingSince < 30000)?"var(--avert)":st.ok?"var(--ok)":st.ok===false?"var(--danger)":"var(--mut)"};${(st.loading && Date.now()-st.loadingSince < 30000)?'animation:bl 1s infinite':''}"></div><span id="upStat" class="mono" style="font-size:var(--fs-petit);color:var(--txt)">${(st.loading && Date.now()-st.loadingSince < 30000)?"Mise à jour…":st.lastUp||"—"}</span><span class="mono" style="font-size:var(--fs-legende);color:var(--dim);margin-left:4px">v${APP_VERSION}</span>${!(st.loading && Date.now()-st.loadingSince < 30000)&&st.lastUp?``:""}${st.sync===true?'<span style="font-size:var(--fs-legende);padding:2px 5px;border-radius:var(--r-petit);background:var(--q1-f);color:var(--ok)">☁ Sync</span>':st.sync===false?'<span style="font-size:var(--fs-legende);padding:2px 5px;border-radius:var(--r-petit);background:var(--danger-f);color:var(--txt)">☁ Offline</span>':""}</div><div><button class="btn-ico" onclick="openSearchModal('view')" style="margin-right:6px" title="Rechercher">🔎</button><button onclick="togglePriv()" class="btn-ico${isPriv()?" actif":""}" style="margin-right:6px" title="Masquer les montants">${isPriv()?"🙈":"👁"}</button><button class="btn-ico" onclick="toggleTheme()" style="${BOUTON_THEME_VISIBLE?"":"display:none;"}margin-right:6px" title="Thème clair/sombre">${(((D&&D.prefs&&D.prefs.theme)||localStorage.getItem("cvTheme")||"dark")==="light")?"🌙":"☀️"}</button><button onclick="refreshPrices()" ${(st.loading && Date.now()-st.loadingSince < 30000)?"disabled":""} class="btn-ico">↻</button></div></div>`;
+h+="<!--BARRE-HAUT-->";// v264 : la barre du haut est posée à la fin, une fois connu l'en-tête de la page
   try{h+=_palierBandeau();}catch(e){}
   try{h+=_achatBandeau();}catch(e){}
 
@@ -3850,7 +3940,8 @@ if($){
   {const _sig=_signatureEcran();
    $.classList.toggle("sans-anim",_sig===_dernierEcran);
    _dernierEcran=_sig;}
-  $.innerHTML=h;
+  h=h.replace("<!--BARRE-HAUT-->",_barreHaut(/onclick="[^"]*"[^>]*>\s*[‹←]/.test(h)));// une flèche « ‹ » ou « ← » cliquable = page de détail
+  $.innerHTML=h;_espacesChiffres($);
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
@@ -3862,7 +3953,10 @@ _lcEtiquettes();
 if(tab==="bourse"&&bSub==="resume"&&!cmpOpen&&!aSym)setTimeout(_paintWorldMap,0);
 if(tab==="news"&&newsKey!==_newsTickers().map(p=>p.tk).sort().join(",")&&!newsLoading)loadNews();
 const tabs=[["bourse","Bourse"],["analyse","Analyse"],["conv","Conviction"],["news","Actus"],["home","Patrimoine"]];
-document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]===_navTabBas());return`<button class="nav-btn${ac?" active":""}" onclick="${t[0]==='home'?'goHome()':"gt('"+t[0]+"')"}"><span>${t[1]}</span>${t[0]==="analyse"&&ga().nA?'<div style="position:absolute;top:2px;right:4px;width:6px;height:6px;border-radius:var(--r-rond);background:var(--avert)"></div>':""}${ac?'<div style="width:20px;height:2px;background:var(--action);border-radius:var(--r-petit);margin-top:1px"></div>':""}</button>`}).join("");
+document.getElementById("nav").innerHTML=tabs.map(t=>{const ac=tab===t[0]||(tab==="detail"&&t[0]===_navTabBas());const centre=t[0]==="conv";
+ const clic=t[0]==='home'?'goHome()':"gt('"+t[0]+"')";const alerte=t[0]==="analyse"&&ga().nA?'<span class="nav-alerte" aria-hidden="true"></span>':"";
+ return centre?`<button class="nav-btn${ac?" active":""} centre" onclick="${clic}" aria-label="Conviction, journal"${ac?' aria-current="page"':""}><span class="nav-piece">${_svgPieceNav()}</span><span class="nav-lib">${t[1]}</span></button>`
+  :`<button class="nav-btn${ac?" active":""}" onclick="${clic}"${ac?' aria-current="page"':""}><span class="nav-ico">${_svgTrait(t[0])}${alerte}</span><span class="nav-lib">${t[1]}</span></button>`}).join("");_pilePlacer();
 
 // RESTAURATION fb23f43 : suppression de l'appel à bindInteraction/renderOverview (n'existaient pas dans la version d'origine)
 }
