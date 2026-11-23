@@ -117,6 +117,7 @@
 --interrupteur-off:var(--c-ardoise-pale);--piece-ignoree:var(--c-graph-gris-clair);
 --heros-f:var(--c-navy);--heros-t:var(--c-lune);--heros-menthe:var(--c-menthe);
 --badge-f:var(--c-navy);--badge-t:var(--c-menthe);--compteur-f:var(--c-emeraude);
+--heros-accent:var(--c-menthe);--invitation-f:var(--c-menthe);--donut-vide:var(--c-onglets);
 --sur-hausse:var(--c-navy);
 --hausse-f:var(--c-menthe-claire);
 --baisse:var(--c-baisse);
@@ -256,7 +257,9 @@
 --fs-titre:var(--t-30);/* avant 22 px : titre de page des maquettes */
 --fs-grand:var(--t-40);
 --fs-onglet:var(--t-14);   /* v265 : onglets, filtres */
---fs-bouton:var(--t-16);   /* v265 : retour, bouton flottant, barre fixe *//* avant 30 px : grand montant des cartes principales */
+--fs-bouton:var(--t-16);   /* v265 : retour, bouton flottant, barre fixe */
+--fs-section:var(--t-20);  /* v267 : titres de section des maquettes (« Répartition par enveloppe ») */
+--fs-montant:var(--t-24);  /* v267 : montants des tuiles et des totaux (Diamond) *//* avant 30 px : grand montant des cartes principales */
 /* 3. Tailles des icones et emojis isoles : gardees proches de leur taille d'avant (ce ne sont pas du texte). */
 --fs-ico-0:9px;
 --fs-ico-1:19px;
@@ -313,7 +316,7 @@ h1:not(.nom-titre),h2:not(.nom-titre),h3:not(.nom-titre),[style*="font-size:var(
 /* Noms de titres (actions, fonds) sur leur fiche : restent en Poppins (decision Yanis, v254). */
 .nom-titre{font-family:var(--police-texte)}
 /* v262 : grands montants (24 px et plus) en Diamond Grotesk, chiffres compris. Tous les autres chiffres restent en Poppins. */
-.mono[style*="font-size:var(--fs-titre)"],.mono[style*="font-size:var(--fs-grand)"],.mono[style*="font-size:var(--t-24)"],.mono[style*="font-size:var(--t-30)"],.mono[style*="font-size:var(--t-40)"],.montant-grand{font-family:var(--police-montant);font-synthesis:none}
+.mono[style*="font-size:var(--fs-titre)"],.mono[style*="font-size:var(--fs-grand)"],.mono[style*="font-size:var(--t-24)"],.mono[style*="font-size:var(--t-30)"],.mono[style*="font-size:var(--t-40)"],.montant-grand,.mono.montant-grand{font-family:var(--police-montant);font-synthesis:none}
 /* ═══ SOCLE-FORMES-FIN ═══ */
 /* ═══ SOCLE-MOUVEMENT-DEBUT ═══════════════════════════════════════════════════════════════════
    Les animations des maquettes (v262), reprises telles quelles : noms, durées et courbes. Branchées sur les écrans
@@ -489,7 +492,49 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .carte-heros{position:relative;overflow:hidden;background:var(--heros-f);color:var(--heros-t);border-radius:var(--r-heros);padding:22px 22px 20px;margin-bottom:10px;}
 .carte-heros.menthe{background:var(--heros-menthe);color:var(--txt);}
 .heros-piece1{position:absolute;right:-18px;top:-14px;}
-.heros-piece2{position:absolute;right:64px;top:46px;}
+.heros-piece2{position:absolute;right:64px;top:58px;}
+.heros-etoile{position:absolute;right:118px;top:22px;}
+/* BOURSE (v267, maquettes) */
+.heros-libelle{font-size:var(--fs-corps-fort);font-weight:500;color:var(--heros-accent);}
+.heros-montant{font-size:var(--fs-grand);line-height:46px;letter-spacing:-1px;}
+.heros-sous{font-size:var(--fs-corps-fort);}
+.heros-note{font-size:var(--fs-corps);margin-top:8px;}
+.heros-contenu{display:flex;flex-direction:column;gap:6px;}
+.tuiles{display:flex;gap:12px;margin-top:12px;}
+.tuile{flex:1;min-width:0;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px;}
+.tuile-tete{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:var(--fs-onglet);color:var(--dim);font-weight:500;}
+.tuile-aide{width:var(--toucher);height:var(--toucher);margin:-12px -12px -12px 0;border:0;background:transparent;color:var(--dim);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex-shrink:0;}
+.tuile-montant{font-size:var(--fs-montant);}
+.titre-section-ligne{display:flex;align-items:center;justify-content:space-between;margin:26px 0 8px;}
+.titre-section{margin:0;font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-section);line-height:26px;}
+.lien-detail{font-family:var(--police-texte);font-size:var(--fs-corps-fort);font-weight:600;color:var(--lien);background:none;border:0;display:flex;align-items:center;gap:2px;min-height:var(--toucher);padding:0;cursor:pointer;}
+.repartition{display:flex;gap:16px;align-items:center;padding:16px 18px;}
+.donut-env{position:relative;width:140px;height:140px;flex-shrink:0;}
+.donut-env svg{display:block;}
+.donut-centre{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:var(--fs-legende);color:var(--dim);}
+.donut-nombre{font-size:var(--fs-montant);line-height:30px;color:var(--txt);}
+.legende-env{flex:1;min-width:0;display:flex;flex-direction:column;}
+.ligne-env{display:flex;align-items:center;gap:10px;min-height:var(--toucher);background:none;border:0;padding:0;color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-bouton);cursor:pointer;text-align:left;}
+.ligne-env .nom{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ligne-env .pct{font-weight:700;font-variant-numeric:tabular-nums;}
+.total-positions{padding:16px 18px;}
+.tp-tete{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:var(--fs-corps-fort);color:var(--dim);font-weight:500;}
+.tp-montant{font-size:var(--fs-montant);color:var(--txt);}
+.barre-empilee{display:flex;gap:3px;border-radius:var(--r-pilule);overflow:hidden;margin-top:14px;}
+.barre-empilee>div{height:12px;}
+.carte-env{width:100%;display:flex;align-items:center;gap:14px;padding:14px 12px 14px 16px;margin-bottom:10px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-carte);color:var(--txt);font-family:var(--police-texte);text-align:left;cursor:pointer;-webkit-appearance:none;appearance:none;}
+.ce-texte{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.ce-nom{font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-sous-titre);line-height:24px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.ce-sous{font-size:var(--fs-onglet);color:var(--dim);}
+.ce-droite{display:flex;flex-direction:column;align-items:flex-end;gap:6px;}
+.ce-valeur{font-size:var(--fs-corps-fort);font-weight:700;}
+.carte-env>svg:last-child{color:var(--dim);flex-shrink:0;}
+.invitation-conviction{margin-top:18px;position:relative;overflow:hidden;border-radius:var(--r-carte);background:var(--invitation-f);color:var(--txt);padding:18px;display:flex;gap:14px;align-items:center;}
+.ic-deco{position:relative;width:64px;height:64px;flex-shrink:0;}
+.ic-texte{flex:1;display:flex;flex-direction:column;gap:4px;}
+.ic-titre{font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-sous-titre);line-height:22px;}
+.ic-sous{font-size:var(--fs-onglet);line-height:19px;}
+.ic-bouton{margin-top:6px;align-self:flex-start;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 14px;border-radius:var(--r-pilule);border:0;background:var(--onglet-actif-f);color:var(--onglet-actif-t);font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:700;cursor:pointer;}
 .heros-contenu{position:relative;}
 .bouton-flottant{height:56px;padding:0 22px 0 18px;border-radius:var(--r-18);border:0;background:var(--action);color:var(--sur-action);font-family:var(--police-texte);font-size:var(--fs-bouton);font-weight:700;display:inline-flex;align-items:center;gap:8px;box-shadow:var(--ombre-flottante);cursor:pointer;-webkit-appearance:none;appearance:none;}
 .bouton-points{width:var(--toucher);height:var(--toucher);border:0;background:transparent;color:var(--dim);display:inline-flex;align-items:center;justify-content:center;padding:0;cursor:pointer;-webkit-appearance:none;appearance:none;}
@@ -512,7 +557,7 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
-body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:max(8px,env(safe-area-inset-top,0px)) 16px calc(84px + env(safe-area-inset-bottom,0px))}
+body{max-width:480px;margin:0 auto;min-height:100vh;min-height:100dvh;padding:max(8px,env(safe-area-inset-top,0px)) 16px calc(106px + env(safe-area-inset-bottom,0px))}
 @media(min-width:760px){body{max-width:720px}.nav-inner{max-width:720px}}
 .card{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-carte);padding:16px;margin-bottom:10px}
 .card-tap{cursor:pointer}.card-tap:active{background:var(--appui)}
@@ -592,7 +637,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "266";
+const APP_VERSION = "267";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1235,7 +1280,9 @@ function _pilePlacer(){try{const c=document.getElementById("pileBas");if(!c)retu
   c.style.bottom=navVisible?(hNav+dep+8)+"px":"calc(env(safe-area-inset-bottom,0px) + 10px)";
   document.documentElement.style.setProperty("--hauteur-nav",(navVisible?hNav:0)+"px");
   let hPers=0;[].forEach.call(c.children,function(b){hPers+=b.getBoundingClientRect().height+8;});
-  document.body.style.paddingBottom=hPers?(hNav+dep+hPers+24)+"px":"";
+  // v267 : la marge du bas suit la hauteur RÉELLE de la barre (zone de sécurité de l'iPhone comprise) et la pièce
+  // Conviction qui dépasse : le dernier élément d'une page reste visible et touchable, bandeaux ou pas.
+  document.body.style.paddingBottom=navVisible?(hNav+dep+16+(hPers?hPers+8:0))+"px":(hPers?(hPers+24)+"px":"");
   const m=document.querySelector("#modal-root .modal");if(m)m.style.paddingBottom=hPers?(hNav+dep+hPers+24)+"px":"";
 }catch(e){}}
 function _bandeau(o){const c=_pile();let b=o.id?document.getElementById(o.id):null;
@@ -3326,8 +3373,22 @@ function _pastilleVar(pos,txt,grande){return `<span class="pastille-var ${pos?"h
 function _svgPiece(face,taille,tranche,coeur){const tr=tranche||`color-mix(in srgb, ${face} 60%, var(--c-navy))`,co=coeur||`color-mix(in srgb, ${face} 15%, var(--c-blanc))`;
  return `<svg width="${taille||36}" height="${taille||36}" viewBox="0 0 48 48" aria-hidden="true" style="display:block;flex-shrink:0"><ellipse cx="24" cy="26.5" rx="21" ry="20.5" style="fill:${tr}"></ellipse><circle cx="24" cy="23" r="21" style="fill:${face}"></circle><circle cx="24" cy="23" r="14.5" style="fill:${co}"></circle><g transform="translate(15 14) scale(0.75)"><path d="M12 2C12.8 8 16 11.2 22 12C16 12.8 12.8 16 12 22C11.2 16 8 12.8 2 12C8 11.2 11.2 8 12 2Z" style="fill:${face}"></path></g></svg>`;}
 function _pieceIgnoree(taille){return `<span class="piece-ignoree" style="width:${taille||36}px;height:${taille||36}px" aria-hidden="true"></span>`;}
-function _carteHeros(o){o=o||{};const pm=()=>_svgPiece("var(--piece-face)",88,"var(--piece-tranche)","var(--piece-coeur)"),pp=()=>_svgPiece("var(--piece-face)",40,"var(--piece-tranche)","var(--piece-coeur)");
- return `<div class="carte-heros${o.menthe?" menthe":""} cv-rise"><div class="heros-piece1 cv-float">${pm()}</div><div class="heros-piece2 cv-float2">${pp()}</div><div class="heros-contenu">${o.texte||""}</div></div>`;}
+function _svgEtoile(t,coul){return `<svg width="${t}" height="${t}" viewBox="0 0 24 24" aria-hidden="true" style="display:block"><path d="M12 2C12.8 8 16 11.2 22 12C16 12.8 12.8 16 12 22C11.2 16 8 12.8 2 12C8 11.2 11.2 8 12 2Z" style="fill:${coul}"></path></svg>`;}
+function _carteHeros(o){o=o||{};const pm=_svgPiece("var(--piece-face)",104,"var(--piece-tranche)","var(--piece-coeur)"),pp=_svgPiece("var(--c-bleu)",40);
+ return `<div class="carte-heros${o.menthe?" menthe":""} cv-rise"><div class="heros-piece1 cv-float">${pm}</div><div class="heros-piece2 cv-float2">${pp}</div><div class="heros-etoile cv-twinkle">${_svgEtoile(16,"var(--heros-accent)")}</div><div class="heros-contenu">${o.texte||""}</div></div>`;}
+// v267 — Bourse : petits composants des maquettes
+const _SVG_AIDE='<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6"></path><path d="M12 7.5v.5"></path></svg>';
+const _SVG_CHEVRON=(t)=>`<svg width="${t||16}" height="${t||16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>`;
+function _titreSection(titre,lien,clic){return `<div class="titre-section-ligne"><h2 class="titre-section">${titre}</h2>${lien?`<button type="button" class="lien-detail" onclick="${clic}">${lien}${_SVG_CHEVRON(16)}</button>`:""}</div>`;}
+function _tuile(lib,aide,montant,pied){return `<div class="tuile cv-rise"><div class="tuile-tete"><span>${lib}</span><button type="button" class="tuile-aide" aria-label="Comprendre : ${lib}" data-aide="${esc(aide)}" onclick="event.stopPropagation();toast(this.dataset.aide)">${_SVG_AIDE}</button></div><span class="mono montant-grand tuile-montant">${montant}</span><div>${pied}</div></div>`;}
+// Donut des maquettes : anneau de 140 px, un arc par enveloppe, 3 px d'écart, le nombre au centre
+function _donutEnveloppes(items,tot){const R=52,C=2*Math.PI*R;let cum=0;const arcs=items.map((it,i)=>{const L=tot>0?it.v/tot*C:0;const a=`<circle class="cv-draw" cx="70" cy="70" r="52" fill="none" stroke-width="18" style="stroke:${it.col};animation-delay:${_nCss(i*0.12,2)}s" stroke-dasharray="${_nCss(Math.max(0,L-3),2)} ${_nCss(C-Math.max(0,L-3),2)}" stroke-dashoffset="${_nCss(-cum,2)}" transform="rotate(-90 70 70)"></circle>`;cum+=L;return a;}).join("");
+ const lab=items.map(it=>esc(it.nom)+" "+vg(tot>0?it.v/tot*100:0,1)+" %").join(", ");
+ return `<div class="donut-env"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Répartition par enveloppe : ${escAttr(lab)}"><circle cx="70" cy="70" r="52" fill="none" stroke-width="18" style="stroke:var(--donut-vide)"></circle>${arcs}</svg><div class="donut-centre"><span class="mono montant-grand donut-nombre">${items.length}</span> <span>enveloppe${items.length>1?"s":""}</span></div></div>`;}
+// Positions sans thèse écrite (mêmes règles que « À compléter » de Conviction)
+function _sansThese(){const notes=(D.prefs&&D.prefs.notes)||{};return ga().ap.filter(x=>!x.manual&&!x.noPerf&&!(notes[x.ticker]&&notes[x.ticker].trim()));}
+function _invitationConviction(){const n=_sansThese().length;if(!n)return "";
+ return `<div class="invitation-conviction"><div class="ic-deco"><div class="cv-float" style="position:absolute;left:0;top:4px">${_svgPiece("var(--piece-face)",56,"var(--piece-tranche)","var(--piece-coeur)")}</div><div class="cv-twinkle" style="position:absolute;right:-2px;top:-2px">${_svgEtoile(18,"var(--txt)")}</div></div><div class="ic-texte"><span class="ic-titre">${n} position${n>1?"s":""} sans conviction écrite</span><span class="ic-sous">Pourquoi tu les as achetées ? Une phrase suffit.</span><button type="button" class="ic-bouton" onclick="gt('conv');setConvFill('these')">Écrire ma conviction<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></div></div>`;}
 function _boutonFlottant(lib,clic){return `<button type="button" class="bouton-flottant cv-pop" onclick="${clic}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>${esc(lib)}</button>`;}
 function _boutonPoints(lib,clic){return `<button type="button" class="bouton-points" aria-label="${escAttr(lib)}" onclick="${clic}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg></button>`;}
 function _barreFixe(bt){return `<div class="barre-fixe">${(bt||[]).map(b=>`<button type="button"${b.principal?' class="principal"':""} onclick="${b.clic||""}">${b.ico==="plus"?`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>`:""}${esc(b.lib)}</button>`).join("")}</div>`;}
@@ -6963,21 +7024,27 @@ const byP={};bl.forEach(r=>{const o=byP[r.poche]=byP[r.poche]||{v:0,inv:0,n:0};o
 const pNames=Object.keys(byP).sort((a,b)=>byP[b].v-byP[a].v);
 const cols=pNames.map(n=>_pocheColor(n));
 if(bSub==="resume"){
-sh+=`<div class="card"><div style="font-size:var(--fs-legende);color:var(--mut)">Valeur de tes placements</div><div class="mono" style="font-size:var(--fs-grand);font-weight:800;letter-spacing:-1px;margin:4px 0 2px">${fmtE_(tot)} €</div><div style="font-size:var(--fs-legende);color:var(--dim);margin-bottom:6px">titres, ETF, crypto et fonds · valeur de marché aujourd'hui</div><div style="font-size:var(--fs-petit);color:var(--mut);margin-bottom:8px">sur ${fmtE_(inv)} € investis</div>${_pastilleVar(pv>=0,`${pv>=0?"+":""}${vg(pvPct,1)}\u00a0% de ${pv>=0?"plus":"moins"}-value`)}${_fxBandeau()}</div>`;
-sh+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">`;
-sh+=`<div class="card" style="margin-bottom:0;padding:12px"><div style="font-size:var(--fs-legende);color:var(--mut)">Variation depuis le départ</div><div class="mono" style="font-size:var(--fs-sous-titre);font-weight:800;margin:4px 0 5px"><span style="${_vs(pv>=0)}">${pv>=0?"+":""}${isPriv()?"•••":F0(pv)+" €"}</span></div>${_pastilleVar(pv>=0,`${pvPct>=0?"+":""}${vg(pvPct,1)}\u00a0%`)}</div>`;
-sh+=`<div class="card" style="margin-bottom:0;padding:12px"><div style="font-size:var(--fs-legende);color:var(--mut);display:flex;align-items:center;gap:4px">Variation du jour<span onclick="event.stopPropagation();toast('Somme des mouvements de marché du jour, uniquement sur tes valeurs cotées et rafraîchies ce jour. Les fonds (VL), livrets et lignes manuelles ne bougent pas en séance : ils ne sont pas comptés ici.')" style="display:inline-flex;align-items:center;justify-content:center;width:13px;height:13px;border-radius:var(--r-rond);background:var(--action);color:var(--sur-action);font-size:var(--fs-ico-0);font-weight:700;cursor:pointer">?</span></div><div class="mono" style="font-size:var(--fs-sous-titre);font-weight:800;margin:4px 0 5px">${dayPct!=null?`<span style="${_vs(dayE>=0)}">${(dayE>=0?"+":"")+fmtE_(dayE)+" €"}</span>`:"—"}</div>${dayPct!=null?`${_pastilleVar(dayE>=0,`${dayPct>=0?"+":""}${vg(dayPct,1)}\u00a0%`)}`:`<span style="font-size:var(--fs-legende);color:var(--mut)">dès la prochaine séance</span>`}</div>`;
-sh+=`</div>`;
-const dd2=pNames.map(n=>[n,byP[n].v]);
-sh+=`<div class="section mini" style="margin:16px 2px 6px">Répartition par enveloppe</div>`;
-sh+=`<div class="card"><div style="display:flex;align-items:center;gap:16px">${dn(dd2,cols,120)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd2.map((d,i)=>`<div onclick="oP('${escAttr(d[0])}')" style="display:flex;align-items:center;gap:5px;font-size:var(--fs-legende);cursor:pointer"><div class="pastille-donnee" style="width:8px;height:8px;border-radius:var(--r-rond);background:${cols[i]}"></div><span style="color:var(--dim);flex:1">${esc(d[0])}</span><span class="mono" style="font-weight:500">${vg((d[1]/(tot||1))*100,1)}\u00a0% · ${fmtE_(d[1])} €</span></div>`).join("")}</div></div></div>`;
+// v267 : maquette « Résumé » — carte héros navy, deux tuiles, répartition par enveloppe (donut + pièces)
+const _sg=(v)=>(v>=0?"+":"−");
+sh+=_carteHeros({texte:`<span class="heros-libelle">Valeur de tes placements</span><span class="mono montant-grand heros-montant">${fmtE_(tot)} €</span><span class="heros-sous">sur ${fmtE_(inv)} € investis</span><div style="margin-top:10px">${_pastilleVar(pv>=0,`${pv>=0?"+":""}${vg(pvPct,1)}\u00a0% de ${pv>=0?"plus":"moins"}-value`,true)}</div><span class="heros-note">Titres, ETF, crypto et fonds · valeur de marché du jour</span>`});
+sh+=_fxBandeau();
+sh+=`<div class="tuiles">`
+ +_tuile("Depuis le départ","Ce que tes placements ont gagné ou perdu depuis tes achats : leur valeur de marché aujourd'hui, moins ce que tu as investi.",`${_sg(pv)}${isPriv()?"•••":F0(Math.abs(pv))+" €"}`,_pastilleVar(pv>=0,`${pvPct>=0?"+":""}${vg(pvPct,1)}\u00a0%`))
+ +_tuile("Aujourd'hui","Somme des mouvements de marché du jour, uniquement sur tes valeurs cotées et rafraîchies ce jour. Les fonds (VL), livrets et lignes manuelles ne bougent pas en séance : ils ne sont pas comptés ici.",dayPct!=null?`${_sg(dayE)}${isPriv()?"•••":fmtE_(Math.abs(dayE))+" €"}`:"—",dayPct!=null?_pastilleVar(dayE>=0,`${dayPct>=0?"+":""}${vg(dayPct,1)}\u00a0%`):`<span style="font-size:var(--fs-legende);color:var(--mut)">dès la prochaine séance</span>`)
+ +`</div>`;
+const _it=pNames.map((n,i)=>({nom:n,v:byP[n].v,col:cols[i]}));
+sh+=_titreSection("Répartition par enveloppe","Détail","setBSub('positions')");
+sh+=`<div class="card repartition">${_donutEnveloppes(_it,tot)}<div class="legende-env">${_it.map(it=>`<button type="button" class="ligne-env" onclick="oP('${escAttr(it.nom)}')">${_svgPiece(it.col,26)}<span class="nom">${esc(it.nom)}</span><span class="pct">${vg((it.v/(tot||1))*100,1)}\u00a0%</span></button>`).join("")}</div></div>`;
 sh+=worldMapHtml();
 sh+=`<div style="display:none">`+[["conv","Convertisseur"],["pru","Calcul PRU"]].map(t=>`<span onclick="swiPru=${t[0]==="pru"?"true":"false"};R()" class="choix${(swiPru?(t[0]==="pru"):(t[0]==="conv"))?" actif":""}">${t[1]}</span>`).join("")+`</div>`;
 }
 if(bSub==="positions"){
 sh+=_ctrlCarte();
+// v267 : maquette « Positions » — total + barre empilée, une carte par enveloppe, invitation à écrire ses convictions
+sh+=`<div class="card total-positions"><div class="tp-tete"><span>Total · ${bl.length} position${bl.length>1?"s":""}</span><span class="mono montant-grand tp-montant">${fmtE_(tot)} €</span></div><div class="barre-empilee" role="img" aria-label="Poids des enveloppes">${pNames.map((n,i)=>`<div class="cv-grow" style="width:${_nCss(byP[n].v/(tot||1)*100,1)}%;background:${cols[i]};animation-delay:${_nCss(i*0.08,2)}s"></div>`).join("")}</div></div>`;
 sh+=pNames.map((n,i)=>{const o=byP[n];const plE=o.v-o.inv;const plP=o.inv>0?plE/o.inv*100:0;
-return `<div class="card" onclick="oP('${escAttr(n)}')" style="border-left:3px solid ${cols[i]};padding:13px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer"><div style="min-width:0"><div class="titre-carte">${esc(n)}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:2px">${o.n} position${o.n>1?"s":""}</div></div><div style="display:flex;align-items:center;gap:10px"><div style="text-align:right"><div class="mono" style="font-size:var(--fs-corps-fort);font-weight:700">${fmtE_(o.v)} €</div><div class="mono" style="font-size:var(--fs-petit)"><span style="${_vs(plE>=0)}">${plE>=0?"+":""}${isPriv()?"•••":F0(plE)+" €"} · ${plP>=0?"+":""}${vg(plP,1)}\u00a0%</span></div></div><span style="color:var(--mut);font-size:var(--fs-sous-titre)">›</span></div></div>`;}).join("");
+return `<button type="button" class="carte-env cv-rise" onclick="oP('${escAttr(n)}')" style="animation-delay:${_nCss(i*0.07,2)}s">${_svgPiece(cols[i],48)}<span class="ce-texte"><span class="ce-nom">${esc(n)}</span><span class="ce-sous">${o.n} position${o.n>1?"s":""} · ${vg(o.v/(tot||1)*100,1)}\u00a0%</span></span><span class="ce-droite"><span class="ce-valeur">${fmtE_(o.v)} €</span>${_pastilleVar(plE>=0,`${plP>=0?"+":"−"}${vg(Math.abs(plP),1)}\u00a0%`)}</span>${_SVG_CHEVRON(20)}</button>`;}).join("");
+sh+=_invitationConviction();
 }
 if(bSub==="suivi"){
 if(bTool)sh+=bToolHtml();
