@@ -473,6 +473,8 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
    contenu d'une fenêtre déjà ouverte change */
 .modal::before{content:"";display:block;width:36px;height:5px;border-radius:var(--r-pilule);background:var(--bdr);margin:0 auto 14px;}
 .modal.sans-anim{animation:none;}
+.modal{overscroll-behavior:contain;}
+.modal .btn-x{display:none;}/* v266 : plus de croix ; glisser vers le bas ou toucher la zone assombrie (même action) */
 /* RETOUR (v265, maquettes) : chevron au trait + nom de l'écran de destination */
 .retour{display:inline-flex;align-items:center;gap:2px;min-height:var(--toucher);padding:0 8px;margin:0 0 4px -8px;background:none;border:none;color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-bouton);font-weight:600;cursor:pointer;-webkit-appearance:none;appearance:none;-webkit-tap-highlight-color:transparent;}
 .retour svg{display:block;flex-shrink:0;}
@@ -502,6 +504,11 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .pastille-distance{font-size:var(--fs-petit);font-weight:600;color:var(--dim);white-space:nowrap;}
 .badge-cible{height:26px;padding:0 9px;border-radius:var(--r-pilule);background:var(--badge-f);color:var(--badge-t);font-size:var(--fs-petit);font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .badge-cible svg{display:block;flex-shrink:0;}
+/* COURS (v266) : mention hors séance à côté du prix, heure du cours, ligne hors séance à part */
+.mention-hs{font-size:var(--fs-petit);font-weight:600;color:var(--dim);}
+.heure-cours{font-size:var(--fs-legende);color:var(--dim);margin:-8px 0 10px;}
+.ligne-hs{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:var(--fs-petit);color:var(--dim);margin:-4px 0 12px;}
+.hs-aide{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:var(--r-rond);background:var(--bdr);color:var(--dim);font-size:var(--fs-legende);font-weight:700;cursor:pointer;}
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
@@ -585,7 +592,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "265";
+const APP_VERSION = "266";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -805,13 +812,13 @@ function _coursEnPru(x){const c=Number(x&&x.cours)||0;if(_pruCur(x)===curOf(x))r
 // PRU ramené dans la monnaie du cours (barre de progression, détection des divisions).
 function _pruEnCours(x){const v=Number(x&&x.pru)||0;if(_pruCur(x)===curOf(x))return v;const tc=toEur(curOf(x)),tp=toEur(_pruCur(x));return (tc>0&&tp>0)?v*tp/tc:0;}
 function _invEur(x){if(!_posOk(x))return 0;return (x.qty||0)*(x.pru||0)*toEur(_pruCur(x));}
-function _plDevPos(x){if(_pruCur(x)===curOf(x))return (x.qty||0)*((x.cours||0)-(x.pru||0));return (x.qty||0)*(_coursEnPru(x)-(x.pru||0));}
-function _plPctPos(x){if(!(x&&x.pru))return 0;if(_pruCur(x)===curOf(x))return (x.cours-x.pru)/x.pru*100;return (_coursEnPru(x)-x.pru)/x.pru*100;}
+function _plDevPos(x){if(_pruCur(x)===curOf(x))return (x.qty||0)*((_coursValo(x)||0)-(x.pru||0));return (x.qty||0)*(_coursEnPru(x)-(x.pru||0));}
+function _plPctPos(x){if(!(x&&x.pru))return 0;if(_pruCur(x)===curOf(x))return (_coursValo(x)-x.pru)/x.pru*100;return (_coursEnPru(x)-x.pru)/x.pru*100;}
 // Londres : le titre s'affiche dans l'unité choisie pour le PRU (livre ou pence, « p »).
 const _LONDRES=["GBp","GBX","GBP"];
 function _dispCur(x){const c=curOf(x),p=_pruCur(x);return (_LONDRES.includes(c)&&_LONDRES.includes(p))?p:c;}
 function _enUnite(v,de,vers){if(de===vers||v==null)return v;const a=toEur(de),b=toEur(vers);return (a>0&&b>0)?v*a/b:v;}
-function _coursAff(x){return _enUnite(x.cours,curOf(x),_dispCur(x));}
+function _coursAff(x){return _enUnite(_coursValo(x),curOf(x),_dispCur(x));}
 // Montant d'une monnaie vers une autre au taux du jour ; null si un taux manque.
 function _conv(v,de,vers){if(de===vers)return v;const a=toEur(de),b=toEur(vers);return (a>0&&b>0)?v*a/b:null;}
 const _m2=v=>new Intl.NumberFormat("fr-FR",{minimumFractionDigits:2,maximumFractionDigits:2}).format(v||0);
@@ -1185,7 +1192,29 @@ let _pendingSale=null;
 // Sans cette correction, la modal de login ne pouvait jamais être fermée
 // (currentUser est null au moment où l'on affiche la page d'auth).
 // _pendingSale est vidé uniquement quand un utilisateur est connecté.
-function sm(h){const r=document.getElementById("modal-root");const deja=!!r.querySelector(".modal");r.innerHTML=`<div class="modal-bg" onclick="cm()"><div class="modal${deja?" sans-anim":""}" onclick="event.stopPropagation()">${h}</div></div>`;_espacesChiffres(r);_pilePlacer();}
+function sm(h){const r=document.getElementById("modal-root");const deja=!!r.querySelector(".modal");r.innerHTML=`<div class="modal-bg" onclick="_fermerFenetre()"><div class="modal${deja?" sans-anim":""}" onclick="event.stopPropagation()">${h}</div></div>`;_espacesChiffres(r);_brancherFeuille(r.querySelector(".modal"));_pilePlacer();}
+// v266 : les fenêtres se ferment en glissant vers le bas (au-delà de 100 px) ou en touchant la zone assombrie.
+// La croix n'est plus affichée, mais son action reste celle de la fermeture (revenir à la fenêtre d'avant,
+// annuler une vente en cours…). Le geste ne démarre que si le contenu est tout en haut (ou depuis la poignée) :
+// le défilement du contenu n'est jamais gêné. Lâcher avant le seuil remet la fenêtre en place.
+const _FEUILLE_SEUIL=100;
+function _fermerFenetre(){const m=document.querySelector("#modal-root .modal");if(!m)return;const x=m.querySelector(".btn-x");if(x){x.click();return;}cm();}
+window._fermerFenetre=_fermerFenetre;
+function _brancherFeuille(m){if(!m)return;let f=null;
+  m.addEventListener("touchstart",e=>{f=null;if(e.touches.length!==1)return;const y=e.touches[0].clientY;const dy=y-m.getBoundingClientRect().top;const poignee=dy>=0&&dy<32;
+    if(!poignee&&m.scrollTop>0)return;if(!poignee&&e.target&&e.target.closest&&e.target.closest("input,textarea,select,[data-sans-tirer]"))return;
+    f={y0:y,d:0,actif:false,poignee:poignee};},{passive:true});
+  m.addEventListener("touchmove",e=>{if(!f)return;const d=e.touches[0].clientY-f.y0;
+    if(!f.actif){if(d>6&&(f.poignee||m.scrollTop<=0))f.actif=true;else if(d<-4||m.scrollTop>0){f=null;return;}else return;}
+    if(e.cancelable)e.preventDefault();f.d=Math.max(0,d);m.style.transition="none";m.style.transform=f.d?"translateY("+f.d+"px)":"";},{passive:false});
+  const fin=()=>{if(!f)return;const g=f;f=null;if(!g.actif)return;
+    if(g.d>=_FEUILLE_SEUIL){const reduit=!!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches);
+      if(reduit){_fermerFenetre();return;}
+      m.style.transition="transform .2s ease-in";m.style.transform="translateY(110%)";
+      setTimeout(()=>{if(document.querySelector("#modal-root .modal")===m)_fermerFenetre();},200);}
+    else{m.style.transition="transform .2s ease-out";m.style.transform="";}};
+  m.addEventListener("touchend",fin,{passive:true});
+  m.addEventListener("touchcancel",()=>{if(f)f.d=0;fin();},{passive:true});}
 function cm(){
   document.getElementById("modal-root").innerHTML="";
   if(currentUser) _pendingSale=null; // ne vider _pendingSale que si connecté
@@ -1308,12 +1337,13 @@ function rc(d){
       const cur=curOf(x);
       const te=toEur(cur);
       // v257 : monnaie du PRU. Même monnaie que le cours → formules historiques, à l'identique.
+      const cx=_coursValo(x);// v266 : prix officiel, ou dernier prix échangé (réglage « Inclure les prix hors séance »)
       if(_pruCur(x)===cur){
-        x.valeur=(x.qty*x.cours)*te;
-        x.pl=(x.qty*(x.cours-x.pru))*te;
+        x.valeur=(x.qty*cx)*te;
+        x.pl=(x.qty*(cx-x.pru))*te;
       }else{
         const ok=_posOk(x);
-        x.valeur=ok?(x.qty*x.cours)*te:0;
+        x.valeur=ok?(x.qty*cx)*te:0;
         x.pl=ok?x.valeur-(x.qty*x.pru)*toEur(_pruCur(x)):0;
       }
       x.plPct=_plPctPos(x);x.plDev=_plDevPos(x);x.plCur=_pruCur(x);
@@ -2053,7 +2083,7 @@ function _syncErr(){const now=Date.now();if(now-_lastSyncErrToast<15000)return;_
 // Caches recalculés automatiquement sur chaque appareil : jamais de conflit, la copie locale prime.
 const _SYNC_PREFS_AUTO=new Set(["divAutoSym","divAutoSymTs","curSourceSym","staleQuoteSym","staleQuoteSymTs","divAuto","divAutoTs","earnHist","earnHistTs","etfHoldings","fxRates","fxTs","curSource","isinFailed","isinOfFailed","paysAuto","paysAutoTs","paysEchec","paysTry","staleQuote","staleQuoteTs","poidsHist","achatSync","palierSync","seedMode","smoothMid"]);
 // Marqueurs « vu », horodatages et réglages d'affichage : fusion sans alerte (le plus récent).
-const _SYNC_PREFS_SOUPLE=new Set(["convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
+const _SYNC_PREFS_SOUPLE=new Set(["horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
 const _SYNC_PREFS_TECH=["_rev","_migs"];
 const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
 const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser","cibleCurrency","cibleHautCurrency"];
@@ -2784,7 +2814,7 @@ if(D.poches.Crypto)D.poches.Crypto.positions.forEach(p=>{const _ce=curOf(p)==="E
     try{
       const sp=await fetchStocks();
       Object.values(D.poches).forEach(p=>p.positions.forEach(pos=>{
-        const _u=_symUS(pos);if(_u&&sp[_u]!=null){_applyPx(pos,sp[_u],nowMs);const _pc=(window._usPrevClose||{})[_u];if(_pc>0){pos.prevClose=_pc;pos.dayPct=(pos.cours-_pc)/_pc*100;pos.dayPctAt=nowMs;}cnt++}
+        const _u=_symUS(pos);if(_u&&sp[_u]!=null){_applyPx(pos,sp[_u],nowMs);pos.quoteTs=null;/* v266 : heure inconnue, le cours officiel Yahoo (quotefull) le remplace dès qu'il arrive */const _pc=(window._usPrevClose||{})[_u];if(_pc>0){pos.prevClose=_pc;pos.dayPct=(pos.cours-_pc)/_pc*100;pos.dayPctAt=nowMs;}cnt++}
       }));
       ok=true;
     }catch(e){}
@@ -3229,6 +3259,64 @@ function _svgTrait(k){return `<svg width="22" height="22" viewBox="0 0 24 24" fi
 // Pièce Conviction de la barre du bas (maquettes), couleurs par les rôles du socle
 function _svgPieceNav(){return `<svg width="50" height="50" viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="26.5" rx="21" ry="20.5" style="fill:var(--piece-tranche)"></ellipse><circle cx="24" cy="23" r="21" style="fill:var(--piece-face)"></circle><circle cx="24" cy="23" r="14.5" style="fill:var(--piece-coeur)"></circle><g transform="translate(15 14) scale(0.75)"><path d="M12 2C12.8 8 16 11.2 22 12C16 12.8 12.8 16 12 22C11.2 16 8 12.8 2 12C8 11.2 11.2 8 12 2Z" style="fill:var(--piece-face)"></path></g></svg>`;}
 const _TITRES_PAGE={bourse:"Bourse",analyse:"Analyse",conv:"Conviction",news:"Actus",home:"Patrimoine"};
+// ═══ v266 — UN SEUL COURS PAR TITRE (fiche, position, portefeuille) ═══════════════════════════════
+// Toute source de cours passe par ici : mise à jour des cours (Yahoo quotefull, 15 min), cotation de la fiche (à
+// l'ouverture puis toutes les 2 min). Le relevé le plus récent PAR SON HEURE DE COTATION l'emporte ; un cours d'heure
+// inconnue (Finnhub) cède toujours la place au cours officiel de Yahoo. Un relevé dans une autre monnaie que la position
+// ne la touche pas. Option A (par défaut) : prix officiel de la séance partout, hors séance sur une ligne à part.
+// Option B (réglage « Inclure les prix hors séance », synchronisé) : dernier prix échangé partout, mention à côté.
+// Les alertes et les plans gardent le prix officiel.
+const _releves={};
+function _horsSeanceActif(){return !!(typeof D!=="undefined"&&D&&D.prefs&&D.prefs.horsSeance);}
+function _noterReleve(sym,r){if(!sym||!r)return null;const a=_releves[sym];
+  if(a&&a.t&&r.t&&r.t<a.t){if(r.preT&&(!a.preT||r.preT>a.preT)){a.preP=r.preP;a.prePct=r.prePct;a.preT=r.preT;}if(r.postT&&(!a.postT||r.postT>a.postT)){a.postP=r.postP;a.postPct=r.postPct;a.postT=r.postT;}return a;}
+  const n=Object.assign({},r,{at:Date.now()});
+  if(a){["preP","prePct","preT","postP","postPct","postT"].forEach(k=>{if(n[k]==null&&a[k]!=null)n[k]=a[k];});}
+  _releves[sym]=n;return n;}
+function _majCoursPos(x,r){if(!x||x.manual||!(r&&r.p>0))return false;if(r.cur&&r.cur!==curOf(x))return false;
+  if(x.quoteTs&&r.t&&r.t<x.quoteTs)return false;if(x.quoteTs&&!r.t)return false;if(x.quoteTs&&r.t===x.quoteTs&&x.cours===r.p)return false;
+  _applyPx(x,r.p,Date.now());x.quoteTs=r.t||null;
+  // variation du jour : depuis la clôture de veille du relevé, sinon celle déjà connue de la position ; jamais un % périmé
+  if(r.pc>0){x.prevClose=r.pc;x.dayPct=(r.p-r.pc)/r.pc*100;x.dayPctAt=Date.now();}
+  else if(x.prevClose>0){x.dayPct=(r.p-x.prevClose)/x.prevClose*100;x.dayPctAt=Date.now();}
+  else{x.dayPct=null;}
+  return true;}
+function _positionsDe(sym){const L=[];if(D&&D.poches)Object.values(D.poches).forEach(p=>(p.positions||[]).forEach(x=>{if(!x.manual&&(_ySym(x)===sym||x.ticker===sym))L.push(x);}));return L;}
+// Réponse de ?quotefull= (Yahoo, prix officiel de séance + hors séance) ; t en secondes.
+function _recevoirQuoteFull(d,silencieux){let ch=false;if(!d||typeof d!=="object")return false;
+  Object.keys(d).forEach(sym=>{const q=d[sym];if(!q||!(q.p>0))return;
+    const r=_noterReleve(sym,{p:q.p,pc:(q.chg!=null?q.p-q.chg:null),t:q.t?q.t*1000:null,cur:q.cur||null,
+      preP:q.preP>0?q.preP:null,prePct:q.prePct!=null?q.prePct:null,preT:q.preT?q.preT*1000:null,
+      postP:q.postP>0?q.postP:null,postPct:q.postPct!=null?q.postPct:null,postT:q.postT?q.postT*1000:null});
+    _positionsDe(sym).forEach(x=>{if(_majCoursPos(x,r))ch=true;});});
+  if(ch){rc(D);if(!silencieux){try{saveLocal();}catch(e){}}}return ch;}
+// Cotation de la fiche (_coursEtDevise : px, pc, t en secondes, cur).
+function _recevoirCotation(sym,d,sansSauver){if(!d||!(d.px>0))return false;const r=_noterReleve(sym,{p:d.px,pc:d.pc>0?d.pc:null,t:d.t?d.t*1000:null,cur:d.cur||null});
+  let ch=false;_positionsDe(sym).forEach(x=>{if(_majCoursPos(x,r))ch=true;});if(ch){rc(D);if(!sansSauver){try{saveLocal();}catch(e){}}}return ch;}
+// Prix hors séance plus récent que le prix officiel : pré-ouverture ou après-clôture (le plus récent des deux).
+function _horsSeanceDe(r){if(!r||!(r.p>0))return null;const t0=r.t||0;let hs=null;
+  if(r.preP>0&&r.preT&&r.preT>t0)hs={px:r.preP,t:r.preT,lib:"pré-ouverture",pct:r.prePct!=null?r.prePct:(r.preP-r.p)/r.p*100,dp:(r.preP-r.p)/r.p*100};
+  if(r.postP>0&&r.postT&&r.postT>t0&&(!hs||r.postT>hs.t))hs={px:r.postP,t:r.postT,lib:"après-clôture",pct:r.postPct!=null?r.postPct:(r.postP-r.p)/r.p*100,dp:r.pc>0?(r.postP-r.pc)/r.pc*100:null};
+  return hs;}
+// Le cours d'un titre, pour la fiche et la page de la position : {px, t, dp (jour), mention, hs (ligne à part)}.
+function _prixTitre(sym,x){const r=sym?_releves[sym]:null;const okR=!!(r&&(!x||!r.cur||r.cur===curOf(x)));let px,t,dp;
+  if(x&&!x.manual&&x.cours>0){px=x.cours;t=x.quoteTs||null;dp=_varJour(x);}
+  else if(okR&&r.p>0){px=r.p;t=r.t||null;dp=r.pc>0?(r.p-r.pc)/r.pc*100:null;}
+  else return null;
+  const hs=okR?_horsSeanceDe(r):null;
+  if(hs&&_horsSeanceActif())return{px:hs.px,t:hs.t,dp:hs.dp,mention:hs.lib,hs:null,officiel:px};
+  return{px:px,t:t,dp:dp,mention:null,hs:hs,officiel:px};}
+// Prix retenu pour la valeur d'une position : officiel, ou dernier prix échangé si le réglage est actif.
+function _coursValo(x){if(!x)return 0;if(!_horsSeanceActif()||x.manual)return x.cours;const pt=_prixTitre(_ySym(x),x);return (pt&&pt.mention)?pt.px:x.cours;}
+function _pctSigne(v){return (v>=0?"+":"−")+vg(Math.abs(v),1)+"\u00a0%";}
+function _heureCours(t){if(!t)return "";const d=new Date(t);if(d.toDateString()===new Date().toDateString())return "cours de "+d.getHours()+" h "+String(d.getMinutes()).padStart(2,"0");
+  return "cours du "+String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0");}
+function _heureEtHorsSeance(pt,sym){let h="";const hc=_heureCours(pt.t);if(hc)h+=`<div class="heure-cours">${hc}</div>`;
+  if(pt.hs)h+=`<div class="ligne-hs"><span>${pt.hs.lib}</span> <span class="mono" style="font-weight:600">${fmt2_(pt.hs.px)} ${sym}</span>${pt.hs.pct!=null?` <span>·</span> <span class="mono">${_pctSigne(pt.hs.pct)}</span>`:""} <span onclick="event.stopPropagation();_horsSeanceInfo()" class="hs-aide" aria-label="Qu'est-ce que le prix hors séance ?">?</span></div>`;
+  return h;}
+function _reglageHorsSeanceHtml(){const on=_horsSeanceActif();
+  return `<div data-reglage="horsSeance" onclick="_basculerHorsSeance()" style="display:flex;align-items:center;gap:12px;padding:12px;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);margin-bottom:15px;cursor:pointer"><span class="interrupteur${on?" on":""}" role="switch" aria-checked="${on}" aria-label="Inclure les prix hors séance"><span class="interrupteur-rond"></span></span><div style="flex:1;min-width:0"><div style="font-size:var(--fs-corps);font-weight:700">Inclure les prix hors séance</div><div style="font-size:var(--fs-legende);color:var(--dim);line-height:1.45;margin-top:2px">${on?"Activé : le dernier prix échangé, avant l'ouverture et après la clôture, compte partout (mention à côté du prix).":"Désactivé : le prix officiel de la séance partout ; le prix hors séance s'affiche sur une ligne à part."}</div></div></div>`;}
+window._basculerHorsSeance=()=>{D.prefs=D.prefs||{};D.prefs.horsSeance=!_horsSeanceActif();rc(D);save();eSettings();};
 // ═══ v265 — composants communs (maquettes). Retour, pastille de variation : posés partout dès la v265.
 // Les autres sont sur la planche (pour-margot/composants.html) et posés écran par écran à partir de la séance 4.
 function _retourHtml(clic,lib){return `<button type="button" class="retour" onclick="${clic}"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>${esc(lib||"Retour")}</button>`;}
@@ -3409,7 +3497,7 @@ window.dismissAllAlerts=()=>{const d=ga();D.prefs=D.prefs||{};D.prefs.dismissedA
 window.choosePoche=()=>{const poches=Object.keys(D.poches);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Choisir l'enveloppe</h3><button class="btn-x" onclick="cm()">✕</button></div><div style="display:flex;flex-direction:column;gap:8px">${poches.map(p=>`<div class="card card-tap" onclick="cm();aPos('${escAttr(p)}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px"><div style="width:4px;height:28px;border-radius:var(--r-petit);background:${_pocheColor(p)}"></div><span style="font-size:var(--fs-corps-fort);font-weight:600">${esc(p)}</span></div>`).join('')}</div>`)};
 // Supprimer une enveloppe vide
 window.dEnv=(name)=>{if(!D.poches[name])return;if(D.poches[name].positions.length>0)return toast("Supprime d'abord les positions de cette enveloppe.");if(!confirm("Supprimer l'enveloppe "+name+" ?"))return;delete D.poches[name];sel=null;tab="home";save()};
-window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Paramètres</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="mono" style="font-size:var(--fs-corps-fort);font-weight:600;color:var(--txt);margin:-6px 0 14px">Version ${APP_VERSION}</div><div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:12px;margin-bottom:15px"><div class="section" style="margin-bottom:8px">Compte (Supabase)</div><div style="font-size:var(--fs-corps);margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label class="section mini" style="margin-bottom:6px;display:block">Exportation</label><button class="btn btn-s" style="width:100%" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label class="section mini" style="margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p btn-sm" style="width:100%" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label class="section mini" style="margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn btn-s btn-sm" style="width:100%;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d btn-sm" style="width:100%" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:var(--fs-petit);color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
+window.eSettings=()=>{ sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Paramètres</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="mono" style="font-size:var(--fs-corps-fort);font-weight:600;color:var(--txt);margin:-6px 0 14px">Version ${APP_VERSION}</div>${_reglageHorsSeanceHtml()}<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:12px;margin-bottom:15px"><div class="section" style="margin-bottom:8px">Compte (Supabase)</div><div style="font-size:var(--fs-corps);margin-bottom:8px">Connecté : <b>${esc(currentUser.email||"")}</b></div><button class="btn btn-d" style="width:100%" onclick="doSignOut()">Se déconnecter</button></div><label class="section mini" style="margin-bottom:6px;display:block">Exportation</label><button class="btn btn-s" style="width:100%" onclick="exportPDF()">📄 Exporter le portefeuille en PDF</button><label class="section mini" style="margin:16px 0 6px;display:block">Codes ISIN</label><button class="btn btn-p btn-sm" style="width:100%" onclick="fillMissingIsins()">🔖 Remplir les ISIN manquants</button><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Récupère l'ISIN des actions non renseignées. Les fonds non couverts restent « — ».</div><label class="section mini" style="margin:16px 0 6px;display:block">Mes données (RGPD)</label><button class="btn btn-s btn-sm" style="width:100%;margin-bottom:8px" onclick="exportData()">📥 Exporter mes données (JSON)</button><button class="btn btn-d btn-sm" style="width:100%" onclick="confirmDeleteAccount()">🗑 Supprimer mon compte</button><div onclick="showLegal()" style="text-align:center;margin-top:18px;font-size:var(--fs-petit);color:var(--mut);cursor:pointer;text-decoration:underline">Mentions légales & confidentialité</div>`); };
 window.exportData=()=>{try{const data={app:"Convicto",exportedAt:new Date().toISOString(),user:(currentUser&&currentUser.email)||null,portfolio:D,history:H};const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="portfolio-"+new Date().toISOString().slice(0,10)+".json";document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);toast("Données exportées ✓");}catch(e){toast("Export impossible : "+e.message);}};
 window.confirmDeleteAccount=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700;color:var(--danger)">Supprimer mon compte</h3><button class="btn-x" onclick="eSettings()">✕</button></div><div style="background:var(--danger-f);border:1px solid var(--danger-m);border-radius:var(--r-moyen);padding:12px;font-size:var(--fs-corps);color:var(--txt);line-height:1.5;margin-bottom:14px">Action <b>définitive</b>. Tout sera effacé : enveloppes, positions, immobilier, budget, historique et ton compte.<br><b>Pense à exporter tes données avant.</b></div><label style="font-size:var(--fs-petit);color:var(--dim);display:block;margin-bottom:6px">Tape <b>SUPPRIMER</b> pour confirmer</label><input id="delConfirm" autocomplete="off" placeholder="SUPPRIMER" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:11px;color:var(--txt);margin-bottom:14px"><button class="btn btn-d" style="width:100%" onclick="doDeleteAccount()">Supprimer définitivement</button>`);setTimeout(()=>{const e=document.getElementById("delConfirm");if(e)e.focus();},40);};
 window.doDeleteAccount=async()=>{const el=document.getElementById("delConfirm");const v=el?el.value:"";if((v||"").trim().toUpperCase()!=="SUPPRIMER")return toast("Tape SUPPRIMER pour confirmer");toast("Suppression en cours…");try{await sb.functions.invoke("delete-account");}catch(e){}try{if(window.currentPfId){await sb.from("positions").delete().eq("portfolio_id",window.currentPfId);await sb.from("cashflows").delete().eq("portfolio_id",window.currentPfId);}}catch(e){}try{if(currentUser)await sb.from("portfolios").delete().eq("user_id",currentUser.id);}catch(e){}try{if(currentUser){localStorage.removeItem("pf-data-"+currentUser.id);localStorage.removeItem("pf-hist-"+currentUser.id);localStorage.removeItem("sb-migrated-"+currentUser.id);}}catch(e){}try{await sb.auth.signOut();}catch(e){}toast("Compte supprimé.");setTimeout(()=>location.reload(),700);};
@@ -4337,7 +4425,7 @@ function _inBourse(n){const p=D.poches[n];if(!p)return false;const si=(D.prefs&&
 // cohérent avec ga().ap. Par défaut FAUX — les appelants historiques (_patriInfo, _poidsTicker,
 // fetchEarnDay, _agendaLists, bourseHtml) gardent exactement leur comportement d'origine.
 function _bPos(sansHorsPatrimoine){const L=[];if(!D||!D.poches)return L;Object.entries(D.poches).forEach(([n,p])=>{if(!_inBourse(n))return;(p.positions||[]).forEach(x=>{if(sansHorsPatrimoine&&_horsPatrimoine(n,x))return;const v=(x.qty||0)*(x.cours||0)*toEur(curOf(x));L.push({poche:n,x,v});});});return L;}
-function _dayPctOf(x){if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
+function _dayPctOf(x){if(_horsSeanceActif()){const pt=_prixTitre(_ySym(x),x);if(pt&&pt.mention&&pt.dp!=null)return pt.dp;}if(x.dayPct!=null)return x.dayPct;if(x.prevClose>0&&x.cours>0)return (x.cours-x.prevClose)/x.prevClose*100;return null;}
 // Variation du jour, source unique — appelée par la fiche action ET par la page d'une
 // position, pour qu'un même titre ne puisse pas afficher deux chiffres différents.
 //   ref : une clôture de veille relevée à l'instant (la fiche action dispose de
@@ -5182,19 +5270,20 @@ function ficheHtml(){
   let haut,boutons;
   if(p){
     const cur=curOf(p),sym=curSym(cur);
-    const v=(p.qty||0)*(p.cours||0);const vE=v*toEur(cur);const pc=_pruCur(p),psym=curSym(pc),dc=_dispCur(p),dsym=curSym(dc);const pv=_plDevPos(p);const pvPct=_plPctPos(p);const pvE=_posOk(p)?vE-_invEur(p):null;
+    const v=(p.qty||0)*(_coursValo(p)||0);const vE=v*toEur(cur);const pc=_pruCur(p),psym=curSym(pc),dc=_dispCur(p),dsym=curSym(dc);const pv=_plDevPos(p);const pvPct=_plPctPos(p);const pvE=_posOk(p)?vE-_invEur(p):null;
     // Poids bourse : numérateur ET dénominateur sur le même périmètre, hors patrimoine exclu
     // des deux (cohérent avec ga().ap). Une position elle-même hors patrimoine n'entre pas dans
     // ce total : lui donner un pourcentage serait un chiffre faux, on l'annonce plutôt.
     const horsPat=_horsPatrimoine(poche,p);
     const bl=_bPos(true);const bTot=bl.reduce((a,r)=>a+r.v,0)||1;const poids=vE/bTot*100;
-    const dp=_varJour(p);
+    const _ptp=p.manual?null:_prixTitre(_ySym(p),p);// v266 : même cours que la fiche
+    const dp=(_ptp&&_ptp.mention)?_ptp.dp:_varJour(p);
     const F0=x=>Math.round(x).toLocaleString("fr-FR");
     const cell=(l,v2)=>`<div style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:8px 10px"><div style="font-size:var(--fs-legende);color:var(--mut)">${l}</div><div class="mono" style="font-size:var(--fs-corps);font-weight:600;margin-top:2px">${v2}</div></div>`;
     haut=`${retour}
 <div class="nom-titre" style="font-size:var(--fs-titre);font-weight:800;margin-bottom:2px">${esc(p.titre||tk)}</div>
 <div style="font-size:var(--fs-corps);color:var(--dim);margin-bottom:10px">${esc(tk)} · ${esc(poche)}</div>
-<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px"><span class="mono" style="font-size:var(--fs-titre);font-weight:700">${fmt2_(p.cours)} ${sym}</span>${dp!=null?`<span class="mono" style="font-size:var(--fs-corps);${_vs(dp>=0)}">${dp>=0?"+":""}${vg(dp,1)}\u00a0% auj.</span>`:`<span style="font-size:var(--fs-petit);color:var(--mut)">var. jour dès demain</span>`}</div>
+<div style="display:flex;align-items:baseline;flex-wrap:wrap;gap:10px;margin-bottom:12px"><span class="mono" style="font-size:var(--fs-titre);font-weight:700">${fmt2_(_ptp?_ptp.px:p.cours)} ${sym}</span>${_ptp&&_ptp.mention?`<span class="mention-hs">${_ptp.mention}</span>`:""}${dp!=null?`<span class="mono" style="font-size:var(--fs-corps);${_vs(dp>=0)}">${dp>=0?"+":""}${vg(dp,1)}\u00a0% auj.</span>`:`<span style="font-size:var(--fs-petit);color:var(--mut)">var. jour dès demain</span>`}</div>${_ptp?_heureEtHorsSeance(_ptp,sym):""}
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px">
 ${cell("Quantité × PRU",fmt2_(p.qty)+" × "+fmt2_(p.pru)+" "+psym)}
 ${cell("Valeur",_fxConnu(cur)?F0(vE)+" €"+(cur!=="EUR"?" <span style='color:var(--mut);font-weight:400'>("+F0(_enUnite(v,cur,dc))+" "+dsym+")</span>":""):F0(_enUnite(v,cur,dc))+" "+dsym+" <span style='color:var(--mut);font-weight:400'>· "+_fxEtatCourt(cur)+"</span>")}
@@ -5731,7 +5820,7 @@ const _fmtBig=v=>{if(v==null)return "—";const a=Math.abs(v);if(a>=1e12)return 
 
 function _findHolding(sym,tkGuess){if(!D||!D.poches)return null;const res=[];Object.entries(D.poches).forEach(([n,pk])=>{(pk.positions||[]).forEach(x=>{if(_ySym(x)===sym||(tkGuess&&x.ticker===tkGuess)){res.push({poche:n,x});}});});return res.length?res:null;}
 
-window._horsSeanceInfo=()=>{sm(`<div style="margin-bottom:12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Prix hors séance</h3></div><p style="font-size:var(--fs-corps);color:var(--txt);line-height:1.55;margin:0">C'est le prix échangé <b>en dehors des heures de bourse</b>, sur un marché très peu actif. Quelques ordres suffisent à le faire bouger : il donne une indication, pas une valeur.</p><p style="font-size:var(--fs-corps);color:var(--mut);line-height:1.5;margin:10px 0 0">👉 Il n'entre <b>jamais</b> dans ton patrimoine, ni dans tes alertes de prix. Ceux-ci utilisent le cours de clôture de la séance.</p><button class="btn btn-s" style="width:100%;margin-top:14px" onclick="cm()">Compris</button>`);};
+window._horsSeanceInfo=()=>{sm(`<div style="margin-bottom:12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Prix hors séance</h3></div><p style="font-size:var(--fs-corps);color:var(--txt);line-height:1.55;margin:0">C'est le prix échangé <b>en dehors des heures de bourse</b>, sur un marché très peu actif. Quelques ordres suffisent à le faire bouger : il donne une indication, pas une valeur.</p><p style="font-size:var(--fs-corps);color:var(--mut);line-height:1.5;margin:10px 0 0">👉 Par défaut, il n'entre pas dans ton patrimoine : celui-ci utilise le prix officiel de la séance. Tu peux l'inclure dans les Paramètres (« Inclure les prix hors séance »). Tes alertes de prix utilisent toujours le prix officiel.</p><button class="btn btn-s" style="width:100%;margin-top:14px" onclick="cm()">Compris</button>`);};
 window.aClose=()=>{_resetTools();_navBack();};
 // Ouvre la fiche d'un titre depuis n'importe où. Ne fait rien si on y est déjà.
 window.openTitre=(tk)=>{
@@ -5768,6 +5857,7 @@ async function _aCotation(sym){
   if(!d||aSym!==sym)return;
   aData.q={px:d.px,pc:d.pc,t:d.t,at:Date.now(),nom:d.nom||null,type:d.type||null};
   if(d.cur&&d.cur!==aCur)aCur=d.cur;
+  _recevoirCotation(sym,d);// v266 : un seul cours par titre
   R();
   _aHorsSeance(sym);
 }
@@ -5783,7 +5873,8 @@ async function _aHorsSeance(sym){
     const etat=q.ms||"";
     let libelle=null,px=null,pct=null;
     if(etat==="PRE"&&q.preP>0){libelle="pré-ouverture";px=q.preP;pct=q.prePct;}
-    else if((etat==="POST"||etat==="POSTPOST")&&q.postP>0){libelle="after-market";px=q.postP;pct=q.postPct;}
+    else if((etat==="POST"||etat==="POSTPOST")&&q.postP>0){libelle="après-clôture";px=q.postP;pct=q.postPct;}
+    _recevoirQuoteFull({[sym]:q});// v266 : rangé dans le relevé commun (la fiche et la position l'affichent)
     if(px==null)return;
     aData.hs={libelle:libelle,px:px,pct:(pct==null?null:pct)};
     R();
@@ -6358,7 +6449,12 @@ const _qFrais=_cotationFiable(_q,bars);
 const _perAff=(_crypto&&aPeriod==="5y")?"1y":aPeriod;
 // Ordre de confiance pour le prix : la cotation du moment, puis la dernière barre du
 // graphique, puis la position détenue.
-let cours=(_qFrais&&_q.px!=null)?_q.px:null;
+// v266 : un seul cours par titre. Le relevé commun (position détenue ou relevé du titre) prime ; il
+// reçoit la cotation de la fiche dès qu'elle arrive. Sans relevé : cotation fraîche, puis dernière barre.
+if(_qFrais&&_q&&_q.px>0&&_q.t&&!_crypto)_recevoirCotation(aSym,{px:_q.px,pc:_q.pc,t:_q.t,cur:aCur},true);
+const _pt=_prixTitre(aSym,(_hp&&_hp[0])?_hp[0].x:null);
+let cours=(_pt&&!_crypto)?_pt.px:null;
+if(cours==null&&_qFrais&&_q.px!=null)cours=_q.px;
 if(cours==null&&bars.length)cours=bars[bars.length-1].c;
 if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
 // Le pourcentage se calcule sur un COUPLE prix/référence issu du même ensemble de données —
@@ -6368,7 +6464,9 @@ if(cours==null&&_hp&&_hp[0]&&_hp[0].x&&_hp[0].x.cours>0)cours=_hp[0].x.cours;
 // Le 24 h/24 (crypto) n'a pas de clôture : sa première barre EST le début de journée.
 // Pas de couple fiable, pas de pourcentage : un chiffre faux serait pire que pas de chiffre.
 let dp=null;
-if(aPeriod==="1d"&&!_crypto){
+if(aPeriod==="1d"&&!_crypto&&_pt){
+  dp=_pt.dp;
+}else if(aPeriod==="1d"&&!_crypto){
   dp=_varJour((_hp&&_hp[0])?_hp[0].x:null,{px:cours,pc:(_qFrais&&_q)?_q.pc:null,frais:_qFrais});
 }else if(bars.length&&cours!=null&&bars[0].c>0){
   dp=(cours-bars[0].c)/bars[0].c*100;
@@ -6378,11 +6476,10 @@ if(!_hIsin&&aData&&!aData._isinTried&&aSym&&!ISIN_RE.test(aSym)&&!(typeof CG!=="
 const held=_findHolding(aSym,aData.tkGuess);const wl=(D.prefs&&D.prefs.watchlist)||[];const isW=wl.some(w=>w.sym===aSym);
 let h=`<div class="fade">`;
 h+=_retourHtml("aClose()",_navLbl())+`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div style="flex:1;min-width:0"><div style="font-size:var(--fs-sous-titre);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(aName)}</div><div class="mono" style="font-size:var(--fs-legende);color:var(--mut)">${esc(aSym)}${aCur?" · "+esc(aCur):""}${_hIsin?` · <span onclick="event.stopPropagation();_metricInfo('isin','${escAttr(_hIsin)}')" style="cursor:pointer">${esc(_hIsin)} ⓘ</span>`:""}</div></div><button class="btn btn-s btn-xs" onclick="aToggleWatch()">${isW?"✔ Suivi":"⭐ Suivre"}</button></div>`;
-if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:var(--fs-titre);font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
+if(cours!=null)h+=`<div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px"><span class="mono" style="font-size:var(--fs-titre);font-weight:800">${fmt2_(cours)} ${curSym(aCur)}</span>${_pt&&_pt.mention?`<span class="mention-hs">${_pt.mention}</span>`:""}${(()=>{const w=_w52Fiche();const r=w?_rangePos(w.h,w.l,cours):null;if(!r)return "";const haut=r.sens==="haut";
   return `<span onclick="_rangeInfo('${r.sens}')" style="font-size:var(--fs-legende);padding:3px 9px;border-radius:var(--r-pilule);cursor:pointer;font-weight:600;${_vs(haut,1)}">${haut?"▲ proche du + haut":"▼ proche du + bas"} · 1 an</span>`;})()}${dp!=null?_pastilleVar(dp>=0,`${dp>=0?"+":""}${vg(dp,1)}\u00a0% ${aPeriod==="1d"?"auj.":"("+_periodeFr(_perAff)+")"}`,true):""}</div>`;
-// Une ligne discrète, nommée, qui ne peut pas se confondre avec le cours de séance.
-if(aData.hs&&aData.hs.px!=null){const _hs=aData.hs;const _hp2=_hs.pct;
-  h+=`<div style="display:flex;align-items:baseline;gap:7px;margin:-6px 0 12px;font-size:var(--fs-petit);color:var(--mut)"><span>${esc(_hs.libelle)}</span><span class="mono" style="font-weight:600">${fmt2_(_hs.px)} ${curSym(aCur)}</span>${_hp2!=null?`<span class="mono">${_hp2>=0?"+":""}${vg(_hp2,1)}\u00a0%</span>`:""}<span onclick="_horsSeanceInfo()" style="display:inline-flex;align-items:center;justify-content:center;width:12px;height:12px;border-radius:var(--r-rond);background:var(--bdr);color:var(--dim);font-size:var(--fs-ico-0);font-weight:700;cursor:pointer">?</span></div>`;}
+// v266 : heure du cours, puis (prix officiel) le hors séance sur une ligne à part — même composant que la page de la position.
+if(cours!=null&&_pt&&!_crypto)h+=_heureEtHorsSeance(_pt,curSym(aCur));
 const tabs=[["chart","Graphique"],["fund","Fondamentaux"],["desc","Description"],["actu","Actu"],["portf","Mon portefeuille"]];
 h+=`<div class="onglets-pilules" role="tablist">`+tabs.map(t=>`<button type="button" role="tab" aria-selected="${aTab===t[0]}" onclick="setATab('${t[0]}')"${aTab===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
 if(aTab==="chart"){
@@ -6453,7 +6550,8 @@ window._askWatchList=(sym,name,cur)=>{const lists=(D.prefs.watchLists||[]);sm(`<
 
 async function fetchEarnDay(){try{const bl=_bPos();const seen={};const syms=[];bl.forEach(r=>{const x=r.x;if(x.manual)return;if(String(r.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const y=_ySym(x);if(y&&!seen[y]){seen[y]=1;syms.push(y);}});if(!syms.length)return;
 const r=await fetchT(`${FUND_URL}/?quotefull=${encodeURIComponent(syms.join(","))}`,null,15000);const d=await r.json();if(!d||d.error)return;let ch=false;
-bl.forEach(rr=>{const x=rr.x;if(String(rr.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const q=d[_ySym(x)];if(!q)return;if(q.chgPct!=null){x.dayPct=q.chgPct;x.dayPctAt=Date.now();ch=true;}if(q.earnTs&&q.earnTs>Date.now()/1000){x.earnTs=q.earnTs;ch=true;}else if(q.earnTs&&x.earnTs&&x.earnTs<=Date.now()/1000){delete x.earnTs;ch=true;}});
+if(_recevoirQuoteFull(d,true))ch=true;// v266 : relevé officiel (prix, heure, hors séance), un par titre
+bl.forEach(rr=>{const x=rr.x;if(String(rr.poche||"").toLowerCase().indexOf("crypto")>-1)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const q=d[_ySym(x)];if(!q)return;if(q.chgPct!=null&&!(q.cur&&q.cur===curOf(x)&&x.quoteTs)){x.dayPct=q.chgPct;x.dayPctAt=Date.now();ch=true;}if(q.earnTs&&q.earnTs>Date.now()/1000){x.earnTs=q.earnTs;ch=true;}else if(q.earnTs&&x.earnTs&&x.earnTs<=Date.now()/1000){delete x.earnTs;ch=true;}});
 if(ch){saveLocal();R();}}catch(e){}}
 // v256 : même règle que le total (toutes les enveloppes, _horsPatrimoine, correction, garde-fou,
 // « Net »). Le dividende annuel de chaque ligne est réparti entre les mois des versements de son
