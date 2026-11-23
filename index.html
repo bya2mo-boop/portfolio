@@ -500,8 +500,8 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .heros-sous{font-size:var(--fs-corps-fort);}
 .heros-note{font-size:var(--fs-corps);margin-top:8px;}
 .heros-contenu{display:flex;flex-direction:column;gap:6px;}
-.tuiles{display:flex;gap:12px;margin-top:12px;}
-.tuile{flex:1;min-width:0;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:14px 14px 16px;display:flex;flex-direction:column;gap:10px;}
+.tuiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto auto auto;column-gap:12px;margin-top:12px;}/* v268 : rangées partagées -> libellé, montant et pastille alignés d'une tuile à l'autre */
+.tuile{min-width:0;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:14px 14px 16px;grid-row:span 3;display:grid;grid-template-rows:subgrid;row-gap:10px;align-items:start;}
 .tuile-tete{display:flex;align-items:center;justify-content:space-between;gap:4px;font-size:var(--fs-onglet);color:var(--dim);font-weight:500;}
 .tuile-aide{width:var(--toucher);height:var(--toucher);margin:-12px -12px -12px 0;border:0;background:transparent;color:var(--dim);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex-shrink:0;}
 .tuile-montant{font-size:var(--fs-montant);}
@@ -554,6 +554,72 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .heure-cours{font-size:var(--fs-legende);color:var(--dim);margin:-8px 0 10px;}
 .ligne-hs{display:flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:var(--fs-petit);color:var(--dim);margin:-4px 0 12px;}
 .hs-aide{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:var(--r-rond);background:var(--bdr);color:var(--dim);font-size:var(--fs-legende);font-weight:700;cursor:pointer;}
+/* ENVELOPPE (v268, maquette) */
+.entete-detail{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:12px 0 0;}
+.entete-detail .retour{margin:0 0 0 -8px;}
+.env-tete{display:flex;align-items:center;gap:14px;margin:6px 0 0;}
+.env-tete-texte{display:flex;flex-direction:column;min-width:0;}
+.env-titre{margin:0;font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-titre);line-height:36px;}
+.env-sous{font-size:var(--fs-corps-fort);color:var(--dim);}
+.env-tuiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:16px;}
+.env-tuile{background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0;}
+.et-lib{font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
+.et-val{font-size:var(--fs-montant);color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.et-val.hausse{color:var(--positif);}
+.et-val.baisse{color:var(--baisse);}
+.et-sous{font-size:var(--fs-corps);color:var(--dim);}
+.env-repartition{margin-top:16px;padding:14px 16px 12px;}
+.er-tete{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:14px;}
+.er-titre{font-size:var(--fs-corps-fort);font-weight:600;}
+.bascule-graphe{display:flex;gap:2px;padding:3px;border-radius:var(--r-pilule);background:var(--onglets-f);}
+.bascule-graphe button{height:36px;padding:0 12px;border:0;border-radius:var(--r-pilule);background:transparent;color:var(--dim);font-family:var(--police-texte);font-size:var(--fs-corps);font-weight:600;display:flex;align-items:center;gap:6px;cursor:pointer;}
+.bascule-graphe button.actif{background:var(--onglet-actif-f);color:var(--onglet-actif-t);}
+.er-corps{display:flex;align-items:flex-start;gap:18px;}
+.env-barre{margin:0 0 12px;}
+.env-barre>div{height:14px;}
+.legende-pos{flex:1;min-width:0;display:flex;flex-direction:column;}
+.lp-ligne,.lp-autres{display:flex;align-items:center;gap:8px;min-height:26px;font-size:var(--fs-onglet);}
+.lp-autres{width:100%;min-height:40px;margin-top:2px;padding:0;border:0;border-top:1px dashed var(--interrupteur-off);background:transparent;color:var(--txt);font-family:var(--police-texte);text-align:left;cursor:pointer;}
+.lp-autres .lp-nom{font-weight:600;text-decoration:underline;text-underline-offset:3px;}
+.lp-carre{width:10px;height:10px;border-radius:var(--r-petit);display:block;flex-shrink:0;}
+.lp-nom{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lp-pct{font-weight:700;font-variant-numeric:tabular-nums;}
+.bouton-tri{display:flex;align-items:center;gap:6px;height:40px;padding:0 14px;border-radius:var(--r-pilule);border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:600;cursor:pointer;}
+.choix-feuille{display:block;width:100%;text-align:left;min-height:var(--toucher);padding:0 4px;border:0;border-top:1px solid var(--sep);background:none;color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-bouton);cursor:pointer;}
+.choix-feuille.actif{font-weight:700;}
+.liste-pos{padding:4px 16px;}
+.ligne-pos{display:flex;align-items:center;gap:12px;padding:12px 0;cursor:pointer;}
+.ligne-pos+.ligne-pos{border-top:1px solid var(--bdr);}
+.lp-gauche{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
+.lp-tk{font-size:var(--fs-bouton);font-weight:700;}
+.lp-qte{font-weight:500;color:var(--dim);font-size:var(--fs-onglet);}
+.lp-alerte{margin-left:4px;font-size:var(--fs-legende);cursor:pointer;}
+.lp-sous{font-size:var(--fs-onglet);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.lp-droite{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0;}
+.lp-val{font-size:var(--fs-bouton);font-weight:700;}
+.env-liens{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 18px;margin-top:12px;}
+.fab-zone{position:sticky;bottom:calc(var(--hauteur-nav,84px) + 16px);display:flex;justify-content:flex-end;margin-top:12px;pointer-events:none;}
+.fab-zone>*{pointer-events:auto;}
+/* OUTILS ET SUIVI (v268, maquette) */
+.champ-recherche{width:100%;display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;margin:0 0 4px;border-radius:var(--r-18);background:var(--card);border:1.5px solid var(--action);color:var(--dim);font-family:var(--police-texte);font-size:var(--fs-bouton);text-align:left;cursor:pointer;}
+.champ-recherche svg{color:var(--txt);flex-shrink:0;}
+.grille-outils{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.carte-outil{display:flex;flex-direction:column;gap:10px;padding:12px 12px 16px;border-radius:var(--r-carte);background:var(--card);border:1px solid var(--bdr);color:var(--txt);font-family:var(--police-texte);text-align:left;cursor:pointer;}
+.co-illus{border-radius:var(--r-grand);padding:6px 8px;overflow:hidden;}
+.co-scene{height:72px;position:relative;}
+.co-signe{position:absolute;right:4px;bottom:6px;font-size:var(--fs-titre);font-weight:700;color:var(--txt);}
+.co-texte{display:flex;flex-direction:column;gap:2px;padding:0 4px;}
+.co-titre{font-family:var(--police-titre);font-synthesis:none;font-weight:400;font-size:var(--fs-sous-titre);line-height:22px;}
+.co-sous{font-size:var(--fs-onglet);line-height:19px;color:var(--dim);}
+.liste-suivi{padding:2px 16px;}
+.ligne-suivi{display:flex;align-items:center;gap:14px;padding:14px 0;cursor:pointer;}
+.ligne-suivi+.ligne-suivi{border-top:1px solid var(--bdr);}
+.ls-icone{width:var(--toucher);height:var(--toucher);border-radius:var(--r-grand);background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.ls-texte{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;}
+.ls-titre{font-size:var(--fs-sous-titre);font-weight:700;}
+.ls-sous{font-size:var(--fs-onglet);color:var(--dim);}
+.ls-compte{min-width:28px;height:28px;padding:0 8px;border-radius:var(--r-pilule);background:var(--hausse);color:var(--sur-hausse);font-size:var(--fs-onglet);font-weight:700;display:flex;align-items:center;justify-content:center;box-sizing:border-box;}
+.ligne-suivi>svg:last-child{color:var(--dim);flex-shrink:0;}
 /* ═══ COMPOSANTS-FIN ═══ */
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{background:var(--bg);color:var(--txt);font-family:var(--police-texte);-webkit-font-smoothing:antialiased}
@@ -637,7 +703,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "267";
+const APP_VERSION = "268";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2130,7 +2196,7 @@ function _syncErr(){const now=Date.now();if(now-_lastSyncErrToast<15000)return;_
 // Caches recalculés automatiquement sur chaque appareil : jamais de conflit, la copie locale prime.
 const _SYNC_PREFS_AUTO=new Set(["divAutoSym","divAutoSymTs","curSourceSym","staleQuoteSym","staleQuoteSymTs","divAuto","divAutoTs","earnHist","earnHistTs","etfHoldings","fxRates","fxTs","curSource","isinFailed","isinOfFailed","paysAuto","paysAutoTs","paysEchec","paysTry","staleQuote","staleQuoteTs","poidsHist","achatSync","palierSync","seedMode","smoothMid"]);
 // Marqueurs « vu », horodatages et réglages d'affichage : fusion sans alerte (le plus récent).
-const _SYNC_PREFS_SOUPLE=new Set(["horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
+const _SYNC_PREFS_SOUPLE=new Set(["envGraph","horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
 const _SYNC_PREFS_TECH=["_rev","_migs"];
 const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
 const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser","cibleCurrency","cibleHautCurrency"];
@@ -3382,9 +3448,55 @@ const _SVG_CHEVRON=(t)=>`<svg width="${t||16}" height="${t||16}" viewBox="0 0 24
 function _titreSection(titre,lien,clic){return `<div class="titre-section-ligne"><h2 class="titre-section">${titre}</h2>${lien?`<button type="button" class="lien-detail" onclick="${clic}">${lien}${_SVG_CHEVRON(16)}</button>`:""}</div>`;}
 function _tuile(lib,aide,montant,pied){return `<div class="tuile cv-rise"><div class="tuile-tete"><span>${lib}</span><button type="button" class="tuile-aide" aria-label="Comprendre : ${lib}" data-aide="${esc(aide)}" onclick="event.stopPropagation();toast(this.dataset.aide)">${_SVG_AIDE}</button></div><span class="mono montant-grand tuile-montant">${montant}</span><div>${pied}</div></div>`;}
 // Donut des maquettes : anneau de 140 px, un arc par enveloppe, 3 px d'écart, le nombre au centre
-function _donutEnveloppes(items,tot){const R=52,C=2*Math.PI*R;let cum=0;const arcs=items.map((it,i)=>{const L=tot>0?it.v/tot*C:0;const a=`<circle class="cv-draw" cx="70" cy="70" r="52" fill="none" stroke-width="18" style="stroke:${it.col};animation-delay:${_nCss(i*0.12,2)}s" stroke-dasharray="${_nCss(Math.max(0,L-3),2)} ${_nCss(C-Math.max(0,L-3),2)}" stroke-dashoffset="${_nCss(-cum,2)}" transform="rotate(-90 70 70)"></circle>`;cum+=L;return a;}).join("");
- const lab=items.map(it=>esc(it.nom)+" "+vg(tot>0?it.v/tot*100:0,1)+" %").join(", ");
- return `<div class="donut-env"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Répartition par enveloppe : ${escAttr(lab)}"><circle cx="70" cy="70" r="52" fill="none" stroke-width="18" style="stroke:var(--donut-vide)"></circle>${arcs}</svg><div class="donut-centre"><span class="mono montant-grand donut-nombre">${items.length}</span> <span>enveloppe${items.length>1?"s":""}</span></div></div>`;}
+function _donutEnveloppes(items,tot,o){o=o||{};const ep=o.epais||18,ec=o.ecart!=null?o.ecart:3,pas=o.pas||0.12;const R=52,C=2*Math.PI*R;let cum=0;const arcs=items.map((it,i)=>{const L=tot>0?it.v/tot*C:0;const a=`<circle class="cv-draw" cx="70" cy="70" r="52" fill="none" stroke-width="${ep}" style="stroke:${it.col};animation-delay:${_nCss(i*pas,2)}s" stroke-dasharray="${_nCss(Math.max(0,L-ec),2)} ${_nCss(C-Math.max(0,L-ec),2)}" stroke-dashoffset="${_nCss(-cum,2)}" transform="rotate(-90 70 70)"></circle>`;cum+=L;return a;}).join("");
+ const lab=items.map(it=>esc(it.nom)+" "+vg(tot>0?it.v/tot*100:0,1)+" %").join(", ");const n=o.nombre!=null?o.nombre:items.length,lib=o.lib||("enveloppe"+(n>1?"s":""));
+ return `<div class="donut-env"><svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="${escAttr((o.titre||"Répartition par enveloppe")+" : "+lab)}"><circle cx="70" cy="70" r="52" fill="none" stroke-width="${ep}" style="stroke:var(--donut-vide)"></circle>${arcs}</svg><div class="donut-centre"><span class="mono montant-grand donut-nombre">${n}</span> <span>${lib}</span></div></div>`;}
+// ═══ v268 — page Enveloppe (maquette A-Enveloppe2) ═══
+const _envPlus={};// « N autres » déplié, par enveloppe (le temps de la session)
+const _TYPES_ENV={"CTO":"Compte-titres","Assurance Vie":"Assurance vie","PEE":"Épargne salariale","Crypto":"Crypto-actifs","Métaux":"Métaux précieux"};
+const _TRIS=[["val_desc","Valeur"],["val_asc","Valeur, croissante"],["az","A → Z"],["pl_desc","Plus-value"],["pl_asc","Plus-value, croissante"]];
+function _envEntete(sel,n,nv){const exclu=!!(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel]);
+ const sous=[_TYPES_ENV[sel],n!=null?n+" position"+(n>1?"s":""):null,nv?nv+" vente"+(nv>1?"s":""):null].filter(Boolean).join(" · ");
+ return `<div class="entete-detail">${_retourHtml("_navBack()",_navLbl())}<div class="barre-boutons">${_boutonOeil()}<button type="button" class="bouton-rond" aria-label="Réglages de l'enveloppe ${escAttr(sel)}" onclick="_envReglages('${escAttr(sel)}')"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg></button></div></div>`
+ +`<div class="env-tete"><div class="cv-float">${_svgPiece(_pocheColor(sel),56)}</div><div class="env-tete-texte"><h1 class="env-titre">${esc(sel)}</h1><span class="env-sous">${sous}${exclu?' <span class="pilule pilule-mini pilule-neutre">hors total</span>':""}</span></div></div>`;}
+function _signeE(v){return isPriv()?"•••":(v>=0?"+":"−")+fmtE_(Math.abs(v))+" €";}
+function _envTuiles(p,sel){const ventes=(D.sales||[]).filter(s=>s.poche===sel);const real=ventes.reduce((s,v)=>s+(v.pl||0),0);const pl=p.valeur-p.investi;
+ const _fxc=[...new Set(p.positions.map(curOf).filter(c=>c!=="EUR"))];const _ofx=_fxc.length===1?_fxc[0]:null;const _fsym=_ofx?curSym(_ofx):"";
+ const invFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+(_pruCur(x)===_ofx?x.qty*x.pru:(_conv(x.qty*x.pru,_pruCur(x),_ofx)||0)),0):0;const valFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*_coursValo(x),0):0;
+ const T=[["Investi",isPriv()?"•••":fmtE_(p.investi)+" €","",_ofx?fmt_(invFx)+" "+_fsym:""],["Valeur actuelle",isPriv()?"•••":fmtE_(p.valeur)+" €","",_ofx?fmt_(valFx)+" "+_fsym:""],
+   ["Plus-value latente",_signeE(pl),pl>=0?"hausse":"baisse",_ofx?(valFx-invFx>=0?"+":"−")+fmt_(Math.abs(valFx-invFx))+" "+_fsym:""],
+   ["Plus-value réalisée",ventes.length?_signeE(real):"—",ventes.length?(real>=0?"hausse":"baisse"):"",ventes.length?"sur "+ventes.length+" vente"+(ventes.length>1?"s":""):"aucune vente"]];
+ return `<div class="env-tuiles">${T.map(t=>`<div class="env-tuile"><span class="et-lib">${t[0]}</span><span class="mono montant-grand et-val${t[2]?" "+t[2]:""}">${t[1]}</span>${t[3]?`<span class="et-sous">${t[3]}</span>`:""}</div>`).join("")}</div>`;}
+function _envRepartition(p,sel){const tri=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0));const tot=tri.reduce((s,x)=>s+(x.valeur||0),0)||1;
+ const plus=!!_envPlus[sel],coupe=tri.length>5;const top=coupe&&!plus?tri.slice(0,5):tri,reste=coupe&&!plus?tri.slice(5):[];
+ const it=top.map((x,i)=>({nom:x.ticker,v:x.valeur||0,col:DCOL[i%DCOL.length]}));const vReste=reste.reduce((s,x)=>s+(x.valeur||0),0);
+ const itG=reste.length?it.concat([{nom:reste.length+" autres",v:vReste,col:"var(--interrupteur-off)"}]):it;
+ const barre=(D.prefs&&D.prefs.envGraph)==="barre";
+ const g=barre?`<div class="barre-empilee env-barre" role="img" aria-label="Poids des positions de ${escAttr(sel)}">${itG.map((x,i)=>`<div class="cv-grow" style="width:${_nCss(x.v/tot*100,1)}%;background:${x.col};animation-delay:${_nCss(i*0.04,2)}s"></div>`).join("")}</div>`
+   :_donutEnveloppes(itG,tot,{epais:22,ecart:2.5,pas:0.06,nombre:tri.length,lib:"position"+(tri.length>1?"s":""),titre:"Camembert"});
+ const leg=`<div class="legende-pos">${it.map(x=>`<div class="lp-ligne"><span class="lp-carre" style="background:${x.col}"></span><span class="lp-nom">${esc(x.nom)}</span><span class="lp-pct">${vg(x.v/tot*100,1)}\u00a0%</span></div>`).join("")}${coupe?`<button type="button" class="lp-autres" aria-expanded="${plus}" onclick="_envPlusBascule('${escAttr(sel)}')"><span class="lp-carre" style="background:var(--interrupteur-off)"></span><span class="lp-nom">${plus?"Réduire":reste.length+" autres"}</span>${plus?"":`<span class="lp-pct">${vg(vReste/tot*100,1)}\u00a0%</span>`}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"${plus?' style="transform:rotate(180deg)"':""}><path d="M6 9l6 6 6-6"></path></svg></button>`:""}</div>`;
+ const bt=(v,lib,svg)=>`<button type="button" aria-pressed="${(v==="barre")===barre}" class="${(v==="barre")===barre?"actif":""}" onclick="_envGraphe('${v}')">${svg}${lib}</button>`;
+ return `<div class="card env-repartition"><div class="er-tete"><span class="er-titre">Répartition</span><div class="bascule-graphe" role="group" aria-label="Type de graphique">${bt("barre","Barre",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 9h18M3 15h12"></path></svg>')}${bt("camembert","Camembert",'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 0 9 9h-9z"></path></svg>')}</div></div>${barre?g+leg:`<div class="er-corps">${g}${leg}</div>`}</div>`;}
+window._envGraphe=v=>{D.prefs=D.prefs||{};D.prefs.envGraph=v;save();};
+window._envPlusBascule=sel=>{_envPlus[sel]=!_envPlus[sel];R();};
+window._triFeuille=()=>{const cur=(D.prefs&&D.prefs.posSort)||"val_desc";sm(`<div style="font-size:var(--fs-sous-titre);font-weight:700;margin-bottom:10px">Trier les positions</div><button class="btn-x" onclick="cm()">✕</button>`+_TRIS.map(t=>`<button type="button" class="choix-feuille${t[0]===cur?" actif":""}" data-tri="${t[0]}" onclick="setPosSort('${t[0]}');cm()">${t[1]}</button>`).join(""));};
+function _envLignes(p,sel){const P=applyPosSort(p.positions);const _split={};_splitAlerts().forEach(s=>{if(!_split[s.ticker])_split[s.ticker]=s;});
+ return `<div class="card liste-pos">`+P.map(x=>{const xcur=curOf(x),xsym=curSym(xcur);const isStale=!x.lastUpd||(Date.now()-x.lastUpd>86400000);let al="";
+   if(x.manual){if(x.manualUpdated&&(Date.now()-x.manualUpdated>30*86400000))al+=`<span onclick="event.stopPropagation();manualRecheck('${escAttr(sel)}','${escAttr(x.ticker)}')" title="Valeur non actualisée depuis 30 j — vérifier" class="lp-alerte">⏰</span>`;}
+   else if(isStale)al+=`<span onclick="event.stopPropagation();_staleWarnInfo()" title="Prix non mis à jour depuis plus de 24h — appuie pour comprendre" class="lp-alerte">⚠️</span>`;
+   if(_split[x.ticker])al+=`<span onclick="event.stopPropagation();applySplitPrompt('${escAttr(_split[x.ticker].poche)}','${escAttr(x.ticker)}',${_split[x.ticker].t})" title="Split détecté — corriger" class="lp-alerte">${_split[x.ticker].strong?"🔴":"⚠️"}</span>`;
+   al+=_staleBadge(x,sel);if(x.noPerf)al+=' <span class="pilule pilule-mini pilule-neutre">hors perf</span>';
+   const val=_fxConnu(xcur)?(isPriv()?"•••":fmtE_(x.valeur)+" €"):(isPriv()?"•••":fmt_(x.qty*_coursValo(x))+" "+xsym);const q=isPriv()?"•••":_nbFr(x.qty);
+   return `<div class="ligne-pos" role="button" tabindex="0" data-tk="${escAttr(x.ticker)}" onclick="openFiche('${escAttr(x.ticker)}','${escAttr(sel)}')"><div class="lp-gauche"><span class="lp-tk">${esc(x.ticker)} <span class="lp-qte">· ${q} titre${x.qty>1?"s":""}</span>${al}</span><span class="lp-sous">${esc(x.titre||x.ticker)} · ${vg(x.poids,1)}\u00a0%</span></div><div class="lp-droite"><span class="lp-val">${val}</span>${_pastilleVar(x.pl>=0,`${x.pl>=0?"+":"−"}${vg(Math.abs(x.plPct||0),1)}\u00a0%`)}</div></div>`;}).join("")+`</div>`;}
+// ═══ v268 — Bourse › Outils et suivi (maquette A-Outils) ═══
+function _illusOutil(k){
+ if(k==="cmp")return `<svg width="100%" height="72" viewBox="0 0 150 72" aria-hidden="true" style="display:block"><path class="cv-draw" d="M8 56 C30 50 40 30 62 34 S98 14 142 10" fill="none" stroke-width="4" stroke-linecap="round" style="stroke:var(--c-bleu)"></path><path class="cv-draw" d="M8 60 C34 58 46 46 70 48 S110 34 142 30" fill="none" stroke-width="4" stroke-linecap="round" style="stroke:var(--c-mauve);animation-delay:.2s"></path><circle cx="142" cy="10" r="5" style="fill:var(--c-bleu)"></circle><circle cx="142" cy="30" r="5" style="fill:var(--c-mauve)"></circle></svg>`;
+ const pm=t=>_svgPiece("var(--piece-face)",t,"var(--piece-tranche)","var(--piece-coeur)");
+ if(k==="pru")return `<div class="co-scene"><div style="position:absolute;left:6px;bottom:0">${pm(44)}</div><div style="position:absolute;left:22px;bottom:14px">${pm(44)}</div><div class="cv-float" style="position:absolute;left:38px;bottom:28px">${pm(44)}</div><div class="co-signe">÷</div></div>`;
+ if(k==="conv")return `<div class="co-scene"><div class="cv-float" style="position:absolute;left:4px;top:6px">${_svgPiece("var(--c-bleu)",48,"var(--c-bleu-fonce)","var(--c-bleu-pale)")}</div><div class="cv-float2" style="position:absolute;left:64px;top:18px">${_svgPiece("var(--c-mauve)",48,"var(--c-mauve-fonce)","var(--c-mauve-pale)")}</div><svg width="40" height="20" viewBox="0 0 40 20" aria-hidden="true" style="position:absolute;left:34px;top:0"><path d="M4 14 C12 2 28 2 36 10" fill="none" stroke-width="2.5" stroke-linecap="round" style="stroke:var(--txt)"></path><path d="M30 10h6V4" fill="none" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--txt)"></path></svg></div>`;
+ return `<div class="co-scene"><svg width="100%" height="72" viewBox="0 0 150 72" aria-hidden="true" style="display:block"><path d="M10 64 L56 40 L92 48 L128 16" fill="none" stroke-width="3" stroke-dasharray="2 8" stroke-linecap="round" style="stroke:var(--txt)"></path></svg><div class="cv-twinkle" style="position:absolute;right:8px;top:0">${_svgEtoile(30,"var(--c-emeraude)")}</div></div>`;}
+function _carteOutil(k,titre,sous,fond,clic){return `<button type="button" class="carte-outil cv-rise" onclick="${clic}"><div class="co-illus" style="background:${fond}">${_illusOutil(k)}</div><div class="co-texte"><span class="co-titre">${titre}</span><span class="co-sous">${sous}</span></div></button>`;}
+function _ligneSuivi(page,titre,sous,n,svg){return `<div class="ligne-suivi" role="button" tabindex="0" onclick="setBPage('${page}')"><span class="ls-icone">${svg}</span><span class="ls-texte"><span class="ls-titre">${titre}</span><span class="ls-sous">${sous}</span></span>${n?`<span class="ls-compte">${n}</span>`:""}${_SVG_CHEVRON(20)}</div>`;}
 // Positions sans thèse écrite (mêmes règles que « À compléter » de Conviction)
 function _sansThese(){const notes=(D.prefs&&D.prefs.notes)||{};return ga().ap.filter(x=>!x.manual&&!x.noPerf&&!(notes[x.ticker]&&notes[x.ticker].trim()));}
 function _invitationConviction(){const n=_sansThese().length;if(!n)return "";
@@ -3399,8 +3511,9 @@ function _badgeCible(lib){return `<span class="badge-cible"><svg width="13" heig
 function _barreHaut(detail){const titre=detail?"":(_TITRES_PAGE[tab]||"");const e=_etatLigne();const pv=isPriv();
  return `<div id="ptr" class="ptr" aria-hidden="true"></div><div class="barre-haut${titre?"":" compacte"}"><div class="barre-gauche">${titre?`<h1 class="barre-titre">${titre}</h1>`:""}<button type="button" class="etat-ligne" onclick="refreshPrices()" title="Toucher pour actualiser les cours"><span class="etat-point ${e.c}${e.c==="ok"?" cv-pulse":""}"></span><span id="upStat">${e.t}</span></button></div>`
   +`<div class="barre-boutons"><button type="button" class="bouton-rond" aria-label="Rechercher" onclick="openSearchModal('view')">${_svgTrait("rech")}</button>`
-  +`<button type="button" class="bouton-rond${pv?" actif":""}" aria-pressed="${pv}" aria-label="${pv?"Mode discret activé : afficher les montants":"Masquer les montants"}" onclick="togglePriv()">${_svgTrait(pv?"oeilBarre":"oeil")}</button>`
+  +_boutonOeil()
   +`<button type="button" class="bouton-rond" aria-label="Mon compte et paramètres" onclick="eSettings()">${_svgTrait("compte")}</button></div></div>`;}
+function _boutonOeil(){const pv=isPriv();return `<button type="button" class="bouton-rond${pv?" actif":""}" aria-pressed="${pv}" aria-label="${pv?"Mode discret activé : afficher les montants":"Masquer les montants"}" onclick="togglePriv()">${_svgTrait(pv?"oeilBarre":"oeil")}</button>`;}
 // Grands montants (police des chiffres Diamond) : chaque espace des milliers ou insécable passe dans un
 // élément en Poppins. Le texte lu (copier-coller, lecteur d'écran) ne change pas.
 // Repérés par leur police calculée : aucune liste de tailles à tenir à jour ici.
@@ -3811,6 +3924,7 @@ function _navLbl(){const m=_nav[_nav.length-1];
    if(m.bPage==="listes")return "Listes de suivi";
    if(m.bTool)return "Outils et suivi";
    if(m.bSub==="suivi")return "Outils et suivi";
+   if(m.bSub==="positions")return "Positions";// v268 (maquette Enveloppe)
    return "Bourse";}
  if(m.tab==="analyse"){
    if(m.anaSub==="alerts")return "Alertes";
@@ -4018,22 +4132,21 @@ window._convShowTog=(tk)=>{D.prefs=D.prefs||{};D.prefs.convShow=D.prefs.convShow
 window.setConvEnv=v=>{convEnv=v;R();};
 if(tab==="detail"&&sel){const p=D.poches[sel];if(!p){tab="home";return R()}
 if(p.positions.length===0){
-h+=`<div class="fade">${_retourHtml("_navBack()",_navLbl())}<div style="display:flex;align-items:center;gap:8px;margin:6px 0 20px"><div style="width:4px;height:24px;border-radius:var(--r-petit);background:${_pocheColor(sel)}"></div><h2 style="font-size:var(--fs-titre);font-weight:700">${esc(sel)}</h2></div><div style="text-align:center;padding:30px 0"><div style="font-size:var(--fs-ico-3);margin-bottom:12px">📂</div><div style="font-size:var(--fs-corps-fort);font-weight:600;margin-bottom:8px">Aucune position</div><div style="font-size:var(--fs-corps);color:var(--dim);margin-bottom:20px;line-height:1.4">Ajoute ta première position pour<br>commencer à suivre cette enveloppe.</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="margin-top:8px">📥 Importer un CSV</div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="margin-top:14px;font-size:var(--fs-corps);color:var(--lien);cursor:pointer">+ Enregistrer un P&L réalisé passé</div><div style="margin-top:16px;text-align:center"><button class="btn btn-s btn-sm" onclick="dEnv('${escAttr(sel)}')">🗑 Supprimer cette enveloppe</button></div></div></div>`;
+h+=`<div class="fade">${_envEntete(sel,0,(D.sales||[]).filter(v=>v.poche===sel).length)}<div style="text-align:center;padding:30px 0"><div style="font-size:var(--fs-ico-3);margin-bottom:12px">📂</div><div style="font-size:var(--fs-corps-fort);font-weight:600;margin-bottom:8px">Aucune position</div><div style="font-size:var(--fs-corps);color:var(--dim);margin-bottom:20px;line-height:1.4">Ajoute ta première position pour<br>commencer à suivre cette enveloppe.</div><div class="add-btn" onclick="aPos('${escAttr(sel)}')">+ Ajouter une position</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="margin-top:8px">📥 Importer un CSV</div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="margin-top:14px;font-size:var(--fs-corps);color:var(--lien);cursor:pointer">+ Enregistrer un P&L réalisé passé</div><div style="margin-top:16px;text-align:center"><button class="btn btn-s btn-sm" onclick="dEnv('${escAttr(sel)}')">🗑 Supprimer cette enveloppe</button></div></div></div>`;
 } else {
-const ip=p.pl>=0;
-const sortedPositions=applyPosSort(p.positions); const dd=[...p.positions].sort((a,b)=>(b.valeur||0)-(a.valeur||0)).map(x=>[x.ticker,x.valeur]);const dt=dd.reduce((s,x)=>s+x[1],0)||1;
-h+=`<div class="fade">${_retourHtml("_navBack()",_navLbl())}<div style="display:flex;align-items:center;gap:8px;margin:6px 0 12px"><div style="width:4px;height:24px;border-radius:var(--r-petit);background:${_pocheColor(sel)}"></div><h2 style="font-size:var(--fs-titre);font-weight:700">${esc(sel)}</h2>${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'<span style="font-size:var(--fs-legende);padding:1px 5px;border-radius:var(--r-petit);background:var(--mut-f);color:var(--dim);font-weight:600">hors total</span>':''}</div><div style="display:flex;align-items:center;gap:16px;margin:0 0 16px">${dn(dd,DCOL,140)}<div style="flex:1;display:flex;flex-direction:column;gap:3px">${dd.map((d,i)=>`<div style="display:flex;align-items:center;gap:5px;font-size:var(--fs-legende)"><div class="pastille-donnee" style="width:8px;height:8px;border-radius:var(--r-rond);background:${DCOL[i%DCOL.length]}"></div><span style="color:var(--dim);flex:1">${d[0]}</span><span class="mono" style="font-weight:500">${vg((d[1]/dt)*100,1)}\u00a0%</span></div>`).join("")}</div></div>`;
+// v268 : maquette « Enveloppe » — en-tête propre, 4 tuiles, répartition (barre / camembert), positions, bouton flottant
+const _nv=(D.sales||[]).filter(v=>v.poche===sel).length;
+h+=`<div class="fade">${_envEntete(sel,p.positions.length,_nv)}`;
 h+=_fxBandeau();
-h+=(()=>{const _fxc=[...new Set(p.positions.map(curOf).filter(c=>c!=="EUR"))];const _ofx=_fxc.length===1?_fxc[0]:null;const _fsym=_ofx?curSym(_ofx):"";const investiFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+(_pruCur(x)===_ofx?x.qty*x.pru:(_conv(x.qty*x.pru,_pruCur(x),_ofx)||0)),0):0;const valeurFx=_ofx?p.positions.filter(x=>curOf(x)===_ofx).reduce((s,x)=>s+x.qty*x.cours,0):0;const plFx=valeurFx-investiFx;const pocheSales=(D.sales||[]).filter(s=>s.poche===sel);const realPL=pocheSales.reduce((s,v)=>s+v.pl,0);const hasSales=pocheSales.length>0;const cols=hasSales?4:3;const stats=[["Investi",fmt_(p.investi)+" €",null,_ofx?fmt_(investiFx)+" "+_fsym:""],["Valeur",fmt_(p.valeur)+" €",null,_ofx?fmt_(valeurFx)+" "+_fsym:""],["P&L latent",fL(p.pl),_vs(ip),_ofx?(plFx>=0?"+":"")+fmt_(plFx)+" "+_fsym:""]];if(hasSales)stats.push(["P&L réalisé",fL(realPL),_vs(realPL>=0),pocheSales.length+" vente"+(pocheSales.length>1?"s":"")]);return `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin-bottom:16px">${stats.map(m=>`<div style="background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:8px;text-align:center"><div style="font-size:var(--fs-legende);color:var(--dim);text-transform:uppercase">${m[0]}</div><div class="mono" style="font-size:var(--fs-corps);font-weight:600;margin-top:3px">${m[2]?`<span style="${m[2]}">${m[1]}</span>`:m[1]}</div>${m[3]?`<div class="mono" style="font-size:var(--fs-legende);color:var(--mut);margin-top:1px">${m[3]}</div>`:""}</div>`).join("")}</div>`})();
-h+=`<div onclick="_envReglages('${escAttr(sel)}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:11px 13px;margin-bottom:12px"><span style="flex:1;font-size:var(--fs-corps);color:var(--dim)">⚙ Réglages de cette enveloppe</span><span style="color:var(--txt);font-size:var(--fs-corps-fort)">›</span></div>`;
+h+=_envTuiles(p,sel);
+h+=_envRepartition(p,sel);
 h+=`<label style="display:none;align-items:center;gap:8px;font-size:var(--fs-petit);color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen)"><input type="checkbox" ${(D.prefs&&D.prefs.pocheExclTotal&&D.prefs.pocheExclTotal[sel])?'checked':''} onchange="togglePocheExclTotal('${escAttr(sel)}')"> Exclure cette enveloppe du patrimoine total</label>`;
 h+=`<label style="display:none;align-items:center;gap:8px;font-size:var(--fs-petit);color:var(--dim);cursor:pointer;margin-bottom:12px;padding:8px 10px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen)"><input type="checkbox" ${_inBourse(sel)?'checked':''} onchange="togglePocheBourse('${escAttr(sel)}')"> Afficher cette enveloppe dans Bourse</label>`;
-if(p.positions.length>1){h+=`<div style="display:flex;align-items:center;justify-content:flex-end;gap:6px;margin-bottom:8px"><span style="font-size:var(--fs-legende);color:var(--mut)">⇅ Trier</span><select onchange="setPosSort(this.value)" style="background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:5px 8px;color:var(--txt);font-size:var(--fs-petit);font-family:inherit">${[['val_desc','Valeur ↓'],['val_asc','Valeur ↑'],['az','A → Z'],['pl_desc','P&L % ↓'],['pl_asc','P&L % ↑']].map(o=>`<option value="${o[0]}" ${((D.prefs&&D.prefs.posSort)||'val_desc')===o[0]?'selected':''}>${o[1]}</option>`).join('')}</select></div>`;}
-const _splitByTk={};_splitAlerts().forEach(s=>{if(!_splitByTk[s.ticker])_splitByTk[s.ticker]=s;});
-h+=`<div class="card" style="padding:4px 12px 6px">`;
-sortedPositions.forEach((x,i)=>{const xp=x.pl>=0;const xcur=curOf(x);const isUsd=xcur!=="EUR";const xsym=curSym(xcur);const valUsd=x.qty*x.cours;const plUsd=x.qty*(x.cours-x.pru);const _pc=_pruCur(x),_psym=curSym(_pc),_dc=_dispCur(x),_dsym=curSym(_dc); const isStale = !x.lastUpd || (Date.now() - x.lastUpd > 86400000); let sw=''; if(x.manual){ if(x.manualUpdated && (Date.now()-x.manualUpdated > 30*86400000)){ sw = `<span onclick="event.stopPropagation();manualRecheck('${escAttr(sel)}','${escAttr(x.ticker)}')" title="Valeur non actualisée depuis 30 j — vérifier" style="font-size:var(--fs-legende);margin-left:4px;cursor:pointer">⏰</span>`; } } else if(isStale){ sw = `<span onclick="event.stopPropagation();_staleWarnInfo()" title="Prix non mis à jour depuis plus de 24h — appuie pour comprendre" style="font-size:var(--fs-legende);margin-left:4px;cursor:pointer">⚠️</span>`; }
-h+=`<div style="display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:center;padding:8px 0;cursor:pointer;${i<p.positions.length-1?"border-bottom:1px solid var(--sep)":""}" onclick="openFiche('${escAttr(x.ticker)}','${escAttr(sel)}')"><div><div style="font-size:var(--fs-corps);font-weight:600">${esc(x.ticker)}${sw} <span onclick="event.stopPropagation();ePos('${escAttr(sel)}','${escAttr(x.ticker)}')" style="color:var(--txt);font-size:var(--fs-legende);cursor:pointer;padding:0 2px">✎</span>${x.noPerf?' <span title="Exclu de l analyse de perf" style="font-size:var(--fs-legende);padding:1px 5px;border-radius:var(--r-petit);background:var(--mut-f);color:var(--dim);font-weight:600">hors perf</span>':''}${(_envConvVisible(sel)&&D.prefs&&D.prefs.conv&&D.prefs.conv[x.ticker])?` <span class="mono" style="font-size:var(--fs-legende);font-weight:700;color:${_convColor(D.prefs.conv[x.ticker])}">${D.prefs.conv[x.ticker]}</span>`:""}${_convGapBadge(x)}${_rangeBadge(x)}${_splitByTk[x.ticker]?`<span onclick="event.stopPropagation();applySplitPrompt('${escAttr(_splitByTk[x.ticker].poche)}','${escAttr(x.ticker)}',${_splitByTk[x.ticker].t})" title="Split détecté — corriger" style="margin-left:4px;font-size:var(--fs-legende);cursor:pointer">${_splitByTk[x.ticker].strong?"🔴":"⚠️"}</span>`:""}${_staleBadge(x,sel)}${(D.prefs&&D.prefs.notes&&D.prefs.notes[x.ticker])?`<span onclick="event.stopPropagation();showNote('${escAttr(x.ticker)}')" style="margin-left:4px;font-size:var(--fs-legende);cursor:pointer">📝</span>`:""} </div><div style="font-size:var(--fs-legende);color:var(--dim)">${esc(x.titre)}</div><div style="font-size:var(--fs-legende);color:var(--mut)">${isPriv()?"•••":_nbFr(x.qty)} × ${fmt2_(_coursAff(x))} ${_dsym}${x.cible?" · ↓"+fmt2_(x.cible)+" "+curSym(x.cibleCurrency||xcur):""}${x.cibleHaut?" · ↑"+fmt2_(x.cibleHaut)+" "+curSym(x.cibleHautCurrency||xcur):""}${_freshLabel(x)}</div></div><div style="text-align:right">${_fxConnu(xcur)?`<div class="mono" style="font-size:var(--fs-corps);font-weight:500">${fmt_(x.valeur)} €</div>${isUsd?`<div class="mono" style="font-size:var(--fs-legende);color:var(--mut)">${fmt_(valUsd)} ${xsym}</div>`:""}`:`<div class="mono" style="font-size:var(--fs-corps);font-weight:500">${fmt_(valUsd)} ${xsym}</div><div style="font-size:var(--fs-legende);color:var(--mut)">${_fxEtatCourt(xcur)}</div>`}<div style="font-size:var(--fs-legende);color:var(--dim)">${vg(x.poids,1)}\u00a0%</div></div><div style="text-align:right;min-width:72px"><div class="mono" style="font-size:var(--fs-petit);font-weight:600"><span style="${_vs(xp)}">${fP(x.plPct)}</span></div>${_pc==="EUR"?`<div style="font-size:var(--fs-legende);${xp?"color:var(--dim)":"color:var(--baisse);font-weight:700"}">${fL(x.pl)}</div>`:`<div style="font-size:var(--fs-legende);${x.plDev>=0?"color:var(--dim)":"color:var(--baisse);font-weight:700"}">${x.plDev>=0?"+":""}${fmt_(x.plDev)} ${_psym}</div><div style="font-size:var(--fs-legende);color:var(--mut)">${fL(x.pl)}</div>`}</div></div>`;});
-h+=`</div><div style="display:flex;gap:8px"><div class="add-btn" onclick="aPos('${escAttr(sel)}')" style="flex:1;margin-top:10px">+ Ajouter</div><div class="add-btn" onclick="openImport('${escAttr(sel)}')" style="flex:1;margin-top:10px">📥 Importer CSV</div></div><div onclick="addRealizedPnl('${escAttr(sel)}')" style="text-align:center;margin-top:12px;font-size:var(--fs-corps);color:var(--lien);cursor:pointer">+ Enregistrer un P&L réalisé passé</div></div>`;}}
+const _trL=(_TRIS.find(t=>t[0]===((D.prefs&&D.prefs.posSort)||"val_desc"))||_TRIS[0])[1];
+h+=`<div class="titre-section-ligne"><h2 class="titre-section">Positions</h2>${p.positions.length>1?`<button type="button" class="bouton-tri" onclick="_triFeuille()"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v16M3 8l4-4 4 4"></path><path d="M17 20V4M13 16l4 4 4-4"></path></svg>${_trL}</button>`:""}</div>`;
+h+=_envLignes(p,sel);
+h+=`<div class="env-liens"><button type="button" class="lien-detail" onclick="openImport('${escAttr(sel)}')">Importer un CSV</button><button type="button" class="lien-detail" onclick="addRealizedPnl('${escAttr(sel)}')">Enregistrer un P&L réalisé passé</button></div>`;
+h+=`<div class="fab-zone">${_boutonFlottant("Ajouter",`aPos('${escAttr(sel)}')`)}</div></div>`;}}
 
 // ─── RESTAURATION fb23f43 : onglet ANALYSE ─────────────────────────────────
 if(tab==="analyse"){const d=ga();
@@ -4161,7 +4274,7 @@ if($){
   {const _sig=_signatureEcran();
    $.classList.toggle("sans-anim",_sig===_dernierEcran);
    _dernierEcran=_sig;}
-  h=h.replace("<!--BARRE-HAUT-->",_barreHaut(h.indexOf('class="retour"')>=0));// v265 : un bouton de retour = page de détail
+  h=h.replace("<!--BARRE-HAUT-->",h.indexOf('class="entete-detail"')>=0?'<div id="ptr" class="ptr" aria-hidden="true"></div>':_barreHaut(h.indexOf('class="retour"')>=0));// v265 : un bouton de retour = page de détail ; v268 : en-tête propre de la maquette
   $.innerHTML=h;_espacesChiffres($);
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
@@ -7015,7 +7128,7 @@ window._pruCalc=()=>{const g=id=>{const e=document.getElementById(id);return e?p
 function segHtml(opts,act,fn){return `<div class="segment" role="tablist">`+opts.map(o=>`<button type="button" role="tab" aria-selected="${act===o[0]}" onclick="${fn}('${escAttr(String(o[0]))}')"${act===o[0]?' class="actif"':''}>${esc(o[1])}</button>`).join("")+`</div>`;}
 window.setBSub=v=>{if(bSub==="resume"&&v!=="resume")_resetTools();if(v==="suivi")watchListOpen=null;bSub=v;R();};
 function bourseHtml(){const bl=_bPos();const F0=x=>Math.round(x).toLocaleString("fr-FR");
-let tot=0,inv=0,dayE=0,dayB=0;bl.forEach(r=>{tot+=r.v;inv+=(_pruCur(r.x)===curOf(r.x)?(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x)):_invEur(r.x));const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;}});
+let tot=0,inv=0,dayE=0,dayB=0,dayN=0;bl.forEach(r=>{tot+=r.v;inv+=(_pruCur(r.x)===curOf(r.x)?(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x)):_invEur(r.x));const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;dayN++;}});
 const pv=tot-inv;const pvPct=inv>0?pv/inv*100:0;const dayPct=dayB>0?dayE/dayB*100:null;
 let sh=`<div class="fade">`;
 sh+=`<div class="segment clair" role="tablist" style="margin:0 0 16px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Outils et suivi"]].map(t=>`<button type="button" role="tab" aria-selected="${bSub===t[0]}" onclick="setBSub('${t[0]}')"${bSub===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
@@ -7030,7 +7143,7 @@ sh+=_carteHeros({texte:`<span class="heros-libelle">Valeur de tes placements</sp
 sh+=_fxBandeau();
 sh+=`<div class="tuiles">`
  +_tuile("Depuis le départ","Ce que tes placements ont gagné ou perdu depuis tes achats : leur valeur de marché aujourd'hui, moins ce que tu as investi.",`${_sg(pv)}${isPriv()?"•••":F0(Math.abs(pv))+" €"}`,_pastilleVar(pv>=0,`${pvPct>=0?"+":""}${vg(pvPct,1)}\u00a0%`))
- +_tuile("Aujourd'hui","Somme des mouvements de marché du jour, uniquement sur tes valeurs cotées et rafraîchies ce jour. Les fonds (VL), livrets et lignes manuelles ne bougent pas en séance : ils ne sont pas comptés ici.",dayPct!=null?`${_sg(dayE)}${isPriv()?"•••":fmtE_(Math.abs(dayE))+" €"}`:"—",dayPct!=null?_pastilleVar(dayE>=0,`${dayPct>=0?"+":""}${vg(dayPct,1)}\u00a0%`):`<span style="font-size:var(--fs-legende);color:var(--mut)">dès la prochaine séance</span>`)
+ +_tuile("Aujourd'hui",dayN?`Montant et pourcentage portent sur le même périmètre : les ${dayN} ligne${dayN>1?"s":""} cotée${dayN>1?"s":""} et mise${dayN>1?"s":""} à jour aujourd'hui, qui valai${dayN>1?"en":""}t ${isPriv()?"•••":fmtE_(dayB)+" €"} à la clôture d'hier. Le pourcentage rapporte la variation à ce montant, pas à toute ta bourse (${isPriv()?"•••":fmtE_(tot)+" €"}). Ne sont pas comptés : les fonds (valeur liquidative), l'épargne salariale, l'assurance vie, les lignes manuelles et les cours pas encore mis à jour aujourd'hui.`:"Somme des mouvements de marché du jour, uniquement sur tes valeurs cotées et rafraîchies ce jour. Les fonds (VL), livrets et lignes manuelles ne bougent pas en séance : ils ne sont pas comptés ici.",dayPct!=null?`${_sg(dayE)}${isPriv()?"•••":fmtE_(Math.abs(dayE))+" €"}`:"—",dayPct!=null?_pastilleVar(dayE>=0,`${dayPct>=0?"+":""}${vg(dayPct,1)}\u00a0%`):`<span style="font-size:var(--fs-legende);color:var(--mut)">dès la prochaine séance</span>`)
  +`</div>`;
 const _it=pNames.map((n,i)=>({nom:n,v:byP[n].v,col:cols[i]}));
 sh+=_titreSection("Répartition par enveloppe","Détail","setBSub('positions')");
@@ -7064,17 +7177,20 @@ function outilsHubHtml(){
   const plans=Object.keys((D.prefs&&D.prefs.achat)||{}).filter(cle=>{const d=_achatCleSplit(cle);return _achatRows(d.poche,d.tk).length;});
   const tuile=(id,titre,sous)=>`<div onclick="${id==="cmp"?"openCmp()":`setBTool('${id}')`}" class="card card-tap" style="padding:14px 12px;margin:0;display:flex;flex-direction:column;justify-content:space-between;min-height:96px"><div style="font-size:var(--fs-corps);font-weight:700;line-height:1.3">${titre}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">${sous}</div></div>`;
   const entree=(page,titre,sous,cpt)=>`<div onclick="setBPage('${page}')" class="card card-tap" style="display:flex;align-items:center;gap:10px;padding:14px;margin-bottom:8px"><div style="flex:1;min-width:0"><div style="font-size:var(--fs-corps);font-weight:600">${titre}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:3px">${sous}</div></div>${cpt?`<span class="mono pilule pilule-mini pilule-neutre pilule-gras">${cpt}</span>`:""}<span style="color:var(--mut);font-size:var(--fs-corps-fort);margin-left:8px">›</span></div>`;
-  let s2=`<div class="card card-tap" onclick="openSearchModal('view')" style="display:flex;align-items:center;gap:9px;padding:12px 13px;margin-bottom:14px;border:1.5px solid var(--action-m)"><span style="color:var(--txt);font-size:var(--fs-corps-fort)">🔎</span><span style="flex:1;color:var(--mut);font-size:var(--fs-corps)">Rechercher (nom, ticker, ISIN)</span></div>`;
-  s2+=`<div class="section mini" style="margin:0 2px 8px">Outils</div>`;
-  s2+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">`
-    +tuile("cmp","Comparer plusieurs actions","Mettre deux courbes ou plus côte à côte")
-    +tuile("pru","Calcul PRU","Retrouver ton prix de revient unitaire")
-    +tuile("conv","Convertisseur","Passer d'une devise à l'autre")
-    +tuile("simu","Simulateur d'objectif","En combien de temps tu atteins ton objectif")
+  // v268 : maquette « Outils & suivi »
+  let s2=`<button type="button" class="champ-recherche" onclick="openSearchModal('view')">${_svgTrait("rech")}<span>Nom, ticker ou ISIN</span></button>`;
+  s2+=_titreSection("Outils");
+  s2+=`<div class="grille-outils">`
+    +_carteOutil("cmp","Comparer des actions","Plusieurs courbes côte à côte","var(--c-bleu-pale)","openCmp()")
+    +_carteOutil("pru","Calcul du PRU","Ton prix de revient unitaire","var(--c-menthe-claire)","setBTool('pru')")
+    +_carteOutil("conv","Convertisseur","D'une devise à l'autre","var(--c-mauve-pale)","setBTool('conv')")
+    +_carteOutil("simu","Simulateur d'objectif","En combien de temps tu l'atteins","var(--c-onglets)","setBTool('simu')")
     +`</div>`;
-  s2+=`<div class="section mini" style="margin:0 2px 8px">Suivi</div>`;
-  s2+=entree("listes","Listes de suivi","Les titres que tu surveilles, rangés par liste",lists.length||wl.length?String(wl.length):"");
-  s2+=entree("plans","Plans d'achat","À quels prix tu comptes entrer",plans.length?String(plans.length):"");
+  s2+=_titreSection("Suivi");
+  s2+=`<div class="card liste-suivi">`
+    +_ligneSuivi("listes","Listes de suivi","Les titres que tu surveilles",wl.length?String(wl.length):"",'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6h11M9 12h11M9 18h11"></path><circle cx="4.5" cy="6" r="1"></circle><circle cx="4.5" cy="12" r="1"></circle><circle cx="4.5" cy="18" r="1"></circle></svg>')
+    +_ligneSuivi("plans","Plans d'achat","À quel prix tu comptes entrer",plans.length?String(plans.length):"",'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z"></path><circle cx="7.5" cy="8.5" r="1.5"></circle></svg>')
+    +`</div>`;
   return s2;
 }
 function bToolHtml(){
