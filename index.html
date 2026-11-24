@@ -759,6 +759,7 @@ button.tuile-fond{cursor:pointer;}
 .carte-resultats{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px 16px;margin-top:10px;}
 .cr-lib{font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
 .cr-date{font-size:var(--fs-corps-fort);font-weight:700;font-variant-numeric:tabular-nums;}
+.cr-date.cr-inconnue{font-size:var(--fs-corps);font-weight:600;color:var(--dim);text-align:right;}
 .ch-barres{display:flex;gap:12px;margin-top:10px;}
 .ch-col{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:4px;}
 .ch-val{font-size:var(--fs-legende);font-weight:700;white-space:nowrap;}
@@ -770,6 +771,49 @@ button.tuile-fond{cursor:pointer;}
 .ch-barre.negatif{background:var(--baisse);border-radius:var(--r-petit) var(--r-petit) var(--r-10) var(--r-10);transform-origin:top;}
 .ch-an{font-size:var(--fs-legende);color:var(--dim);}
 .carte-histo[data-k]{cursor:pointer;}
+/* v273 — outils (maquettes B6, B8, B12) */
+.tete-outil{display:flex;flex-direction:column;gap:2px;margin:4px 2px 0;}
+.titre-outil{margin:0;font-weight:400;font-size:var(--fs-titre);line-height:36px;letter-spacing:-0.5px;}
+.sous-outil{font-size:var(--fs-onglet);color:var(--dim);}
+.carte-outil{padding:16px;margin-top:14px;}
+.champs-outil{display:flex;flex-direction:column;gap:14px;}
+.grille-champs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+.champ-outil{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.champ-outil-lib{font-size:var(--fs-onglet);font-weight:600;color:var(--dim);}
+.champ-outil-ligne{display:flex;align-items:center;gap:10px;min-width:0;}
+.champ-outil-input{flex:1;min-width:0;height:52px;border-radius:var(--r-grand);border:1.5px solid var(--bdr);background:var(--card);padding:0 16px;font-family:var(--police-texte);font-size:var(--fs-sous-titre);font-weight:600;color:var(--txt);box-sizing:border-box;}
+.champ-outil-unite{font-size:var(--fs-corps-fort);color:var(--dim);font-weight:600;width:34px;flex-shrink:0;}
+.pru-signe{width:150px;flex-shrink:0;}
+.carte-heros-outil{position:relative;overflow:hidden;margin-top:12px;border-radius:var(--r-carte);background:var(--c-navy);color:var(--c-lune);padding:18px;display:flex;flex-direction:column;}
+.piece-outil{position:absolute;right:14px;top:14px;}
+.ho-lib{font-size:var(--fs-onglet);color:var(--heros-accent);font-weight:600;padding-right:64px;}
+.ho-montant{font-weight:400;font-size:var(--fs-grand);line-height:46px;margin-top:2px;}
+.ho-duree{font-size:var(--fs-titre);line-height:40px;}
+.ho-sous{font-size:var(--fs-corps);color:var(--c-sur-navy);margin-top:2px;}
+.conv-montant{height:64px;border-radius:var(--r-grand);border:1.5px solid var(--c-emeraude);background:var(--card);padding:0 18px;font-weight:400;font-size:var(--fs-titre);color:var(--txt);box-sizing:border-box;width:100%;}
+.conv-devises{display:flex;align-items:center;gap:10px;margin-top:12px;}
+.devise-btn{flex:1;min-width:0;height:52px;border-radius:var(--r-grand);border:1px solid var(--bdr);background:var(--c-lune);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-bouton);font-weight:700;display:flex;align-items:center;justify-content:space-between;padding:0 14px;cursor:pointer;}
+.bouton-inverser{width:52px;height:52px;flex-shrink:0;border-radius:var(--r-pilule);border:0;background:var(--c-navy);color:var(--heros-accent);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.montants-rapides{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;}
+.montants-rapides button{height:40px;padding:0 14px;border-radius:var(--r-pilule);border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:600;cursor:pointer;}
+.conv-resultat{margin-top:12px;border-radius:var(--r-carte);background:var(--c-menthe);color:var(--c-navy);padding:18px;display:flex;align-items:center;gap:14px;}
+.cvr-montants{flex:1;text-align:right;display:flex;flex-direction:column;min-width:0;}
+.cvr-montant{font-weight:400;font-size:var(--fs-titre);line-height:40px;}
+.cvr-taux{font-size:var(--fs-corps);}
+.conv-date,.mention-outil{margin:8px 2px 0;font-size:var(--fs-legende);line-height:17px;color:var(--dim);}
+.titre-feuille{margin:0 0 12px;font-size:var(--fs-sous-titre);font-weight:700;}
+.liste-choix{display:flex;flex-direction:column;gap:6px;}
+.ligne-choix{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:var(--toucher);padding:0 14px;border-radius:var(--r-grand);border:1px solid var(--bdr);background:var(--card);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-corps-fort);font-weight:600;cursor:pointer;}
+.ligne-choix.actif{border-color:var(--c-navy);}
+.simu-patrimoine{margin-top:12px;min-height:var(--toucher);padding:0 14px;border-radius:var(--r-grand);border:1px solid var(--bdr);background:var(--c-lune);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-onglet);font-weight:600;cursor:pointer;}
+.carte-graphe-simu{padding:12px 8px 6px;margin-top:10px;}
+.simu-graphe{display:block;height:auto;}
+.sg-objectif{font-size:var(--fs-legende);font-weight:700;fill:var(--c-mauve-fonce);}
+.sg-axe{font-size:var(--fs-legende);fill:var(--dim);}
+svg .cv-pulse{animation:cvPulseSvg var(--duree-pulse) ease-in-out infinite;transform-box:fill-box;transform-origin:center;}
+@keyframes cvPulseSvg{0%,100%{transform:scale(1)}50%{transform:scale(1.25)}}
+html.anim-pause svg .cv-pulse{animation-play-state:paused;}
+@media (prefers-reduced-motion:reduce){svg .cv-pulse{animation:none}}
 .desc-site{display:flex;align-items:center;gap:6px;min-height:var(--toucher);color:var(--txt);font-size:var(--fs-onglet);font-weight:600;text-decoration:none;}
 .desc-trad{font-size:var(--fs-petit);color:var(--lien);cursor:pointer;padding:0 0 10px;}
 .desc-trad.muet{color:var(--dim);cursor:default;}
@@ -866,7 +910,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "272";
+const APP_VERSION = "273";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1086,7 +1130,13 @@ function _posOk(x){return _fxConnu(curOf(x))&&_fxConnu(_pruCur(x));}
 function _coursEnPru(x){const c=Number(x&&x.cours)||0;if(_pruCur(x)===curOf(x))return c;const tc=toEur(curOf(x)),tp=toEur(_pruCur(x));return (tc>0&&tp>0)?c*tc/tp:0;}
 // PRU ramené dans la monnaie du cours (barre de progression, détection des divisions).
 function _pruEnCours(x){const v=Number(x&&x.pru)||0;if(_pruCur(x)===curOf(x))return v;const tc=toEur(curOf(x)),tp=toEur(_pruCur(x));return (tc>0&&tp>0)?v*tp/tc:0;}
-function _invEur(x){if(!_posOk(x))return 0;return (x.qty||0)*(x.pru||0)*toEur(_pruCur(x));}
+function _invEur(x){if(!_posOk(x))return 0;if(_pruCur(x)!=="EUR"&&x.investiEur>0)return x.investiEur;return (x.qty||0)*(x.pru||0)*toEur(_pruCur(x));}
+// v273 : montant investi en euros d'une ligne. Ligne en devise : le montant FIGÉ (investiEur : taux du jour de chaque
+// achat, ou chiffre du courtier) ; sans lui, l'ancien calcul au taux du jour. Ligne en euros : quantité × PRU.
+function _investiLigne(x){if(_pruCur(x)!=="EUR"&&x.investiEur>0&&_posOk(x))return x.investiEur;const cur=curOf(x);return _pruCur(x)===cur?(x.qty*x.pru)*toEur(cur):_invEur(x);}
+// Remplissage (lancement, après synchro) : lignes en devise sans montant figé -> taux du jour. Jamais une valeur posée.
+function _completerInvesti(d){let n=0;Object.values((d&&d.poches)||{}).forEach(p=>((p&&p.positions)||[]).forEach(x=>{if(!x||x.manual)return;const pc=_pruCur(x);
+  if(pc==="EUR"||x.investiEur>0||!(x.qty>0)||!(x.pru>0))return;const t=toEur(pc);if(!(t>0))return;x.investiEur=x.qty*x.pru*t;n++;}));return n>0;}
 function _plDevPos(x){if(_pruCur(x)===curOf(x))return (x.qty||0)*((_coursValo(x)||0)-(x.pru||0));return (x.qty||0)*(_coursEnPru(x)-(x.pru||0));}
 function _plPctPos(x){if(!(x&&x.pru))return 0;if(_pruCur(x)===curOf(x))return (_coursValo(x)-x.pru)/x.pru*100;return (_coursEnPru(x)-x.pru)/x.pru*100;}
 // Londres : le titre s'affiche dans l'unité choisie pour le PRU (livre ou pence, « p »).
@@ -1187,7 +1237,7 @@ function _pruNoteCourbe(){const L=((D.prefs&&D.prefs.pruCurChanges)||[]).slice(-
 // PRU en euros, taux du jour de la vente sinon). Net reçu saisi dans la monnaie du PRU (Q4) ; vide =
 // prix de vente × quantité. null si un taux manque : pas de vente (blocage de la v256 gardé).
 function _venteCalc(p,q,px,netSaisi){const pc=_pruCur(p),cc=curOf(p),tp=toEur(pc),tc=toEur(cc);if(!(tp>0)||!(tc>0))return null;
-  const brutEur=px*q*tc,netEur=netSaisi>0?netSaisi*tp:brutEur,coutEur=q*(p.pru||0)*tp;
+  const brutEur=px*q*tc,netEur=netSaisi>0?netSaisi*tp:brutEur,coutEur=(pc!=="EUR"&&p.investiEur>0&&p.qty>0)?p.investiEur*q/p.qty:q*(p.pru||0)*tp;
   return {brutEur,netEur,coutEur,plEur:netEur-coutEur};}
 // État de la session : nouvel essai automatique tant qu'une monnaie détenue n'a pas de taux.
 // « indispo » = la source a répondu, mais sans cette monnaie (elle ne la fournit pas).
@@ -1626,11 +1676,13 @@ function rc(d){
         x.valeur=ok?(x.qty*cx)*te:0;
         x.pl=ok?x.valeur-(x.qty*x.pru)*toEur(_pruCur(x)):0;
       }
+      // v273 : investi figé (le calcul historique reste tant que le montant figé est celui du taux du jour)
+      if(_pruCur(x)!=="EUR"&&x.investiEur>0&&_posOk(x)&&Math.abs(x.investiEur-x.qty*x.pru*toEur(_pruCur(x)))>1e-6)x.pl=x.valeur-x.investiEur;
       x.plPct=_plPctPos(x);x.plDev=_plDevPos(x);x.plCur=_pruCur(x);
     });
     p.investi=p.positions.reduce((s,x)=>{
       const cur=curOf(x);
-      return s+(_pruCur(x)===cur?(x.qty*x.pru)*toEur(cur):_invEur(x))
+      return s+_investiLigne(x);
     },0);
     p.valeur=p.positions.reduce((s,x)=>s+x.valeur,0);
     p.pl=p.valeur-p.investi;
@@ -2366,10 +2418,10 @@ const _SYNC_PREFS_AUTO=new Set(["divAutoSym","divAutoSymTs","curSourceSym","stal
 const _SYNC_PREFS_SOUPLE=new Set(["envGraph","horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
 const _SYNC_PREFS_TECH=["_rev","_migs"];
 const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
-const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser","cibleCurrency","cibleHautCurrency"];
+const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser","cibleCurrency","cibleHautCurrency","investiEur"];
 const _POS_COL={titre:"titre",qty:"qty",pru:"pru",cours:"cours",cible:"cible",cibleHaut:"cible_haut",sector:"sector",dividend:"dividend",avSymbol:"av_symbol",currency:"currency",isin:"isin",
   pruCurrency:"pru_currency",dividendCurrency:"dividend_currency",dividendUser:"dividend_user",
-  cibleCurrency:"cible_currency",cibleHautCurrency:"cible_haut_currency"};
+  cibleCurrency:"cible_currency",cibleHautCurrency:"cible_haut_currency",investiEur:"investi_eur"};
 // ══ MONNAIES DE LA POSITION (v255, chantier « devises et dividendes », séance 1) ══════════════════
 // Trois champs dont les colonnes sont ajoutées par sql/v255_monnaies_positions.sql (exécuté par Yanis) :
 //   pruCurrency      monnaie du PRU (vide = suit la monnaie du cours, « currency »)
@@ -2385,7 +2437,13 @@ let _colsV255=null;
 // les colonnes manquent au serveur, la synchro se fait sans elles (les valeurs restent sur l'appareil).
 const _POS_V257=["cibleCurrency","cibleHautCurrency"];
 let _colsV257=null;
-function _posChamps(){return _POS_SYNC.filter(f=>!(_colsV255===false&&_POS_V255.includes(f))&&!(_colsV257===false&&_POS_V257.includes(f)));}
+// v273 : montant investi figé en euros (colonne investi_eur, sql/v273_investi_eur_PROPOSITION.sql, à relire puis exécuter
+// par Yanis). Même prudence : tant que la colonne manque, synchro sans elle, valeur gardée sur l'appareil.
+const _POS_V273=["investiEur"];
+let _colsV273=null;
+function _erreurColonneV273(e){const t=String((e&&(e.message||""))+" "+(e&&(e.details||""))+" "+(e&&(e.hint||"")));
+  return !!e&&(e.code==="PGRST204"||e.code==="42703")&&/investi_eur/.test(t);}
+function _posChamps(){return _POS_SYNC.filter(f=>!(_colsV255===false&&_POS_V255.includes(f))&&!(_colsV257===false&&_POS_V257.includes(f))&&!(_colsV273===false&&_POS_V273.includes(f)));}
 function _erreurColonneV257(e){const t=String((e&&(e.message||""))+" "+(e&&(e.details||""))+" "+(e&&(e.hint||"")));
   return !!e&&(e.code==="PGRST204"||e.code==="42703")&&/cible_currency|cible_haut_currency/.test(t);}
 function _erreurColonneV255(e){const t=String((e&&(e.message||""))+" "+(e&&(e.details||""))+" "+(e&&(e.hint||"")));
@@ -2416,7 +2474,8 @@ function _posPersiste(x){return {titre:x.titre==null?null:x.titre,qty:_syncNum(x
   // v255 : absents de l'instantané quand les colonnes manquent (le serveur ne peut pas les garder)
   ...(_colsV255===false?{}:{pruCurrency:x.pruCurrency||null,dividendCurrency:x.dividendCurrency||null,
     dividendUser:(x.dividendUser==null||x.dividendUser==="")?null:_syncNum(x.dividendUser)}),
-  ...(_colsV257===false?{}:{cibleCurrency:x.cibleCurrency||null,cibleHautCurrency:x.cibleHautCurrency||null})};}
+  ...(_colsV257===false?{}:{cibleCurrency:x.cibleCurrency||null,cibleHautCurrency:x.cibleHautCurrency||null}),
+  ...(_colsV273===false?{}:{investiEur:(x.investiEur==null||x.investiEur==="")?null:_syncNum(x.investiEur)})};}
 function _prefsSync(p){const o=Object.assign({},p||{});_SYNC_PREFS_TECH.forEach(k=>{delete o[k];});return o;}
 function _snapLocal(d){const pos={};
   Object.entries((d&&d.poches)||{}).forEach(([n,p])=>((p&&p.positions)||[]).forEach(x=>{if(!x||!x.ticker)return;const k=n+"|"+x.ticker;if(!(k in pos))pos[k]=_posPersiste(x);}));
@@ -2428,7 +2487,7 @@ function _snapLocal(d){const pos={};
 function _snapServeur(pf,rows){const pos={};
   (rows||[]).forEach(r=>{if(!r||!r.ticker)return;const k=r.poche+"|"+r.ticker;if(!(k in pos))pos[k]=_posPersiste({titre:r.titre,qty:r.qty,pru:r.pru,cours:r.cours,cible:r.cible,cibleHaut:r.cible_haut,sector:r.sector,dividend:r.dividend,avSymbol:r.av_symbol,currency:r.currency,isin:r.isin,
     pruCurrency:r.pru_currency,dividendCurrency:r.dividend_currency,dividendUser:r.dividend_user,
-    cibleCurrency:r.cible_currency,cibleHautCurrency:r.cible_haut_currency});});
+    cibleCurrency:r.cible_currency,cibleHautCurrency:r.cible_haut_currency,investiEur:r.investi_eur});});
   return _syncCopie({cash:_syncNum(pf.cash)||0,eurUsd:_syncNum(pf.eur_usd)||1.1,immobilier:pf.immobilier||{},targetAlloc:pf.target_alloc||{},
     sales:pf.sales||[],divReceived:pf.div_received||[],prefs:_prefsSync(pf.prefs),pos});}
 
@@ -2742,8 +2801,9 @@ async function _ecrirePositions(pfId,avant,apres){
     try{await _ecrirePositions1(pfId,avant,apres,_posChamps());return;}
     catch(e){
       // Un serveur sans les colonnes v255 n'a pas non plus celles de la v257 (SQL exécutés dans l'ordre).
-      if(essai<3&&_colsV255!==false&&_erreurColonneV255(e)){_colsV255=false;_colsV257=false;console.warn("synchro : colonnes v255 absentes du serveur, envoi sans les monnaies (SQL v255 à exécuter)");continue;}
-      if(essai<3&&_colsV257!==false&&_erreurColonneV257(e)){_colsV257=false;console.warn("synchro : colonnes v257 absentes du serveur, envoi sans les monnaies des alertes (SQL v257 à exécuter)");continue;}
+      if(essai<3&&_colsV255!==false&&_erreurColonneV255(e)){_colsV255=false;_colsV257=false;_colsV273=false;console.warn("synchro : colonnes v255 absentes du serveur, envoi sans les monnaies (SQL v255 à exécuter)");continue;}
+      if(essai<3&&_colsV273!==false&&_erreurColonneV273(e)){_colsV273=false;console.warn("synchro : colonne v273 absente du serveur, envoi sans le montant investi figé (SQL v273 à exécuter)");continue;}
+      if(essai<3&&_colsV257!==false&&_erreurColonneV257(e)){_colsV257=false;_colsV273=false;console.warn("synchro : colonnes v257 absentes du serveur, envoi sans les monnaies des alertes (SQL v257 à exécuter)");continue;}
       throw e;}}}
 async function _ecrirePositions1(pfId,avant,apres,champs){
   const ins=[],maj=[],sup=[];
@@ -2766,7 +2826,7 @@ async function _lireServeur(){
   if(e2)throw e2;
   // v255 : « select * » renvoie toutes les colonnes, même vides. Si les colonnes v255 n'y sont pas, le SQL
   // n'a pas encore été exécuté. Sans aucune ligne on ne peut pas savoir : l'écriture le dira (voir plus haut).
-  if(rows&&rows.length&&rows[0]){_colsV255=_POS_V255.every(f=>_POS_COL[f] in rows[0]);_colsV257=_POS_V257.every(f=>_POS_COL[f] in rows[0]);}
+  if(rows&&rows.length&&rows[0]){_colsV255=_POS_V255.every(f=>_POS_COL[f] in rows[0]);_colsV257=_POS_V257.every(f=>_POS_COL[f] in rows[0]);_colsV273=_POS_V273.every(f=>_POS_COL[f] in rows[0]);}
   return {pf:pf,rows:rows||[]};}
 // v255 : la base enregistrée par une version précédente n'a pas les nouveaux champs (ou les a alors que
 // les colonnes manquent). On la remet à la forme courante AVANT de comparer : sinon « absent » (base) contre
@@ -2829,6 +2889,7 @@ async function _synchroniser(){
       // v255 : monnaies vides complétées (positions créées par une ancienne version, l'import IBKR, le
       // formulaire actuel) ; la synchro suivante les envoie. Ne lève jamais de conflit (règle « remplie »).
       if(D&&D.poches&&_completerMonnaies(D))_syncPending=true;
+      if(D&&D.poches&&_completerInvesti(D))_syncPending=true;
       _bandeauAvisPremier();
       saveLocal();
       etat="ok";break;
@@ -3448,6 +3509,7 @@ async function applyPortfolioMigrations(){
   // lancement (pas de drapeau) : les positions créées ailleurs sans ces champs sont prises aussi.
   // Aucun calcul ne les lit encore : aucun chiffre ne bouge.
   if(_completerMonnaies(D))changed=true;
+  if(_completerInvesti(D))changed=true;
   // v257 : les cryptos en euros reçoivent désormais un vrai cours en euros (avant : le cours en dollars
   // était compté comme des euros). Joué une fois : une note datée explique la marche sur la courbe.
   if(!(D.prefs&&D.prefs.migCryptoEur)){D.prefs=D.prefs||{};D.prefs.migCryptoEur=1;changed=true;
@@ -3849,7 +3911,7 @@ function _perfPoches(){return Object.keys((D&&D.poches)||{}).filter(_perfInc);}
 // Valeur / investi "bourse" d'un point d'historique, reconstruits pour le périmètre perf.
 function _bourseVal(pt){if(!pt||!pt.env)return null;let v=0,any=false;_perfPoches().forEach(n=>{if(pt.env[n]!=null){v+=pt.env[n];any=true;}});return any?v:null;}
 function _bourseInv(pt){if(!pt||!pt.envInv)return null;let s=0;_perfPoches().forEach(n=>{if(pt.envInv[n]!=null)s+=pt.envInv[n];});return s;}
-function ga(){const _exT=(D.prefs&&D.prefs.pocheExclTotal)||{};let _npPl=0,_npInv=0,_npVal=0;Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{if(x.noPerf){_npPl+=(x.pl||0);_npInv+=(_pruCur(x)===curOf(x)?(x.qty*x.pru)*toEur(curOf(x)):_invEur(x));_npVal+=(x.valeur||0);}}));let _cotePL=0,_ncPL=0;const _pf=(D.prefs&&D.prefs.pocheFamily)||{};Object.entries(D.poches).forEach(([n,p])=>{let _f=_pf[n];if(!_f)_f=(p.positions&&p.positions.length&&p.positions.every(x=>x.manual))?'nc':'cote';const _ppl=(p.positions||[]).reduce((s,x)=>s+(x.noPerf?0:(x.pl||0)),0);if(_f==='nc')_ncPL+=_ppl;else _cotePL+=_ppl;});const tF=Object.entries(D.poches).reduce((s,[n,p])=>s+(_exT[n]?0:p.valeur),0)+D.cash,tP=Object.entries(D.poches).reduce((s,[n,p])=>s+(_exT[n]?0:p.pl),0)-_npPl,tN=tF+immoEquityInTotal(D);const al=[...Object.entries(D.poches).filter(([n])=>!_exT[n]).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>{if(_exT[n])return;p.positions.forEach(x=>{if(x.noPerf)return;ap.push({...x,poche:n});});});let bV=0,bInv=0,bPL=0;Object.entries(D.poches).forEach(([n,p])=>{if(!_perfInc(n))return;p.positions.forEach(x=>{if(x.noPerf)return;bV+=(x.valeur||0);bInv+=(_pruCur(x)===curOf(x)?(x.qty||0)*(x.pru||0)*toEur(curOf(x)):_invEur(x));bPL+=(x.pl||0);});});const alerts=[];ap.forEach(p=>{if(p.cible){const dv=_devAlerte(p,false),c=_coursDans(p,dv);if(c!=null){const ec=((c-p.cible)/p.cible)*100;alerts.push({...p,dir:"down",cibleVal:p.cible,cible:p.cible,devAlerte:dv,ec,at:c<=p.cible,nr:c>p.cible&&ec<5});}}if(p.cibleHaut){const dv=_devAlerte(p,true),c=_coursDans(p,dv);if(c!=null){const ec=((c-p.cibleHaut)/p.cibleHaut)*100;alerts.push({...p,dir:"up",cibleVal:p.cibleHaut,cible:p.cibleHaut,devAlerte:dv,ec,at:c>=p.cibleHaut,nr:c<p.cibleHaut&&ec>-5});}}});const _wl=(D.prefs&&D.prefs.watchlist)||[];_wl.forEach(w=>{if(w.lastCours==null)return;const b={ticker:w.ticker,titre:w.name||"",poche:"Suivi",cours:w.lastCours,currency:w.cur,watch:true};if(w.target!=null){const dv=w.targetCur||w.cur||"EUR",c=_conv(w.lastCours,w.cur||"EUR",dv);if(c!=null){const ec=((c-w.target)/w.target)*100;alerts.push({...b,dir:"down",cibleVal:w.target,cible:w.target,devAlerte:dv,ec,at:c<=w.target,nr:c>w.target&&ec<5});}}if(w.targetHigh!=null){const dv=w.targetHighCur||w.cur||"EUR",c=_conv(w.lastCours,w.cur||"EUR",dv);if(c!=null){const ec=((c-w.targetHigh)/w.targetHigh)*100;alerts.push({...b,dir:"up",cibleVal:w.targetHigh,cible:w.targetHigh,devAlerte:dv,ec,at:c>=w.targetHigh,nr:c<w.targetHigh&&ec>-5});}}});alerts.sort((a,b)=>Math.abs(a.ec)-Math.abs(b.ec));D.prefs=D.prefs||{};D.prefs.dismissedAlerts=D.prefs.dismissedAlerts||{};const _dm=D.prefs.dismissedAlerts;alerts.forEach(a=>{a._k=a.ticker+"|"+a.dir+"|"+a.cibleVal;a.dismissed=!!(a.at&&_dm[a._k]);});Object.keys(_dm).forEach(k=>{if(!alerts.some(a=>a._k===k&&a.at))delete _dm[k];});return{tF,tP,tN,al,ap,alerts,npInv:_npInv,npVal:_npVal,cotePL:_cotePL,ncPL:_ncPL,bV,bInv,bPL,nA:alerts.filter(a=>a.at&&!a.dismissed).length}}
+function ga(){const _exT=(D.prefs&&D.prefs.pocheExclTotal)||{};let _npPl=0,_npInv=0,_npVal=0;Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{if(x.noPerf){_npPl+=(x.pl||0);_npInv+=_investiLigne(x);_npVal+=(x.valeur||0);}}));let _cotePL=0,_ncPL=0;const _pf=(D.prefs&&D.prefs.pocheFamily)||{};Object.entries(D.poches).forEach(([n,p])=>{let _f=_pf[n];if(!_f)_f=(p.positions&&p.positions.length&&p.positions.every(x=>x.manual))?'nc':'cote';const _ppl=(p.positions||[]).reduce((s,x)=>s+(x.noPerf?0:(x.pl||0)),0);if(_f==='nc')_ncPL+=_ppl;else _cotePL+=_ppl;});const tF=Object.entries(D.poches).reduce((s,[n,p])=>s+(_exT[n]?0:p.valeur),0)+D.cash,tP=Object.entries(D.poches).reduce((s,[n,p])=>s+(_exT[n]?0:p.pl),0)-_npPl,tN=tF+immoEquityInTotal(D);const al=[...Object.entries(D.poches).filter(([n])=>!_exT[n]).map(([k,v])=>[k,Math.round(v.valeur)]),["Cash",D.cash]];const ap=[];Object.entries(D.poches).forEach(([n,p])=>{if(_exT[n])return;p.positions.forEach(x=>{if(x.noPerf)return;ap.push({...x,poche:n});});});let bV=0,bInv=0,bPL=0;Object.entries(D.poches).forEach(([n,p])=>{if(!_perfInc(n))return;p.positions.forEach(x=>{if(x.noPerf)return;bV+=(x.valeur||0);bInv+=(_pruCur(x)===curOf(x)?(x.qty||0)*(x.pru||0)*toEur(curOf(x)):_invEur(x));bPL+=(x.pl||0);});});const alerts=[];ap.forEach(p=>{if(p.cible){const dv=_devAlerte(p,false),c=_coursDans(p,dv);if(c!=null){const ec=((c-p.cible)/p.cible)*100;alerts.push({...p,dir:"down",cibleVal:p.cible,cible:p.cible,devAlerte:dv,ec,at:c<=p.cible,nr:c>p.cible&&ec<5});}}if(p.cibleHaut){const dv=_devAlerte(p,true),c=_coursDans(p,dv);if(c!=null){const ec=((c-p.cibleHaut)/p.cibleHaut)*100;alerts.push({...p,dir:"up",cibleVal:p.cibleHaut,cible:p.cibleHaut,devAlerte:dv,ec,at:c>=p.cibleHaut,nr:c<p.cibleHaut&&ec>-5});}}});const _wl=(D.prefs&&D.prefs.watchlist)||[];_wl.forEach(w=>{if(w.lastCours==null)return;const b={ticker:w.ticker,titre:w.name||"",poche:"Suivi",cours:w.lastCours,currency:w.cur,watch:true};if(w.target!=null){const dv=w.targetCur||w.cur||"EUR",c=_conv(w.lastCours,w.cur||"EUR",dv);if(c!=null){const ec=((c-w.target)/w.target)*100;alerts.push({...b,dir:"down",cibleVal:w.target,cible:w.target,devAlerte:dv,ec,at:c<=w.target,nr:c>w.target&&ec<5});}}if(w.targetHigh!=null){const dv=w.targetHighCur||w.cur||"EUR",c=_conv(w.lastCours,w.cur||"EUR",dv);if(c!=null){const ec=((c-w.targetHigh)/w.targetHigh)*100;alerts.push({...b,dir:"up",cibleVal:w.targetHigh,cible:w.targetHigh,devAlerte:dv,ec,at:c>=w.targetHigh,nr:c<w.targetHigh&&ec>-5});}}});alerts.sort((a,b)=>Math.abs(a.ec)-Math.abs(b.ec));D.prefs=D.prefs||{};D.prefs.dismissedAlerts=D.prefs.dismissedAlerts||{};const _dm=D.prefs.dismissedAlerts;alerts.forEach(a=>{a._k=a.ticker+"|"+a.dir+"|"+a.cibleVal;a.dismissed=!!(a.at&&_dm[a._k]);});Object.keys(_dm).forEach(k=>{if(!alerts.some(a=>a._k===k&&a.at))delete _dm[k];});return{tF,tP,tN,al,ap,alerts,npInv:_npInv,npVal:_npVal,cotePL:_cotePL,ncPL:_ncPL,bV,bInv,bPL,nA:alerts.filter(a=>a.at&&!a.dismissed).length}}
 window.dismissAlert=(k)=>{D.prefs=D.prefs||{};D.prefs.dismissedAlerts=D.prefs.dismissedAlerts||{};D.prefs.dismissedAlerts[k]=true;save();};
 window.dismissAllAlerts=()=>{const d=ga();D.prefs=D.prefs||{};D.prefs.dismissedAlerts=D.prefs.dismissedAlerts||{};d.alerts.forEach(a=>{if(a.at&&!a.dismissed)D.prefs.dismissedAlerts[a._k]=true;});save();};
 
@@ -3907,9 +3969,15 @@ window.addConsoRow=()=>{const l=document.getElementById('consoList');if(l)l.inse
 window.eBudget=()=>{const pr=D.prefs||{};const conso=pr.creditsConso||[];sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Budget mensuel</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="field"><label>Salaire net mensuel (€)</label><input id="bsal" value="${pr.salaireNet||''}" inputmode="decimal" placeholder="ex: 2250"></div><div class="field"><label>Autres charges fixes / mois (€)</label><input id="bchg" value="${pr.autresCharges||''}" inputmode="decimal" placeholder="loyer, factures, abonnements..."></div><div class="section" style="margin:14px 0 6px">Crédits conso</div><div id="consoList">${conso.map(c=>consoRowHTML(c)).join("")}</div><button class="btn btn-s btn-sm" style="width:100%;margin-top:2px" onclick="addConsoRow()">+ Ajouter un crédit conso</button><button class="btn btn-p" style="margin-top:14px" onclick="saveBudget()">Enregistrer</button><p style="font-size:var(--fs-legende);color:var(--mut);margin-top:10px;line-height:1.4">Taux d'effort = crédits ÷ salaire. Capacité d'épargne = salaire − crédits − charges. Les mensualités de tes biens immo sont comptées automatiquement (un locatif est net de son loyer).</p>`);};
 window.saveBudget=()=>{if(!D.prefs)D.prefs={};D.prefs.salaireNet=pn(document.getElementById('bsal').value);D.prefs.autresCharges=pn(document.getElementById('bchg').value);const rows=[...document.querySelectorAll('.consoRow')];D.prefs.creditsConso=rows.map(r=>({id:'c'+Math.random().toString(36).slice(2,7),nom:(r.querySelector('.cnom').value||'').trim()||'Crédit',mensualite:pn(r.querySelector('.cmens').value),exclureTE:r.querySelector('.cexcl').checked})).filter(c=>c.mensualite>0);cm();save();};
 
-window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; _oublierChoix(); sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">${esc(tk)}</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}" data-av="${escAttr(p.avSymbol||"")}" oninput="this.value=this.value.toUpperCase();tSug(this.value);_mkSrcMaj()" autocomplete="off"><div id="mkSug" style="background:var(--card);border-radius:var(--r-moyen);overflow:hidden;max-height:190px;overflow-y:auto"></div><div id="mkSrc" style="font-size:var(--fs-legende);color:var(--mut);margin-top:4px">${esc(_sourceCoursTexte(p))}</div></div><div class="field"><label>ISIN — optionnel</label><input id="mIsin" value="${escAttr(p.isin||'')}" placeholder="ex: US0378331005" oninput="this.value=this.value.toUpperCase()" autocomplete="off"></div>${_formDevisesHtml(p)}<div class="field"><label>Horizon d'investissement</label>${_hzChips(_horizonOf(p.ticker))}<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:5px">Une intention, pas un engagement — modifiable à tout moment.</div></div><div class="field"><label>Secteur</label><input id="ms" value="${escAttr(p.sector||'')}" placeholder="ex: Technology"></div><div class="field"><label>Pays</label><select id="mpays" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:9px;color:var(--txt);font-family:inherit">${(()=>{const cur=_positionCountry(p,pocheName);const codes=[DIVERSIFIED_CODE,...Object.keys(COUNTRY_NAMES)].sort((a,b)=>_countryName(a).localeCompare(_countryName(b),"fr"));if(!codes.includes(cur))codes.unshift(cur);return codes.map(c=>`<option value="${c}" ${c===cur?"selected":""}>${esc(_countryName(c))}</option>`).join("");})()}</select></div><label style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:var(--fs-corps);color:var(--dim);cursor:pointer"><input type="checkbox" id="mManual" ${p.manual?"checked":""} onchange="toggleManualFields()"> 🏷️ Actif non coté (valeur manuelle, pas de cours boursier)</label><div id="mNoPerfRow" style="display:none;margin:-6px 0 12px"><label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-corps);color:var(--dim);cursor:pointer"><input type="checkbox" id="mNoPerf" ${p.noPerf?"checked":""}> 📊 Exclure de l'analyse de performance</label></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label id="lbl-mp">PRU (en ${esc(curSym(_pruCur(p)))})</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div><div class="row"><div class="field"><label id="lbl-mx">Cours (en ${esc(curSym(curOf(p)))})</label><input id="mx" value="${p.cours}" inputmode="decimal"></div>${_alerteChampHtml("mi","micur","↓ bas",p.cible,_devAlerte(p,false),"achat",curOf(p))}</div><div class="row">${_alerteChampHtml("mih","mihcur","↑ haut",p.cibleHaut,_devAlerte(p,true),"profit",curOf(p))}<div class="field"><label style="color:var(--mut);font-size:var(--fs-legende)">sens</label><div style="font-size:var(--fs-legende);color:var(--mut);line-height:1.3">↓ si ça descend dessous<br>↑ si ça monte dessus</div></div></div><div class="field" id="mdBloc">${_divChampHtml(pocheName,p,false)}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin:2px 0 12px;line-height:1.4">📝 Conviction, thèse & objectif de vente se gèrent sur la <b style="color:var(--dim)">fiche</b> de la position.</div><div style="display:flex;gap:8px;margin-top:4px;margin-bottom:8px"><button class="btn btn-a" style="flex:1" onclick="reinforce('${escAttr(pocheName)}','${escAttr(tk)}')">+ Acheter</button><button class="btn btn-s" style="flex:1" onclick="sellPos('${escAttr(pocheName)}','${escAttr(tk)}')">➖ Vendre</button></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`);{const _r=document.getElementById("modal-root");if(_r)_r.dataset.hz=_horizonOf(tk)||"";}setTimeout(()=>{try{toggleManualFields()}catch(e){}},30);try{_posFormMaj();}catch(e){}};
+// v273 : montant investi en euros d'une ligne en devise, pré-rempli, modifiable avec le chiffre du courtier
+function _champInvestiHtml(p){if(_pruCur(p)==="EUR")return "";const v=p.investiEur>0?p.investiEur:(toEur(_pruCur(p))>0?Math.round(p.qty*p.pru*toEur(_pruCur(p))*100)/100:null);
+  const t=v!=null?String(Math.round(v*100)/100).replace(".",","):"";return `<div class="field"><label>Investi (en €)</label><input id="mInv" inputmode="decimal" value="${escAttr(t)}" data-orig="${escAttr(t)}"><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:3px;line-height:1.35">Ce que cette ligne t'a coûté en euros, tel que l'indique ton courtier. Il ne bouge plus avec le taux de change.</div></div>`;}
+function _sPInvesti(p,q0,p0){const el=document.getElementById("mInv");if(!el||_pruCur(p)==="EUR")return;const val=String(el.value).trim();
+  if(val!==(el.dataset.orig||"")&&pn(val)>0){p.investiEur=Math.round(pn(val)*100)/100;return;}
+  if(p.qty!==q0||p.pru!==p0){const t=toEur(_pruCur(p));if(t>0)p.investiEur=Math.round(p.qty*p.pru*t*100)/100;}}
+window.ePos=(pocheName,tk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===tk);if(!p)return; _oublierChoix(); sm(`<div style="display:flex;justify-content:space-between;margin-bottom:16px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">${esc(tk)}</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="field"><label>Nom</label><input id="mt" value="${esc(p.titre)}"></div><div class="field"><label>Ticker</label><input id="mk" value="${esc(p.ticker)}" data-av="${escAttr(p.avSymbol||"")}" oninput="this.value=this.value.toUpperCase();tSug(this.value);_mkSrcMaj()" autocomplete="off"><div id="mkSug" style="background:var(--card);border-radius:var(--r-moyen);overflow:hidden;max-height:190px;overflow-y:auto"></div><div id="mkSrc" style="font-size:var(--fs-legende);color:var(--mut);margin-top:4px">${esc(_sourceCoursTexte(p))}</div></div><div class="field"><label>ISIN — optionnel</label><input id="mIsin" value="${escAttr(p.isin||'')}" placeholder="ex: US0378331005" oninput="this.value=this.value.toUpperCase()" autocomplete="off"></div>${_formDevisesHtml(p)}<div class="field"><label>Horizon d'investissement</label>${_hzChips(_horizonOf(p.ticker))}<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:5px">Une intention, pas un engagement — modifiable à tout moment.</div></div><div class="field"><label>Secteur</label><input id="ms" value="${escAttr(p.sector||'')}" placeholder="ex: Technology"></div><div class="field"><label>Pays</label><select id="mpays" style="width:100%;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:9px;color:var(--txt);font-family:inherit">${(()=>{const cur=_positionCountry(p,pocheName);const codes=[DIVERSIFIED_CODE,...Object.keys(COUNTRY_NAMES)].sort((a,b)=>_countryName(a).localeCompare(_countryName(b),"fr"));if(!codes.includes(cur))codes.unshift(cur);return codes.map(c=>`<option value="${c}" ${c===cur?"selected":""}>${esc(_countryName(c))}</option>`).join("");})()}</select></div><label style="display:flex;align-items:center;gap:8px;margin:2px 0 12px;font-size:var(--fs-corps);color:var(--dim);cursor:pointer"><input type="checkbox" id="mManual" ${p.manual?"checked":""} onchange="toggleManualFields()"> 🏷️ Actif non coté (valeur manuelle, pas de cours boursier)</label><div id="mNoPerfRow" style="display:none;margin:-6px 0 12px"><label style="display:flex;align-items:center;gap:8px;font-size:var(--fs-corps);color:var(--dim);cursor:pointer"><input type="checkbox" id="mNoPerf" ${p.noPerf?"checked":""}> 📊 Exclure de l'analyse de performance</label></div><div class="row"><div class="field"><label>Quantité</label><input id="mq" value="${p.qty}" inputmode="decimal"></div><div class="field"><label id="lbl-mp">PRU (en ${esc(curSym(_pruCur(p)))})</label><input id="mp" value="${p.pru}" inputmode="decimal"></div></div>${_champInvestiHtml(p)}<div class="row"><div class="field"><label id="lbl-mx">Cours (en ${esc(curSym(curOf(p)))})</label><input id="mx" value="${p.cours}" inputmode="decimal"></div>${_alerteChampHtml("mi","micur","↓ bas",p.cible,_devAlerte(p,false),"achat",curOf(p))}</div><div class="row">${_alerteChampHtml("mih","mihcur","↑ haut",p.cibleHaut,_devAlerte(p,true),"profit",curOf(p))}<div class="field"><label style="color:var(--mut);font-size:var(--fs-legende)">sens</label><div style="font-size:var(--fs-legende);color:var(--mut);line-height:1.3">↓ si ça descend dessous<br>↑ si ça monte dessus</div></div></div><div class="field" id="mdBloc">${_divChampHtml(pocheName,p,false)}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin:2px 0 12px;line-height:1.4">📝 Conviction, thèse & objectif de vente se gèrent sur la <b style="color:var(--dim)">fiche</b> de la position.</div><div style="display:flex;gap:8px;margin-top:4px;margin-bottom:8px"><button class="btn btn-a" style="flex:1" onclick="reinforce('${escAttr(pocheName)}','${escAttr(tk)}')">+ Acheter</button><button class="btn btn-s" style="flex:1" onclick="sellPos('${escAttr(pocheName)}','${escAttr(tk)}')">➖ Vendre</button></div><div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-p" style="flex:1" onclick="sP('${escAttr(pocheName)}','${escAttr(tk)}')">Enregistrer</button><button class="btn btn-d" onclick="dP('${escAttr(pocheName)}','${escAttr(tk)}')">🗑</button></div>`);{const _r=document.getElementById("modal-root");if(_r)_r.dataset.hz=_horizonOf(tk)||"";}setTimeout(()=>{try{toggleManualFields()}catch(e){}},30);try{_posFormMaj();}catch(e){}};
 
-window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const _symAvant=_symPos(p),_tkAvant=p.ticker; {const _mpIn=document.getElementById("mp");if(_mpIn&&_mpIn.dataset.retaper==="1"&&String(_mpIn.value).trim()==="")return toast("Retape ton PRU dans sa nouvelle monnaie, tel que l'affiche ton courtier.");} const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value.trim(); const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; const newCibleH=document.getElementById("mih")?document.getElementById("mih").value:""; const newCur=(document.getElementById("mcur")||{}).value; if(!newTicker)return toast("Le ticker ne peut pas être vide."); if(newTicker.toUpperCase()!==otk.toUpperCase()&&D.poches[pocheName].positions.some(x=>x!==p&&String(x.ticker).toUpperCase()===newTicker.toUpperCase()))return toast(newTicker+" existe déjà dans cette enveloppe."); if(newQty<0)return toast("La quantité ne peut pas être négative."); if(newPru<0||newCours<0)return toast("Le PRU et le cours ne peuvent pas être négatifs."); if(newQty<p.qty){ _editStash=_formCapture(pocheName,otk); sellPos(pocheName,otk,p.qty-newQty,true); return; } p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours; const _rt=document.getElementById("modal-root");const _pk=_rt?(_rt.dataset.pickedSym||""):"";if(_pk){p.avSymbol=_pk;}if(_rt){delete _rt.dataset.pickedSym;delete _rt.dataset.pickedCur;} if(newCur)p.currency=newCur; if(newCible)p.cible=pn(newCible);else delete p.cible; if(newCibleH)p.cibleHaut=pn(newCibleH);else delete p.cibleHaut;
+window.sP=(pocheName,otk)=>{const p=D.poches[pocheName].positions.find(x=>x.ticker===otk);if(!p)return; const _symAvant=_symPos(p),_tkAvant=p.ticker; {const _mpIn=document.getElementById("mp");if(_mpIn&&_mpIn.dataset.retaper==="1"&&String(_mpIn.value).trim()==="")return toast("Retape ton PRU dans sa nouvelle monnaie, tel que l'affiche ton courtier.");} const newTitre=document.getElementById("mt").value; const newTicker=document.getElementById("mk").value.trim(); const newQty=pn(document.getElementById("mq").value); const newPru=pn(document.getElementById("mp").value); const newCours=pn(document.getElementById("mx").value); const newCible=document.getElementById("mi").value; const newCibleH=document.getElementById("mih")?document.getElementById("mih").value:""; const newCur=(document.getElementById("mcur")||{}).value; if(!newTicker)return toast("Le ticker ne peut pas être vide."); if(newTicker.toUpperCase()!==otk.toUpperCase()&&D.poches[pocheName].positions.some(x=>x!==p&&String(x.ticker).toUpperCase()===newTicker.toUpperCase()))return toast(newTicker+" existe déjà dans cette enveloppe."); if(newQty<0)return toast("La quantité ne peut pas être négative."); if(newPru<0||newCours<0)return toast("Le PRU et le cours ne peuvent pas être négatifs."); if(newQty<p.qty){ _editStash=_formCapture(pocheName,otk); sellPos(pocheName,otk,p.qty-newQty,true); return; } const _q0=p.qty,_p0=p.pru;p.titre=newTitre;p.ticker=newTicker;p.qty=newQty;p.pru=newPru;p.cours=newCours;_sPInvesti(p,_q0,_p0); const _rt=document.getElementById("modal-root");const _pk=_rt?(_rt.dataset.pickedSym||""):"";if(_pk){p.avSymbol=_pk;}if(_rt){delete _rt.dataset.pickedSym;delete _rt.dataset.pickedCur;} if(newCur)p.currency=newCur; if(newCible)p.cible=pn(newCible);else delete p.cible; if(newCibleH)p.cibleHaut=pn(newCibleH);else delete p.cibleHaut;
  {const _g=id=>document.getElementById(id);const _cote=curOf(p);
   // v257 : monnaie des alertes (rien = monnaie du cours)
   const _mic=_g("micur"),_mihc=_g("mihcur");if(_mic){if(p.cible!=null&&_mic.value&&_mic.value!==_cote)p.cibleCurrency=_mic.value;else delete p.cibleCurrency;}
@@ -4621,7 +4689,9 @@ window.dismissSplit=(key)=>{ if(!D.prefs)D.prefs={}; if(!D.prefs.splitSeen)D.pre
 window.setBench=async(key)=>{ benchSel=(key==="none")?null:key; if(!benchSel){R();return;} const SY={sp500:"^GSPC",cac40:"^FCHI",nasdaq:"^IXIC"}; const sym=SY[key]; if(!sym){R();return;} R(); try{ const r=await fetchT(`${WORKER_URL}/?chart=${encodeURIComponent(sym)}&_t=${Date.now()}`); if(r.ok){ const j=await r.json(); const res=j&&j.chart&&j.chart.result&&j.chart.result[0]; const ts=res&&res.timestamp; const cl=res&&res.indicators&&res.indicators.quote&&res.indicators.quote[0]&&res.indicators.quote[0].close; if(ts&&cl){ const days=[]; for(let i=0;i<ts.length;i++){ if(cl[i]!=null)days.push({t:ts[i]*1000,c:cl[i]}); } window._BENCH={key:key,days:days}; } else window._BENCH=null; } else window._BENCH=null; }catch(e){ window._BENCH=null; } R(); };
 window.reinforce=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const cur=_pruCur(p);const sym=curSym(cur);const _pxDef=_coursEnPru(p);sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Acheter ${esc(tk)}</h3><button class="btn-x" onclick="cm()">✕</button></div><div style="background:var(--inp);border-radius:var(--r-moyen);padding:10px;margin-bottom:14px;font-size:var(--fs-corps);color:var(--dim)">Position actuelle : <b style="color:var(--txt)">${fmt2_(p.qty)}</b> × PRU <b style="color:var(--txt)">${fmt2_(p.pru)} ${sym}</b></div><div class="row"><div class="field"><label>Quantité achetée</label><input id="rfQty" inputmode="decimal" placeholder="ex: 5" oninput="_rfPrev(${p.qty},${p.pru},'${escAttr(sym)}')"></div><div class="field"><label>Prix d'achat (en ${sym})</label><input id="rfPx" inputmode="decimal" value="${_pxDef>0?Math.round(_pxDef*100)/100:""}" oninput="_rfPrev(${p.qty},${p.pru},'${escAttr(sym)}')"></div></div><div style="font-size:var(--fs-legende);color:var(--mut);margin:-4px 0 8px;line-height:1.35">Dans la monnaie de ton PRU. Pré-rempli avec le cours du jour${cur!==curOf(p)?" converti":""} : indicatif, mets le prix réellement payé.</div><div id="rfPrev" style="background:var(--action-f);border:1px solid var(--action-m);border-radius:var(--r-moyen);padding:10px;margin:4px 0 14px;font-size:var(--fs-corps);color:var(--dim);text-align:center">Saisis une quantité et un prix.</div><button class="btn btn-p" onclick="doReinforce('${escAttr(poche)}','${escAttr(tk)}')">Confirmer l'achat</button>`);};
 window._rfPrev=(qty,pru,sym)=>{const aq=pn((document.getElementById("rfQty")||{}).value);const px=pn((document.getElementById("rfPx")||{}).value);const el=document.getElementById("rfPrev");if(!el)return;if(aq>0&&px>0){const nq=qty+aq;const np=(qty*pru+aq*px)/nq;el.innerHTML=`Après achat : <b style="color:var(--txt)">${fmt2_(nq)}</b> × PRU <b style="color:var(--txt)">${fmt2_(np)} ${sym}</b>`;}else{el.innerHTML="Saisis une quantité et un prix.";}};
-window.doReinforce=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const aq=pn((document.getElementById("rfQty")||{}).value);const px=pn((document.getElementById("rfPx")||{}).value);if(aq<=0)return toast("Quantité achetée invalide.");if(px<0)return toast("Prix invalide.");const nq=p.qty+aq;p.pru=(p.qty*p.pru+aq*px)/nq;p.qty=nq;cm();save();};
+window.doReinforce=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const aq=pn((document.getElementById("rfQty")||{}).value);const px=pn((document.getElementById("rfPx")||{}).value);if(aq<=0)return toast("Quantité achetée invalide.");if(px<0)return toast("Prix invalide.");const nq=p.qty+aq;
+  {const pc=_pruCur(p),t=toEur(pc);if(pc!=="EUR"&&t>0){if(!(p.investiEur>0))p.investiEur=p.qty*p.pru*t;p.investiEur=p.investiEur+aq*px*t;}}// v273 : taux du jour de l'achat
+  p.pru=(p.qty*p.pru+aq*px)/nq;p.qty=nq;cm();save();};
 window.sellPos=(poche,tk,qPre,depuisEdition)=>{if(!depuisEdition)_editStash=null;const p=D.poches[poche]&&D.poches[poche].positions.find(x=>x.ticker===tk);if(!p)return;const cur=curOf(p);const sym=curSym(cur);const pc=_pruCur(p),psym=curSym(pc);const P=escAttr(poche),T=escAttr(tk);
   sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Vendre ${esc(tk)}</h3><button class="btn-x" onclick="_venteAnnuler()">✕</button></div><div style="background:var(--inp);border-radius:var(--r-moyen);padding:10px;margin-bottom:14px;font-size:var(--fs-corps);color:var(--dim)">Position actuelle : <b style="color:var(--txt)">${fmt2_(p.qty)}</b> × PRU <b style="color:var(--txt)">${fmt2_(p.pru)} ${psym}</b></div><div class="row"><div class="field"><label>Quantité vendue</label><input id="slQty" inputmode="decimal" placeholder="ex: 10" value="${qPre>0?escAttr(String(Math.round(qPre*1e6)/1e6)):""}" oninput="_slPrev('${P}','${T}')"></div><div class="field"><label>Prix de vente (en ${sym})</label><input id="slPx" inputmode="decimal" value="${p.cours||""}" oninput="_slPrev('${P}','${T}')"></div></div><div class="field"><label>Net reçu (en ${psym}) — optionnel</label><input id="slNet" inputmode="decimal" placeholder="par défaut : prix × quantité" oninput="_slPrev('${P}','${T}')"><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:3px;line-height:1.35">Le montant arrivé sur ton compte, frais et taxes déduits, dans la monnaie de ton PRU.</div></div><div id="slPrev" style="background:var(--info-f);border:1px solid var(--info-m);border-radius:var(--r-moyen);padding:10px;margin:4px 0 12px;font-size:var(--fs-corps);color:var(--dim);text-align:center">Saisis une quantité et un prix.</div><label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:var(--fs-corps);color:var(--dim);margin-bottom:10px"><input type="checkbox" id="slCorr" onchange="_slPrev('${P}','${T}')"> Correction de saisie (pas de vente réelle)</label><div id="slCashBlock" class="field"><label>Montant ajouté à tes liquidités (en €) <span onclick="event.preventDefault();event.stopPropagation();toast(_cashAideTexte())" style="${_Q_STYLE}">?</span></label><input id="slCashAmt" inputmode="decimal" placeholder="par défaut : le net reçu en euros" oninput="this.dataset.touche='1'"></div><button class="btn btn-p" onclick="doSell('${P}','${T}')">Confirmer la vente</button>${depuisEdition?`<button class="btn btn-s" style="margin-top:8px" onclick="_venteAnnuler()">Revenir à la modification</button>`:""}`);
   setTimeout(()=>{try{_slPrev(poche,tk);}catch(e){}},0);};
@@ -4639,6 +4709,7 @@ window.doSell=(poche,tk)=>{const p=D.poches[poche]&&D.poches[poche].positions.fi
     if(!D.sales)D.sales=[];
     D.sales.push({date:new Date().toISOString().slice(0,10),poche:poche,ticker:tk,titre:p.titre,qty:sq,pru:p.pru,pruCurrency:_pruCur(p),prix:px,devise:curOf(p),net:Math.round(v.netEur*100)/100,brut:Math.round(v.brutEur*100)/100,pl:Math.round(v.plEur*100)/100});
     {const ca=document.getElementById("slCashAmt");const s0=ca?String(ca.value).trim():"";const m=s0===""?v.netEur:pn(s0);if(m>0)D.cash=Math.round(((D.cash||0)+m)*100)/100;}}
+  if(p.investiEur>0&&p.qty>0)p.investiEur=p.investiEur*(p.qty-sq)/p.qty;// v273 : au prorata
   p.qty=p.qty-sq;if(p.qty<=1e-9){D.poches[poche].positions=D.poches[poche].positions.filter(x=>x.ticker!==tk);if(p.manual&&D.prefs)_marquesRetirer(_symPos(p),tk);}cm();save();if(_editStash)_editApresVente(poche,tk);};
 function _periodChange(days,nd){if(!days||days.length<2)return null;const now=days[days.length-1].t;const cur=days[days.length-1].c;const cutoff=now-nd*86400000;let base=null;for(const d of days){if(d.t<=cutoff)base=d.c;}if(base==null)base=days[0].c;if(!base)return null;return (cur-base)/base*100;}
 function _envConvVisible(env){const m=(D.prefs&&D.prefs.envConv)||{};return m[env]!==0;}
@@ -6094,6 +6165,11 @@ function _dateResultats(tk,extra){
   if(extra)c.push(extra);
   const fut=c.filter(t=>t&&t>now-86400);
   return fut.length?Math.min.apply(null,fut):null;}
+// v273 : la dernière publication connue (date passée), pour « date pas encore annoncée (derniers : …) »
+function _derniersResultats(tk,extra){const now=Date.now()/1000;const c=[];const eh=D&&D.prefs&&D.prefs.earnHist&&D.prefs.earnHist[tk];
+  if(eh&&eh.nextEarnTs)c.push(eh.nextEarnTs);if(eh&&eh.sumEarnTs)c.push(eh.sumEarnTs);
+  try{Object.values((D&&D.poches)||{}).forEach(pk=>(pk.positions||[]).forEach(y=>{if(y&&y.ticker===tk&&y.earnTs)c.push(y.earnTs);}));}catch(e){}
+  if(extra)c.push(extra);const pas=c.filter(t=>t&&t<=now-86400);return pas.length?Math.max.apply(null,pas):null;}
 function _nextEarn(x){return x?_dateResultats(x.ticker,x.earnTs):null;}
 // La date la plus fraiche vient de ?summary=, que seule la fiche fondamentaux interroge. Elle
 // etait affichee puis JETEE en quittant l'ecran : la page Dividendes & Resultats restait aveugle.
@@ -6395,11 +6471,12 @@ const _pf=document.getElementById("aPointFin"),_bh=document.getElementById("aBul
       ctx.lineWidth=DPR*2;ctx.lineJoin="round";ctx.lineCap="round";ctx.strokeStyle=encre;
       ctx.beginPath();bars.forEach((b,k)=>{const x=xf(k),y=yf(b.c);k?ctx.lineTo(x,y):ctx.moveTo(x,y);});ctx.stroke();
       // plus haut : rond blanc cerclé de navy, et la bulle ; dernier cours : point qui pulse (repères posés sur le graphique)
-      let ih2=0;bars.forEach((b,k)=>{if(b.h>bars[ih2].h)ih2=k;});const xh=xf(ih2),yh=yf(bars[ih2].h);
+      // v273 : la courbe relie les clôtures ; le plus haut montré est donc la clôture la plus haute, posée sur la courbe
+      let ih2=0;bars.forEach((b,k)=>{if(b.c>bars[ih2].c)ih2=k;});const xh=xf(ih2),yh=yf(bars[ih2].c);
       ctx.beginPath();ctx.arc(xh,yh,DPR*5,0,Math.PI*2);ctx.fillStyle=fondC;ctx.fill();ctx.lineWidth=DPR*2;ctx.strokeStyle=encre;ctx.stroke();
       if(_pf){_pf.style.visibility="visible";_pf.style.left=_nCss(xf(bars.length-1)/DPR,1)+"px";_pf.style.top=_nCss(yf(bars[bars.length-1].c)/DPR,1)+"px";}
       // v272 : doigt posé -> bulle masquée ; doigt levé -> elle revient en fondu, une seule fois (classe cv-fondu posée au lever)
-      if(_bh){const _bt=`Plus haut<br><strong>${_fmtCours(bars[ih2].h)} ${curSym(aCur)}</strong>`;if(_bh.innerHTML!==_bt)_bh.innerHTML=_bt;
+      if(_bh){const _bt=`Plus haut<br><strong>${_fmtCours(bars[ih2].c)} ${curSym(aCur)}</strong>`;if(_bh.innerHTML!==_bt)_bh.innerHTML=_bt;
         if(_aHoverIdx!=null)_bh.dataset.sousDoigt="1";
         else{if(_bh.dataset.sousDoigt){delete _bh.dataset.sousDoigt;_bh.classList.remove("cv-rise","cv-fondu");void _bh.offsetWidth;_bh.classList.add("cv-fondu");}_bh.style.visibility="visible";}
         const bw=_bh.offsetWidth||90,bhh=_bh.offsetHeight||40,cx=xh/DPR,cy=yh/DPR;let lx=cx-bw-10;if(lx<0)lx=Math.min(cx+10,CW-bw);
@@ -6470,9 +6547,9 @@ netCash:["Trésorerie nette","Trésorerie − dette totale","Positive = l'entrep
 divY:["Dividende","Rendement du dividende","Dividende annuel ÷ cours. Ce que tu touches par an en %, avant impôts."],
 payout:["Payout","Part du bénéfice distribuée","La portion du bénéfice versée en dividende. Au-dessus de 80\u00a0%, peu de marge pour investir ou augmenter le dividende."],
 revG:["Croissance CA","Évolution du chiffre d'affaires","La dynamique commerciale sur un an."],
-epsG:["Croissance BPA","Évolution du bénéfice par action","Ce qui compte vraiment pour l'actionnaire : le bénéfice qui te revient réellement."],
+epsG:["Croissance du bénéfice","Évolution du bénéfice","Ce qui compte vraiment pour l'actionnaire : le bénéfice que l'entreprise dégage."],
 cap:["Capitalisation","Valeur en bourse","Cours × nombre d'actions. La taille de l'entreprise."],
-fcf:["Free cash-flow","Cash libre généré","Le cash réellement dégagé après les investissements. Le nerf de la guerre."],
+fcf:["Free cash-flow","Flux d'exploitation − investissements","Le cash réellement dégagé par l'activité, une fois payés les investissements (capex). Le nerf de la guerre."],
 isin:["ISIN","Code international du titre","Identifiant unique et mondial de la valeur (12 caractères). Le même partout, quelle que soit la bourse."],
 rev:["Revenus","Chiffre d'affaires annuel","Le total des ventes de l'entreprise sur l'année."],
 net:["Bénéfice net","Résultat net annuel","Ce qui reste une fois toutes les charges et impôts payés."]
@@ -6559,7 +6636,9 @@ function qualityScore(f){
   const crois=[_croisScore(f.revG),_croisScore(f.epsG)];
   // Valorisation
   const fcfY=(f.fcf!=null&&f.cap>0)?(f.fcf<0?0:_palHi(f.fcf/f.cap,0.01,0.03,0.05,0.08)):null;
-  const per=(f.per!=null&&f.per>0)?_palLo(f.per,12,20,30,50):null;
+  // v273 : bénéfice gonflé par des gains exceptionnels (même garde-fou que la marge nette) -> PER prévisionnel
+  const perPrev=!!(artif&&f.fper!=null&&f.fper>0);const perV=perPrev?f.fper:f.per;
+  const per=(perV!=null&&perV>0)?_palLo(perV,12,20,30,50):null;
   const pb=(f.pb!=null&&f.pb>0)?_palLo(f.pb,1.5,3,5,10):null;
   const valo=[fcfY,per,pb];
   const avg=arr=>{const v=arr.filter(x=>x!=null);return v.length?v.reduce((a,b)=>a+b,0)/v.length:null;};
@@ -6577,7 +6656,7 @@ function qualityScore(f){
   if(!wsum)return{status:"insufficient"};
   const score=Math.round(pills.reduce((a,p)=>a+p[0]*p[1],0)/wsum);
   const grade=(QUAL_GRADES.find(g=>score>=g[0])||[0,"D"])[1];
-  return{status:"ok",score,grade,pR,pS,pC,pV,sec,isFin,isRend,artif};
+  return{status:"ok",score,grade,pR,pS,pC,pV,sec,isFin,isRend,artif,perPrev};
 }
 function _qualSentence(q){
   const r=q.pR==null?"":q.pR>=75?"très rentable":q.pR>=50?"correctement rentable":"peu rentable";
@@ -6591,9 +6670,11 @@ function _qualSentence(q){
 const _SVG_AIDE14=_SVG_AIDE.replace('width="18" height="18"','width="14" height="14"');
 // v272 : les 3 éléments de la note de valorisation (mêmes seuils que qualityScore), pour que la phrase dise sur quoi elle repose
 function _valoDetail(f){if(!f)return "";const L=[],qual=s=>s>=75?"bas":s>=50?"moyen":"élevé";
-  if(f.per!=null&&f.per>0)L.push("PER "+vg(f.per,1)+" "+qual(_palLo(f.per,12,20,30,50)));
+  const gonfle=f.mNette!=null&&f.mOp!=null&&(f.mNette-f.mOp)>0.10&&f.fper!=null&&f.fper>0;
+  if(gonfle)L.push("PER prévisionnel "+vg(f.fper,1)+" "+qual(_palLo(f.fper,12,20,30,50))+", le PER des 12 derniers mois étant faussé par des gains exceptionnels");
+  else if(f.per!=null&&f.per>0)L.push("PER "+vg(f.per,1)+" "+qual(_palLo(f.per,12,20,30,50)));
   if(f.pb!=null&&f.pb>0)L.push("cours / actif net "+vg(f.pb,1)+" "+qual(_palLo(f.pb,1.5,3,5,10)));
-  if(f.fcf!=null&&f.cap>0){if(f.fcf<0)L.push("free cash-flow 12\u00a0m négatif");else{const sc=_palHi(f.fcf/f.cap,0.01,0.03,0.05,0.08);L.push("rendement du free cash-flow "+vg(f.fcf/f.cap*100,1)+"\u00a0% "+(sc>=75?"élevé":sc>=50?"moyen":"faible"));}}
+  if(f.fcf!=null&&f.cap>0){if(f.fcf<0)L.push("free cash-flow négatif");else{const sc=_palHi(f.fcf/f.cap,0.01,0.03,0.05,0.08);L.push("rendement du free cash-flow "+vg(f.fcf/f.cap*100,1)+"\u00a0% "+(sc>=75?"élevé":sc>=50?"moyen":"faible"));}}
   return L.join(" ; ");}
 function _qualPhrase(q,f){
   const r=q.pR==null?"":q.pR>=75?"très rentable":q.pR>=50?"correctement rentable":"peu rentable";
@@ -6620,10 +6701,10 @@ function _qualCardHtml(f,isFundEtf){
 }
 window.qualHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Qualité de l'entreprise</h3><button class="btn-x" onclick="cm()">✕</button></div><p style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6;margin:0 0 12px">Décrit la <b>santé financière de l'entreprise</b> à partir de données publiques, <b>indépendamment de ta performance</b> (une ligne en forte hausse peut avoir une note faible, et inversement). 4 piliers :</p><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.7;margin-bottom:12px"><b style="color:var(--txt)">Rentabilité (30\u00a0%)</b> — gagne-t-elle bien de l'argent ? (ROE, marges)<br><b style="color:var(--txt)">Solidité (25\u00a0%)</b> — peut-elle rembourser sa dette ? (dette nette / EBITDA, cash-flow positif, dette / capitaux propres)<br><b style="color:var(--txt)">Croissance (25\u00a0%)</b> — progresse-t-elle ? (chiffre d'affaires, bénéfice par action)<br><b style="color:var(--txt)">Valorisation (20\u00a0%)</b> — payée à un prix raisonnable ? (PER, price / book, rendement du cash-flow)</div><p style="font-size:var(--fs-petit);color:var(--mut);line-height:1.55;margin:0 0 12px">Le barème s'adapte au secteur : <b>banques &amp; assurances</b> — la dette n'est pas pénalisée ; <b>secteurs capital-intensifs</b> (services publics, énergie, immobilier, matériaux, industriels &amp; télécoms à dividende) — la croissance compte moitié moins et la dette est jugée plus souplement. Un critère sans donnée est ignoré. Note : A+ (90+) · A (80+) · B (65+) · C (50+) · D (moins de 50).</p><p style="font-size:var(--fs-petit);color:var(--mut);line-height:1.55;margin:0;padding:10px;background:var(--inp);border-radius:var(--r-moyen)">Ce score décrit la santé financière de l'entreprise à partir de données publiques. Il est calculé de la même façon pour tous, sans tenir compte de ta situation personnelle. <b>Ce n'est pas un conseil en investissement</b> et ne constitue pas une recommandation d'achat ou de vente. Les performances passées ne préjugent pas des performances futures. Tes décisions d'investissement relèvent de ta seule responsabilité.</p><button class="btn btn-s" style="width:100%;margin-top:14px" onclick="cm()">Compris</button>`);};
 // Helper de calibration : distribution du score sur mes positions réelles (à lancer depuis la console).
-window._qualDist=async()=>{const jobs=[];Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{if(x.noPerf)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;jobs.push({tk:x.ticker,sym:_ySym(x)});}));const seen={};const rows=[];for(const j of jobs){if(!j.sym||seen[j.sym])continue;seen[j.sym]=1;let f=null;try{f=await fundFetch("summary",j.sym,"");}catch(e){}const q=qualityScore(f);rows.push({tk:j.tk,grade:q.grade||q.status,score:(q.score!=null?q.score:""),R:q.pR!=null?Math.round(q.pR):"",S:q.pS!=null?Math.round(q.pS):"",C:q.pC!=null?Math.round(q.pC):"",V:q.pV!=null?Math.round(q.pV):"",sec:(f&&f.secteur)||""});}const dist={};rows.forEach(r=>{dist[r.grade]=(dist[r.grade]||0)+1;});console.log("[QUAL] distribution:",JSON.stringify(dist));console.table(rows);return{dist,rows};};
+window._qualDist=async()=>{const jobs=[];Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{if(x.noPerf)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;jobs.push({tk:x.ticker,sym:_ySym(x)});}));const seen={};const rows=[];for(const j of jobs){if(!j.sym||seen[j.sym])continue;seen[j.sym]=1;let f=null,fdq=null;try{f=await fundFetch("summary",j.sym,"");fdq=await fundFetch("fund",j.sym,"");}catch(e){}const q=qualityScore(_fStd(f,fdq));rows.push({tk:j.tk,grade:q.grade||q.status,score:(q.score!=null?q.score:""),R:q.pR!=null?Math.round(q.pR):"",S:q.pS!=null?Math.round(q.pS):"",C:q.pC!=null?Math.round(q.pC):"",V:q.pV!=null?Math.round(q.pV):"",sec:(f&&f.secteur)||""});}const dist={};rows.forEach(r=>{dist[r.grade]=(dist[r.grade]||0)+1;});console.log("[QUAL] distribution:",JSON.stringify(dist));console.table(rows);return{dist,rows};};
 // ─── Grille "Qualité de mes positions" (onglet Analyse › Positions) ───
 let _qualBusy=false;const _qualTried={};
-function _qualOf(pos){if(typeof CG!=="undefined"&&CG[pos.ticker])return{status:"na"};const sym=_ySym(pos);if(!sym)return{status:"na"};const f=_fCacheGet("cvF4:summary:"+sym,21600e3);if(f)return qualityScore(f);return _qualTried[sym]?{status:"insufficient"}:{status:"loading"};}
+function _qualOf(pos){if(typeof CG!=="undefined"&&CG[pos.ticker])return{status:"na"};const sym=_ySym(pos);if(!sym)return{status:"na"};const f=_fCacheGet("cvF4:summary:"+sym,21600e3);if(f)return qualityScore(_fStd(f,_fCacheGet("cvF4:fund:"+sym,86400e3)));return _qualTried[sym]?{status:"insufficient"}:{status:"loading"};}
 async function _qualLoadAll(){if(_qualBusy)return;const need=[];const seen={};Object.values(D.poches).forEach(p=>p.positions.forEach(x=>{if(x.noPerf)return;if(typeof CG!=="undefined"&&CG[x.ticker])return;const sym=_ySym(x);if(!sym||seen[sym])return;seen[sym]=1;if(_qualTried[sym])return;if(!_fCacheGet("cvF4:summary:"+sym,21600e3))need.push(sym);}));if(!need.length)return;_qualBusy=true;const BATCH=4;for(let i=0;i<need.length;i+=BATCH){await Promise.all(need.slice(i,i+BATCH).map(s=>fundFetch("summary",s,"").catch(()=>null).finally(()=>{_qualTried[s]=1;})));if(tab==="analyse"&&anaSub==="portef")R();}_qualBusy=false;if(tab==="analyse"&&anaSub==="portef")R();}
 window.setQSort=v=>{qSort=v;R();};
 let qualNaOpen=false;window.toggleQualNa=()=>{qualNaOpen=!qualNaOpen;R();};
@@ -6694,13 +6775,17 @@ function _fondsCases(f,isin){
   if(hd&&hd.cashPct!=null)rows.push(["Liquidités",_fmtPct(hd.cashPct),null]);
   return rows;
 }
+// v273 : free cash-flow standard (flux d'exploitation − investissements), pris dans l'historique annuel (?fund=) :
+// dernier exercice publié. Le freeCashflow de financialData (« levered », après intérêts) n'est plus jamais utilisé.
+function _fStd(f,fd){if(!f||f.error)return f;const L=(fd&&!fd.error&&Array.isArray(fd.fcf)&&fd.fcf.length)?fd.fcf[fd.fcf.length-1]:null;
+  return Object.assign({},f,{fcf:(L&&isFinite(Number(L[1])))?Number(L[1]):null,fcfAn:L?String(L[0]):null});}
 // v271 — composants des Fondamentaux
 function _titreFond(t){return `<div class="titre-section-ligne fond"><h2 class="titre-section">${t}</h2></div>`;}
 // v272 : la période de chaque indicateur (définitions vérifiées sur les chiffres publiés : croissance = dernier trimestre
 // comparé au même trimestre un an plus tôt ; PER, marges, ROE, part versée = 12 derniers mois ; bilan = dernier publié)
 const _PERIODE_FOND={per:"12 derniers mois",fper:"bénéfice attendu l'an prochain",pb:"dernier bilan",roe:"12 derniers mois",mNette:"12 derniers mois",mOp:"12 derniers mois",mBrute:"12 derniers mois",
   revG:"dernier trimestre, sur 1\u00a0an",epsG:"dernier trimestre, sur 1\u00a0an",netCash:"dernier bilan",debtEq:"dernier bilan",beta:"sur 5\u00a0ans",divY:"dividende annuel attendu",payout:"12 derniers mois"};
-function _tuilesFond(rows){return `<div class="tuiles-fond">`+rows.map(r=>{const k=r[2],hd=k&&_METRIC_DEFS[k];const per=k&&_PERIODE_FOND[k];const val=`<span class="tf-val${r[3]?" "+r[3]:""}">${r[1]}</span>`+(per?`<span class="tf-periode">${per}</span>`:"");
+function _tuilesFond(rows){return `<div class="tuiles-fond">`+rows.map(r=>{const k=r[2],hd=k&&_METRIC_DEFS[k];const per=r[4]!==undefined?r[4]:(k&&_PERIODE_FOND[k]);const val=`<span class="tf-val${r[3]?" "+r[3]:""}">${r[1]}</span>`+(per?`<span class="tf-periode">${per}</span>`:"");
   // l'icône ⓘ reste collée au dernier mot quand le libellé passe sur deux lignes
   const mots=String(r[0]).split(" "),der=mots.pop(),lib=(mots.length?mots.join(" ")+" ":"")+`<span class="tf-fin">${der}${_SVG_AIDE14}</span>`;
   return hd?`<button type="button" class="tuile-fond" data-k="${k}" data-v="${esc(String(r[1]).replace(/<[^>]*>/g,""))}" onclick="_metricInfo(this.dataset.k,this.dataset.v)"><span class="tf-lib">${lib}</span>${val}</button>`
@@ -6715,7 +6800,10 @@ function _carteAnalystes(f){const c=_coursFiche();const cours=c?c.px:null;const 
   const tot=segs.reduce((a,x)=>a+x[1],0);const nb=f.nbAn||tot||null;
   let h=`<div class="card carte-analystes"><span class="cq-titre">Avis des analystes</span><div class="an-chiffres"><div class="an-col"><span class="an-lib">Objectif moyen</span><span class="mono montant-grand an-objectif">${_fmtCours(f.target)}\u00a0${curSym(aCur)}</span>${f.nbAn?`<span class="an-objectif-base">moyenne de ${f.nbAn} analystes</span>`:""}</div>${pot!=null?`<div class="an-col an-ecart"><span class="an-lib">Écart avec le cours</span>${_pastilleVar(pot>=0,(pot>=0?"+":"\u2212")+vg(Math.abs(pot),1)+"\u00a0%",false,"douce ecart")}</div>`:""}</div>`;
   // v272 : recommandation moyenne de la source (recommendationKey), gardée à la demande de Yanis ; nommée comme la légende
-  const RECO={strong_buy:0,buy:1,hold:2,underperform:3,sell:4};const ri=f.reco!=null?RECO[f.reco]:undefined;
+  // v273 : calculée sur la répartition affichée (même population) : moyenne sur l'échelle 1 (achat fort) à 5 (vente
+  // forte), seuils standards < 1,5 · < 2,5 · < 3,5 · < 4,5. La clé de la source ne sert que sans répartition.
+  const RECO={strong_buy:0,buy:1,hold:2,underperform:3,sell:4};let ri;
+  if(tot>0){const m=segs.reduce((a,x,i)=>a+x[1]*(i+1),0)/tot;ri=m<1.5?0:m<2.5?1:m<3.5?2:m<4.5?3:4;}else ri=f.reco!=null?RECO[f.reco]:undefined;
   if(ri!=null)h+=`<div class="an-reco"><span class="an-lib">Recommandation moyenne</span><span class="an-reco-val"><span class="an-pastille" style="background:${segs[ri][2]}"></span><strong>${segs[ri][0]}</strong></span></div>`;
   if(tot>0){h+=`<div class="an-barre" role="img" aria-label="${tot} avis : ${segs.filter(x=>x[1]>0).map(x=>x[1]+" "+x[0].toLowerCase()).join(", ")}">`+segs.filter(x=>x[1]>0).map(x=>`<div class="cv-grow" style="width:${_nCss(x[1]/tot*100,1)}%;background:${x[2]}"></div>`).join("")+`</div>`;
     h+=`<div class="an-legende">`+segs.map(x=>`<div class="an-ligne"><span class="an-pastille" style="background:${x[2]}"></span><span class="an-nom">${x[0]}</span><strong>${x[1]}</strong></div>`).join("")+`</div>`;}
@@ -6747,21 +6835,23 @@ let h="";
 // analystes, date des prochains résultats, 4 ans d'historique. Les fonds gardent leurs indicateurs (v260), même style.
 const _fonds=_ficheEstFonds();
 const _sy=curSym((sumOk&&f.cur)||aCur);
-h+=_qualCardHtml(f,_fonds);
+const fS=sumOk?_fStd(f,fd):f;
+h+=_qualCardHtml(fS,_fonds);
 if(_fonds){const _rows=_fondsCases(sumOk?f:null,null);if(_rows.length)h+=_titreFond("Indicateurs du fonds")+_tuilesFond(_rows);}
 else if(sumOk){
   const _nc=(f.cash!=null&&f.debt!=null)?((f.cash-f.debt>=0?"+":"")+_montantFond(f.cash-f.debt,_sy)):"—";
   h+=_titreFond("Valorisation")+_tuilesFond([["PER",f.per!=null?vg(f.per,1):"—","per"],["PER prévisionnel",f.fper!=null?vg(f.fper,1):"—","fper"],["Cours / actif net",f.pb!=null?vg(f.pb,1):"—","pb"],["Capitalisation",f.cap!=null?_montantFond(f.cap,_sy):"—","cap"]]);
   h+=_titreFond("Rentabilité")+_tuilesFond([["ROE",_fmtPct(f.roe),"roe"],["Marge nette",_fmtPct(f.mNette),"mNette"],["Marge opérationnelle",_fmtPct(f.mOp),"mOp"],["Marge brute",_fmtPct(f.mBrute),"mBrute"]]);
-  h+=_titreFond("Croissance")+_tuilesFond([["Chiffre d'affaires",_croissanceFond(f.revG),"revG",_sensFond(f.revG)],["Bénéfice par action",_croissanceFond(f.epsG),"epsG",_sensFond(f.epsG)]]);
-  h+=_titreFond("Solidité")+_tuilesFond([["Trésorerie nette",_nc,"netCash"],["Dette / capitaux",f.debtEq!=null?Math.round(f.debtEq)+"\u00a0%":"—","debtEq"],["Free cash-flow 12\u00a0m",f.fcf!=null?_montantFond(f.fcf,_sy):"—","fcf"],["Bêta",f.beta!=null?vg(f.beta,2):"—","beta"]]);
+  h+=_titreFond("Croissance")+_tuilesFond([["Chiffre d'affaires",_croissanceFond(f.revG),"revG",_sensFond(f.revG)],["Bénéfice",_croissanceFond(f.epsG),"epsG",_sensFond(f.epsG)]]);
+  h+=_titreFond("Solidité")+_tuilesFond([["Trésorerie nette",_nc,"netCash"],["Dette / capitaux",f.debtEq!=null?Math.round(f.debtEq)+"\u00a0%":"—","debtEq"],["Free cash-flow",fS.fcf!=null?_montantFond(fS.fcf,_sy):"—","fcf","",fS.fcfAn?"exercice "+fS.fcfAn:""],["Bêta",f.beta!=null?vg(f.beta,2):"—","beta"]]);
   h+=_titreFond("Dividende")+_tuilesFond([["Rendement",_fmtPct(f.divY),"divY"],["Part du bénéfice versée",_fmtPct(f.payout),"payout"]]);
 }
 if(aData.holdings&&aData.holdings.holdings&&aData.holdings.holdings.length){const hd=aData.holdings;h+=`<div class="card carte-fond"><div class="cq-titre" style="margin-bottom:8px">Composition${hd.category?` · ${esc(hd.category)}`:""}</div>`+hd.holdings.map((hh,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;${i<hd.holdings.length-1?"border-bottom:1px solid var(--sep)":""}"><div style="min-width:0"><div style="font-size:var(--fs-corps);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(hh.name||hh.symbol||"?")}</div>${hh.pays?`<div style="font-size:var(--fs-legende);color:var(--mut)">${esc(YAHOO_COUNTRY_TO_CODE[hh.pays]?_countryName(YAHOO_COUNTRY_TO_CODE[hh.pays]):hh.pays)}</div>`:(hh.pays===null?"":`<div style="font-size:var(--fs-legende);color:var(--mut)">…</div>`)}</div><span class="mono" style="font-size:var(--fs-petit);font-weight:700;flex-shrink:0;margin-left:8px">${hh.pct!=null?vg(hh.pct*100,1)+"\u00a0%":"—"}</span></div>`).join("")+`</div>`;}
 else if(aData.holdings&&aData.holdings.sectors&&aData.holdings.sectors.length){const hd=aData.holdings;const sorted=hd.sectors.filter(s=>s.pct>0).sort((a,b)=>b.pct-a.pct);if(sorted.length){h+=`<div class="card carte-fond"><div class="cq-titre" style="margin-bottom:8px">Secteurs${hd.category?` · ${esc(hd.category)}`:""}</div>`+sorted.map(s=>`<div style="margin-bottom:7px"><div style="display:flex;justify-content:space-between;font-size:var(--fs-petit);margin-bottom:3px"><span>${esc(SECTOR_FR[s.sector]||s.sector)}</span><span class="mono" style="color:var(--dim)">${vg(s.pct*100,1)}\u00a0%</span></div><div style="height:5px;background:var(--card);border-radius:var(--r-petit);overflow:hidden"><div style="height:100%;width:${_nCss(s.pct*100,0)}%;background:var(--serie)"></div></div></div>`).join("")+`<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:4px">Composition ligne par ligne indisponible pour ce fonds chez Yahoo — répartition sectorielle à défaut.</div></div>`;}}
 if(sumOk&&f.target!=null)h+=_titreFond("Analystes")+_carteAnalystes(f);
-const _erTs=_dateResultats(aSym.includes(".")?aSym.split(".")[0]:aSym,sumOk?f.earnTs:null);
-if(_erTs)h+=`<div class="card carte-resultats"><span class="cr-lib">Prochains résultats</span><span class="cr-date">${new Date(_erTs*1000).toLocaleDateString("fr-FR")}</span></div>`;
+const _tkR=aSym.includes(".")?aSym.split(".")[0]:aSym;const _erTs=_dateResultats(_tkR,sumOk?f.earnTs:null);
+if(!_fonds&&(sumOk||_erTs)){const _der=_erTs?null:_derniersResultats(_tkR,sumOk?f.earnTs:null);
+  h+=`<div class="card carte-resultats"><span class="cr-lib">Prochains résultats</span> <span class="cr-date${_erTs?"":" cr-inconnue"}">${_erTs?new Date(_erTs*1000).toLocaleDateString("fr-FR"):"date pas encore annoncée"+(_der?" (derniers : "+new Date(_der*1000).toLocaleDateString("fr-FR")+")":"")}</span></div>`;}
 if(fundOk){const _n=Math.max((fd.revenue||[]).length,(fd.net||[]).length,(fd.fcf||[]).length);h+=_titreFond(_n+" ans d'historique")+_carteHisto("Chiffre d'affaires",fd.revenue,"var(--c-bleu)","rev",_sy)+_carteHisto("Bénéfice net",fd.net,"var(--c-navy)","net",_sy)+_carteHisto("Free cash-flow",fd.fcf,"var(--c-mauve)","fcf",_sy);}
 if(!sumOk&&fundOk)h+=`<div style="font-size:var(--fs-legende);color:var(--mut);padding:8px 2px;line-height:1.4">Ratios (PER, marges, avis analystes…) indisponibles chez notre source pour cette valeur.</div>`;
 return h;}
@@ -6981,7 +7071,8 @@ h+=(aData.ohlcErr&&!bars.length)
   ? `<div class="cg-erreur"><div>Graphique momentanément indisponible.</div><div>La source de cours n'a pas répondu — réessaie dans un instant.</div></div>`
   : `<div class="graphe-zone"><canvas id="aCanvas" class="cv-devoile"></canvas><span id="aPointFin" class="cv-pulse" aria-hidden="true"></span><div id="aBulleHaut" class="cv-rise"></div></div>`;
 h+=`<div class="periodes" role="group" aria-label="Période">`+[["1d","1J"],["5d","1S"],["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<button type="button" aria-pressed="${aPeriod===pp[0]}" class="${aPeriod===pp[0]?"actif":""}" onclick="setAPeriod('${pp[0]}')">${pp[1]}</button>`).join("")+`</div></div>`;
-if(bars.length){const lo2=Math.min.apply(null,bars.map(b=>b.l)),hi2=Math.max.apply(null,bars.map(b=>b.h));
+if(bars.length){const _lig=aChartType==="line";// v273 : clôtures en vue Ligne, mèches en vue Bougies
+  const lo2=Math.min.apply(null,bars.map(b=>_lig?b.c:b.l)),hi2=Math.max.apply(null,bars.map(b=>_lig?b.c:b.h));
   h+=`<div class="tuiles-graphe">`+[["Plus haut",_fmtCours(hi2)+" "+curSym(aCur),""],["Plus bas",_fmtCours(lo2)+" "+curSym(aCur),""],[aPeriod==="1d"?"Aujourd'hui":"Sur "+_periodeFr(_perAff),dp==null?"—":`<span class="tg-fleche">${dp>=0?"▲":"▼"}</span> ${dp>=0?"+":"−"}${vg(Math.abs(dp),1)}\u00a0%`,dp==null?"":(dp>=0?"hausse":"baisse")]].map(x=>`<div><span class="tg-lib">${x[0]}</span><span class="tg-val${x[2]?" "+x[2]:""}">${x[1]}</span></div>`).join("")+`</div>`;}
 if(_crypto&&aPeriod==="5y"&&bars.length)h+=`<div style="font-size:var(--fs-legende);color:var(--mut);margin-top:6px;line-height:1.4">Historique limité à 1 an sur les cryptos — c'est ce que fournit la source.</div>`;
 }
@@ -7438,22 +7529,27 @@ async function loadNews(){const pairs=_newsTickers();if(!pairs.length){newsData=
 function newsHtml(){if(newsData===null)return `<div class="section mini" style="margin:16px 2px 6px">Actus</div><div class="card" style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:16px">Chargement…</div>`;
 if(!newsData.length)return `<div class="section mini" style="margin:16px 2px 6px">Actus</div><div class="card" style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:16px">Aucune actu récente pour tes positions.</div>`;
 return `<div class="section mini" style="margin:16px 2px 6px">Actus de tes positions</div>`+newsData.map(a=>`<a href="${escAttr(a.link)}" target="_blank" rel="noopener" class="card card-tap" style="display:block;text-decoration:none;color:inherit;margin-bottom:6px"><div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:3px"><span class="pilule pilule-mini pilule-info pilule-gras">${esc(a.tk)}</span><span style="font-size:var(--fs-legende);color:var(--mut);flex-shrink:0">${_relTime(a.t)}</span></div><div class="titre-article" style="font-size:var(--fs-corps);line-height:1.4;font-weight:600;color:var(--txt)">${esc(a.title)}</div>${a.publisher?`<div style="font-size:var(--fs-legende);color:var(--dim);margin-top:2px">${esc(a.publisher)}</div>`:""}</a>`).join("");}
-function pruCalcHtml(){const pv=_pruVals||{};const tot=pv.tot||"",pl=pv.pl||"",un=pv.un||"";const t=parseFloat(String(tot).replace(",",".")),p2=parseFloat(String(pl).replace(",",".")),u=parseFloat(String(un).replace(",","."));
-const inp=(id,ph,v)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:var(--fs-petit);color:var(--dim);flex:1">${ph}</span><input id="${id}" inputmode="decimal" value="${esc(String(v))}" oninput="_pruCalc()" style="width:120px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:8px;color:var(--txt);font-family:var(--font-mono);font-size:var(--fs-corps);text-align:right"></div>`;
-const inpPl=(id,ph,v)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px"><span style="font-size:var(--fs-petit);color:var(--dim);flex:1">${ph}</span><span onclick="togglePruSign()" title="Inverser le signe (perte / gain)" style="cursor:pointer;font-size:var(--fs-corps);color:var(--txt);font-weight:800;padding:7px 10px;margin:-7px -2px;border:1px solid var(--bdr);border-radius:var(--r-petit)">±</span><input id="${id}" inputmode="decimal" value="${esc(String(v))}" oninput="_pruCalc()" style="width:100px;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:8px;color:var(--txt);font-family:var(--font-mono);font-size:var(--fs-corps);text-align:right"></div>`;
-let initRes="";if(t>0&&u>0&&!isNaN(p2)){const pru=(t-p2)/u;initRes=`<div style="border-top:1px solid var(--sep);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:var(--fs-corps);color:var(--dim)">PRU estimé</span><span class="mono" style="font-size:var(--fs-sous-titre);font-weight:800;color:var(--txt)">${isPriv()?"•••":vg(pru,2)+" €"}</span></div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:4px">Investi ≈ ${isPriv()?"•••":Math.round(t-p2).toLocaleString("fr-FR")+" €"} · Prix unité actuel ≈ ${isPriv()?"•••":vg(t/u,2)+" €"}</div>`;}
-return `<div class="card"><div style="font-size:var(--fs-corps);font-weight:600">🧮 Calculateur de PRU</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-bottom:12px">Pour un actif sans PRU (AV, fonds non coté…)</div>${inp("pruTot","Valeur totale (€)",tot)}${inpPl("pruPl","Plus/moins-value (€)",pl)}${inp("pruUn","Nombre d'unités",un)}<div id="pruRes">${initRes}</div></div>`;}
-window.togglePruSign=()=>{const e=document.getElementById("pruPl");if(!e)return;const v=parseFloat(String(e.value).replace(",","."))||0;e.value=String(-v);_pruCalc();};
-window._pruCalc=()=>{const g=id=>{const e=document.getElementById(id);return e?parseFloat(String(e.value).replace(",",".")):NaN;};const t=g("pruTot"),p2=g("pruPl"),u=g("pruUn");const out=document.getElementById("pruRes");if(!out)return;if(t>0&&u>0&&!isNaN(p2)){const pru=(t-p2)/u;out.innerHTML=`<div style="border-top:1px solid var(--sep);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:var(--fs-corps);color:var(--dim)">PRU estimé</span><span class="mono" style="font-size:var(--fs-sous-titre);font-weight:800;color:var(--txt)">${isPriv()?"•••":vg(pru,2)+" €"}</span></div><div style="font-size:var(--fs-legende);color:var(--mut);margin-top:4px">Investi ≈ ${isPriv()?"•••":Math.round(t-p2).toLocaleString("fr-FR")+" €"} · Prix unité actuel ≈ ${isPriv()?"•••":vg(t/u,2)+" €"}</div>`;_pruVals={tot:String(isNaN(t)?"":t),pl:String(isNaN(p2)?"":p2),un:String(isNaN(u)?"":u)};}else{out.innerHTML="";}};
+// v273 — maquette B6 : champs pleine largeur et vides (décision de Yanis : ni valeur ni exemple), bascule Plus / Moins,
+// résultat en carte navy avec la formule en clair. « Enregistrer sur une position » : proposition à valider, non codée.
+function _champOutil(id,lib,v,unite,fn,avant){return `<div class="champ-outil"><label class="champ-outil-lib" for="${id}">${lib}</label><span class="champ-outil-ligne">${avant||""}<input id="${id}" class="champ-outil-input" inputmode="decimal" value="${esc(String(v==null?"":v))}" oninput="${fn}"><span class="champ-outil-unite">${unite}</span></span></div>`;}
+function pruCalcHtml(){const pv=_pruVals||{};const moins=pv.signe==="moins";
+  const bascule=`<div class="segment pru-signe" role="group" aria-label="Plus ou moins-value"><button type="button" aria-pressed="${!moins}" class="${moins?"":"actif"}" onclick="_pruSigne('plus')">Plus</button><button type="button" aria-pressed="${moins}" class="${moins?"actif":""}" onclick="_pruSigne('moins')">Moins</button></div>`;
+  return `<div class="card carte-outil"><div class="champs-outil">${_champOutil("pruTot","Valeur totale aujourd'hui",pv.tot,"€","_pruCalc()")}${_champOutil("pruPl","Plus ou moins-value",pv.pl,"€","_pruCalc()",bascule)}${_champOutil("pruUn","Nombre d'unités",pv.un,"u.","_pruCalc()")}</div></div><div id="pruRes">${_pruResHtml()}</div>`;}
+function _pruResHtml(){const pv=_pruVals||{};const t=pn(pv.tot),p2=pv.pl===""||pv.pl==null?NaN:pn(pv.pl),u=pn(pv.un);if(!(t>0&&u>0&&!isNaN(p2)))return "";
+  const moins=pv.signe==="moins";const inv=moins?t+Math.abs(p2):t-p2;const pru=inv/u;const priv=isPriv();const F=n=>Number(n).toLocaleString("fr-FR",{maximumFractionDigits:2});
+  return `<div class="carte-heros-outil pru-resultat cv-rise"><div class="cv-float piece-outil">${_svgPiece("var(--c-emeraude)",56,"var(--c-emeraude-moyen)","var(--c-menthe)")}</div><span class="ho-lib">Ton prix de revient unitaire</span><div class="mono montant-grand ho-montant">${priv?"•••":_fmtCours(pru)+" €"}</div><span class="ho-sous">(${priv?"•••":F(t)} ${moins?"+":"−"} ${priv?"•••":F(Math.abs(p2))}) ÷ ${F(u)} unité${u>1?"s":""}</span><span class="ho-sous">Investi ≈ ${priv?"•••":Math.round(inv).toLocaleString("fr-FR")+" €"} · prix d'une unité aujourd'hui ≈ ${priv?"•••":_fmtCours(t/u)+" €"}</span></div>`;}
+window._pruSigne=sg=>{_pruVals=_pruVals||{};_pruVals.signe=sg;document.querySelectorAll(".pru-signe button").forEach((b,i)=>{const on=(i===1)===(sg==="moins");b.classList.toggle("actif",on);b.setAttribute("aria-pressed",String(on));});_pruCalc();};
+window.togglePruSign=()=>_pruSigne((_pruVals&&_pruVals.signe==="moins")?"plus":"moins");
+window._pruCalc=()=>{const g=id=>(document.getElementById(id)||{}).value;_pruVals=Object.assign({},_pruVals||{},{tot:g("pruTot")||"",pl:g("pruPl")||"",un:g("pruUn")||""});const out=document.getElementById("pruRes");if(out)out.innerHTML=_pruResHtml();};
 function segHtml(opts,act,fn){return `<div class="segment" role="tablist">`+opts.map(o=>`<button type="button" role="tab" aria-selected="${act===o[0]}" onclick="${fn}('${escAttr(String(o[0]))}')"${act===o[0]?' class="actif"':''}>${esc(o[1])}</button>`).join("")+`</div>`;}
 window.setBSub=v=>{if(bSub==="resume"&&v!=="resume")_resetTools();if(v==="suivi")watchListOpen=null;bSub=v;R();};
 function bourseHtml(){const bl=_bPos();const F0=x=>Math.round(x).toLocaleString("fr-FR");
-let tot=0,inv=0,dayE=0,dayB=0,dayN=0;bl.forEach(r=>{tot+=r.v;inv+=(_pruCur(r.x)===curOf(r.x)?(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x)):_invEur(r.x));const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;dayN++;}});
+let tot=0,inv=0,dayE=0,dayB=0,dayN=0;bl.forEach(r=>{tot+=r.v;inv+=_investiLigne(r.x);const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;dayN++;}});
 const pv=tot-inv;const pvPct=inv>0?pv/inv*100:0;const dayPct=dayB>0?dayE/dayB*100:null;
 let sh=`<div class="fade">`;
 sh+=`<div class="segment clair" role="tablist" style="margin:0 0 16px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Outils et suivi"]].map(t=>`<button type="button" role="tab" aria-selected="${bSub===t[0]}" onclick="setBSub('${t[0]}')"${bSub===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
 if(!bl.length){sh+=`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);line-height:1.6;padding:22px 14px">Aucune enveloppe boursière pour l'instant.<br>Crée un compte (PEA, CTO, crypto…) via <b style="color:var(--txt)">Patrimoine → ＋ Ajouter un actif</b>.</div></div>`;return sh;}
-const byP={};bl.forEach(r=>{const o=byP[r.poche]=byP[r.poche]||{v:0,inv:0,n:0};o.v+=r.v;o.inv+=(_pruCur(r.x)===curOf(r.x)?(r.x.qty||0)*(r.x.pru||0)*toEur(curOf(r.x)):_invEur(r.x));o.n++;});
+const byP={};bl.forEach(r=>{const o=byP[r.poche]=byP[r.poche]||{v:0,inv:0,n:0};o.v+=r.v;o.inv+=_investiLigne(r.x);o.n++;});
 const pNames=Object.keys(byP).sort((a,b)=>byP[b].v-byP[a].v);
 const cols=pNames.map(n=>_pocheColor(n));
 if(bSub==="resume"){
@@ -7514,12 +7610,13 @@ function outilsHubHtml(){
   return s2;
 }
 function bToolHtml(){
-  const t={cmp:"Comparer plusieurs actions",pru:"Calcul PRU",conv:"Convertisseur",simu:"Simulateur d'objectif"}[bTool]||"Outil";
+  const t={cmp:"Comparer plusieurs actions",pru:"Calcul du PRU",conv:"Convertisseur",simu:"Simulateur d'objectif"}[bTool]||"Outil";
+  const st={pru:"Pour un actif sans PRU : assurance vie, fonds non coté…",conv:"D'une devise à l'autre"}[bTool]||"";
   let corps="";
   if(bTool==="pru")corps=pruCalcHtml();
   else if(bTool==="conv")corps=explorerHtml();
   else if(bTool==="simu")corps=simuObjHtml();
-  return _bRetour("Outils et suivi","setBTool(null)")+`<h2 style="font-size:var(--fs-titre);font-weight:700;margin:0 2px 12px">${t}</h2>`+corps;
+  return _bRetour("Outils et suivi","setBTool(null)")+`<div class="tete-outil"><h1 class="titre-outil">${t}</h1>${st?`<span class="sous-outil">${st}</span>`:""}</div>`+corps;
 }
 function watchListsPageHtml(){
   return _bRetour("Outils et suivi","setBPage(null)")+`<h2 style="font-size:var(--fs-titre);font-weight:700;margin:0 2px 12px">Listes de suivi</h2>`+watchListsHubHtml();
@@ -7540,41 +7637,35 @@ function plansAchatPageHtml(){
   return s2+`<div class="card">${lignes}</div>`+bAjout;
 }
 // Simulateur : de la capitalisation, rien d'autre. Aucune donnée externe, aucun conseil.
-function simuObjHtml(){
-  const d=ga();const p0=Math.round(d.tN||0);
-  const v=_simu||{};
-  const ch=(id,lbl,val,ph,suf)=>`<div style="margin-bottom:10px"><div style="font-size:var(--fs-legende);color:var(--mut);margin-bottom:5px">${lbl}</div><div style="display:flex;align-items:center;gap:8px"><input id="${id}" inputmode="decimal" value="${val!=null?val:""}" placeholder="${ph}" oninput="_simuSet('${id}',this.value)" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:9px;color:var(--txt);font-size:var(--fs-corps)">${suf?`<span style="font-size:var(--fs-petit);color:var(--mut)">${suf}</span>`:""}</div></div>`;
-  return `<div class="card"><div style="font-size:var(--fs-petit);color:var(--dim);line-height:1.6;margin-bottom:14px">Ton patrimoine actuel : <b class="mono" style="color:var(--txt)">${fmt_(p0)} €</b>. Renseigne le reste, le calcul se met à jour.</div>`
-   +ch("simObj","Objectif",v.obj,"150000","€")
-   +ch("simTx","Rendement annuel estimé",v.tx,"6","%")
-   +ch("simVers","Versement mensuel",v.vers,"300","€")
-   +ch("simAns","Horizon souhaité — optionnel",v.ans,"10","ans")
-   +`<div id="simRes">${_simuResHtml()}</div>`
-   +`<div style="font-size:var(--fs-legende);color:var(--mut);line-height:1.5;margin-top:14px">Projection à rendement constant. La réalité ne l'est jamais : c'est un ordre de grandeur, pas une prévision.</div></div>`;
-}
-function _simuResHtml(){
-  const d=ga();const p0=Math.round(d.tN||0);const v=_simu||{};
-  const obj=pn(v.obj),tx=pn(v.tx),vers=pn(v.vers),ans=pn(v.ans);
-  let res="";
-  if(obj>0){
-    const i=(tx||0)/100/12;
-    const fv=(n)=>i>0?(p0*Math.pow(1+i,n)+vers*((Math.pow(1+i,n)-1)/i)):(p0+vers*n);
-    let mois=null;
-    if(fv(0)>=obj)mois=0;
-    else if(vers>0||i>0){for(let n=1;n<=1200;n++){if(fv(n)>=obj){mois=n;break;}}}
-    const phrase=mois===0?`Ton patrimoine actuel dépasse déjà cet objectif.`
-      :(mois==null?`Sans versement ni rendement, cet objectif n'est pas atteint.`
-      :`Objectif atteint en <b style="color:var(--txt)">${Math.floor(mois/12)} an${Math.floor(mois/12)>1?"s":""}${mois%12?` et ${mois%12} mois`:""}</b>.`);
-    res+=`<div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6;padding:12px 0 4px;border-top:1px solid var(--sep)">${phrase}</div>`;
-    if(ans>0){
-      const N=Math.round(ans*12);
-      const need=i>0?((obj-p0*Math.pow(1+i,N))*i/(Math.pow(1+i,N)-1)):((obj-p0)/N);
-      res+=`<div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6;padding-top:8px">Pour l'atteindre en ${vg(ans,0)} an${ans>1?"s":""} : <b style="color:var(--txt)">${need<=0?"aucun versement nécessaire":fmt_(Math.ceil(need))+" € par mois"}</b>.</div>`;}
-  }
-  return res;
-}
+// v273 — maquette B12 : le résultat d'abord (carte navy), la courbe de projection avec la ligne d'objectif et le point
+// de croisement, puis le formulaire. Champs vides ; départ vide + bouton « Utiliser mon patrimoine » (décision de Yanis).
+function simuObjHtml(){const v=_simu||{};const p0=Math.round(ga().tN||0);const f="_simuSet(this.id,this.value)";
+  return `<div id="simRes">${_simuResHtml()}</div><div class="card carte-outil"><div class="grille-champs">${_champOutil("simObj","Objectif",v.obj,"€",f)}${_champOutil("simTx","Rendement / an",v.tx,"%",f)}${_champOutil("simVers","Versement / mois",v.vers,"€",f)}${_champOutil("simAns","Horizon",v.ans,"ans",f)}${_champOutil("simDep","Départ",v.dep,"€",f)}</div><button type="button" class="simu-patrimoine" onclick="_simuPatrimoine()">Utiliser mon patrimoine (${fmt_(p0)} €)</button></div>`
+   +`<p class="mention-outil">Projection à rendement constant, intérêts calculés chaque mois. Un ordre de grandeur, pas une prévision.</p>`;}
+function _simuCalc(){const v=_simu||{};const obj=pn(v.obj),tx=pn(v.tx),vers=pn(v.vers),ans=pn(v.ans),p0=pn(v.dep)||0;if(!(obj>0))return null;
+  const i=(tx||0)/100/12;const fv=n=>i>0?(p0*Math.pow(1+i,n)+vers*((Math.pow(1+i,n)-1)/i)):(p0+vers*n);
+  let mois=null;if(fv(0)>=obj)mois=0;else if(vers>0||i>0){for(let n=1;n<=1200;n++){if(fv(n)>=obj){mois=n;break;}}}
+  return {obj,tx,vers,ans,p0,i,fv,mois};}
+function _dureeTxt(m){const a=Math.floor(m/12),r=m%12;return (a?a+" an"+(a>1?"s":""):"")+(a&&r?" et ":"")+(r?r+" mois":"")||"0 mois";}
+function _simuResHtml(){const c=_simuCalc();if(!c)return "";const F=n=>fmt_(Math.round(n));const r10=n=>Math.round(n/10)*10;
+  const lib=c.mois===0?`Ton objectif de ${F(c.obj)} € est`:`Ton objectif de ${F(c.obj)} € serait atteint dans`;
+  const gros=c.mois===0?"déjà atteint":c.mois==null?"jamais atteint":"≈ "+_dureeTxt(c.mois);
+  let sous=(c.ans>0?`À ${vg(c.ans,0)} an${c.ans>1?"s":""} : ≈ ${F(r10(c.fv(Math.round(c.ans*12))))} € · `:"")+`départ : ${F(c.p0)} €`;
+  let besoin="";if(c.ans>0){const N=Math.round(c.ans*12);const need=c.i>0?((c.obj-c.p0*Math.pow(1+c.i,N))*c.i/(Math.pow(1+c.i,N)-1)):((c.obj-c.p0)/N);
+    besoin=`<span class="ho-sous">Pour l'atteindre en ${vg(c.ans,0)} an${c.ans>1?"s":""} : ${need<=0?"aucun versement nécessaire":fmt_(Math.ceil(need))+" € par mois"}.</span>`;}
+  if(c.mois==null&&!(c.vers>0)&&!(c.i>0))sous="Sans versement ni rendement, cet objectif n'est pas atteint.";
+  return `<div class="carte-heros-outil simu-resultat cv-rise"><span class="ho-lib">${lib}</span><div class="mono montant-grand ho-montant ho-duree">${gros}</div><span class="ho-sous">${sous}</span>${besoin}</div>`+_simuGrapheHtml(c);}
+// Courbe : abscisse de 0 à l'horizon (sinon jusqu'au croisement + 25 %, au moins 10 ans), ordonnée du départ au plus haut
+function _simuGrapheHtml(c){const N=c.ans>0?Math.round(c.ans*12):Math.max(120,c.mois?Math.ceil(c.mois*1.25):120);if(!(N>0))return "";
+  const X0=30,X1=306,Y0=139,Y1=15.3,pts=[];for(let k=0;k<=10;k++){const n=N*k/10;pts.push([n,c.fv(n)]);}
+  const vmin=Math.min(c.p0,c.obj),vmax=Math.max(c.fv(N),c.obj)||1;const xf=n=>X0+(X1-X0)*n/N,yf=v=>Y0-(v-vmin)/((vmax-vmin)||1)*(Y0-Y1);
+  const d=pts.map((q,k)=>(k?"L":"M")+_nCss(xf(q[0]),1)+" "+_nCss(yf(q[1]),1)).join(" ");const yo=_nCss(yf(c.obj),1);
+  const kE=c.obj>=1000?vg(c.obj/1000,c.obj%1000?1:0)+" k€":fmt_(c.obj)+" €";const an=n=>{const a=n/12;return vg(a,a%1?1:0)+" an"+(a>1?"s":"");};
+  const pt=(c.mois!=null&&c.mois>0&&c.mois<=N)?`<path d="M${_nCss(xf(c.mois),1)} ${yo} V150" style="stroke:var(--c-navy)" stroke-width="1" stroke-dasharray="2 3"></path><circle class="cv-pulse" cx="${_nCss(xf(c.mois),1)}" cy="${yo}" r="7" style="fill:var(--c-emeraude);stroke:var(--c-blanc)" stroke-width="2.5"></circle>`:"";
+  return `<div class="card carte-graphe-simu"><svg class="simu-graphe" width="100%" viewBox="0 0 314 176" role="img" aria-label="Projection de ton patrimoine et objectif"><path d="M30 ${yo} H306" style="stroke:var(--c-mauve)" stroke-width="1.5" stroke-dasharray="5 5"></path><text x="30" y="${_nCss(Math.max(12,yf(c.obj)-6),1)}" class="sg-objectif">objectif ${kE}</text><path d="${d} L306 150 L30 150 Z" style="fill:var(--c-emeraude-pale)" opacity=".7"></path><path class="cv-draw" d="${d}" fill="none" style="stroke:var(--c-navy)" stroke-width="2.5" stroke-linejoin="round"></path>${pt}<text x="30" y="168" text-anchor="middle" class="sg-axe">0 an</text><text x="168" y="168" text-anchor="middle" class="sg-axe">${an(N/2)}</text><text x="306" y="168" text-anchor="end" class="sg-axe">${an(N)}</text></svg></div>`;}
+window._simuPatrimoine=()=>{const p0=Math.round(ga().tN||0);const e=document.getElementById("simDep");if(e)e.value=String(p0);_simuSet("simDep",String(p0));};
 window._simuSet=(id,val)=>{_simu=_simu||{};
-  const k={simObj:"obj",simTx:"tx",simVers:"vers",simAns:"ans"}[id];if(!k)return;
+  const k={simObj:"obj",simTx:"tx",simVers:"vers",simAns:"ans",simDep:"dep"}[id];if(!k)return;
   _simu[k]=val;clearTimeout(_simuT);
   // On ne redessine que le résultat : le champ en cours de frappe n'est jamais reconstruit.
   _simuT=setTimeout(()=>{const n=document.getElementById("simRes");if(n)n.innerHTML=_simuResHtml();},300);};
@@ -7666,9 +7757,28 @@ window._gsPick=(i)=>{const m=window._gsRes&&window._gsRes[i];if(!m)return;
  if(window._searchMode==="achat"){const _sy=m.symbol;const _tk=(_sy.includes(".")?_sy.split(".")[0]:_sy).toUpperCase();
    cm();openAchat(_sy,{sym:_sy,name:m.longname||m.shortname||_sy,cur:_devise(m.currency,_sy,m.exchange)||"EUR",cours:null},"");return;}
  if(window._searchMode==="add"){const _cu=_devise(m.currency,m.symbol,m.exchange)||"USD",_nm=m.longname||m.shortname||m.symbol,_li=window._searchTargetList;cm();_suivreAvecQuestion(m.symbol,_nm,_cu,()=>{addWatch(m.symbol,_nm,_cu,_li);cm();toast("Ajouté");R();});}else{cm();aOpen(m.symbol,m.longname||m.shortname||m.symbol,_devise(m.currency,m.symbol,m.exchange)||"USD",null,window._gsIsin||null);}};
-function explorerHtml(){const fxR=(D.prefs&&D.prefs.fxRates)||{};const curList=[...new Set(["EUR","USD","GBP","CHF","JPY","CAD","AUD"].concat(Object.keys(fxR)))];const opt=(selc)=>curList.map(c=>`<option value="${c}" ${c===selc?"selected":""}>${curSym(c)} ${c}</option>`).join("");const cf=convFrom||"USD",ct=convTo||"EUR",ca=(convAmt!=null?convAmt:100);const _cvOk=toEur(cf)>0&&toEur(ct)>0;const convResVal=_cvOk?ca*toEur(cf)/toEur(ct):0;const oneRate=_cvOk?toEur(cf)/toEur(ct):0;let s=`<div class="fade">`;s+=`<div class="card"><div class="section">Convertisseur</div><input id="convAmt" inputmode="decimal" value="${ca}" oninput="_convCalc()" style="width:100%;margin-bottom:8px;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);color:var(--txt);font-family:inherit;font-size:var(--fs-corps-fort);padding:10px 12px;outline:none"><div style="display:flex;align-items:center;gap:8px"><select id="convFrom" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:9px;color:var(--txt);font-family:inherit">${opt(cf)}</select><button class="btn-ico" onclick="convSwap()">↔</button><select id="convTo" onchange="_convCalc()" style="flex:1;min-width:0;background:var(--inp);border:1px solid var(--bdr);border-radius:var(--r-moyen);padding:9px;color:var(--txt);font-family:inherit">${opt(ct)}</select></div><div style="text-align:center;margin-top:12px"><div class="mono" id="convRes" style="font-size:var(--fs-titre);font-weight:700;color:var(--txt)">${_cvOk?fmt2_(convResVal)+" "+curSym(ct):"Taux indisponible"}</div><div id="convRate" style="font-size:var(--fs-legende);color:var(--mut);margin-top:2px">${_cvOk?"1 "+cf+" = "+vg(oneRate,4)+" "+ct:"taux de change pas encore chargé"}</div></div></div>`;s+=`</div>`;return s;}
-window._convCalc=()=>{const a=pn((document.getElementById("convAmt")||{}).value);const f=(document.getElementById("convFrom")||{}).value||"EUR";const t=(document.getElementById("convTo")||{}).value||"EUR";convAmt=a;convFrom=f;convTo=t;const res=a*toEur(f)/toEur(t);const el=document.getElementById("convRes");const rt=document.getElementById("convRate");if(!(toEur(f)>0&&toEur(t)>0)){if(el)el.textContent="Taux indisponible";if(rt)rt.textContent="taux de change pas encore chargé";return;}if(el)el.textContent=fmt2_(res)+" "+curSym(t);if(rt)rt.textContent="1 "+f+" = "+vg(toEur(f)/toEur(t),4)+" "+t;};
-window.convSwap=()=>{const f=convFrom;convFrom=convTo;convTo=f;R();};
+// v273 — maquette B8 : montant en grand ; 2 gros boutons de devise qui ouvrent le choix (les 7 devises gardées) ;
+// inversion en bouton rond ; montants rapides et PRU d'une position ; résultat en carte menthe ; date et heure du taux.
+const _SVG_CHEVRON_D='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"></path></svg>';
+function _convDevises(){const fxR=(D.prefs&&D.prefs.fxRates)||{};return [...new Set(["EUR","USD","GBP","CHF","JPY","CAD","AUD"].concat(Object.keys(fxR)))];}
+function explorerHtml(){const cf=convFrom||"USD",ct=convTo||"EUR",ca=(convAmt!=null?convAmt:100);const ts=D.prefs&&D.prefs.fxTs;const dt=ts?new Date(ts):null;const z=n=>String(n).padStart(2,"0");
+  return `<div class="card carte-outil"><div class="champ-outil"><label class="champ-outil-lib" for="convAmt">Montant</label><input id="convAmt" class="mono montant-grand conv-montant" inputmode="decimal" value="${esc(String(ca))}" oninput="_convCalc()"></div>`
+   +`<div class="conv-devises"><button type="button" id="convFromBtn" class="devise-btn" onclick="_convChoix('from')"><span>${curSym(cf)} ${cf}</span>${_SVG_CHEVRON_D}</button><button type="button" class="bouton-inverser" aria-label="Inverser les devises" onclick="convSwap()"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h13l-4-4M17 17H4l4 4"></path></svg></button><button type="button" id="convToBtn" class="devise-btn" onclick="_convChoix('to')"><span>${curSym(ct)} ${ct}</span>${_SVG_CHEVRON_D}</button></div></div>`
+   +`<div class="montants-rapides">${[10,100,1000].map(v=>`<button type="button" class="rapide" onclick="_convRapide(${v})">${v.toLocaleString("fr-FR")}</button>`).join("")}<button type="button" class="rapide" onclick="_convChoixPru()">PRU d'une position</button></div>`
+   +`<div id="convRes">${_convResHtml()}</div>`+(dt?`<p class="conv-date">Taux du ${z(dt.getDate())}/${z(dt.getMonth()+1)} à ${z(dt.getHours())}:${z(dt.getMinutes())}.</p>`:"");}
+function _convResHtml(){const cf=convFrom||"USD",ct=convTo||"EUR",a=pn(convAmt!=null?convAmt:100);if(!(toEur(cf)>0&&toEur(ct)>0))return `<div class="conv-resultat"><span class="cvr-taux">Taux de change pas encore chargé.</span></div>`;
+  const r=toEur(cf)/toEur(ct);
+  return `<div class="conv-resultat cv-rise"><div class="cv-float">${_svgPiece("var(--c-bleu)",44,"var(--c-bleu-fonce)","var(--c-bleu-pale)")}</div><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg><div class="cv-float" style="animation-delay:.8s">${_svgPiece("var(--c-emeraude)",44,"var(--c-emeraude-moyen)","var(--c-menthe)")}</div><div class="cvr-montants"><span class="mono montant-grand cvr-montant">${_fmtCours(a*r)} ${curSym(ct)}</span><span class="cvr-taux">1 ${cf} = ${vg(r,4)} ${ct}</span></div></div>`;}
+window._convCalc=()=>{convAmt=pn((document.getElementById("convAmt")||{}).value);const el=document.getElementById("convRes");if(el)el.innerHTML=_convResHtml();};
+window._convRapide=v=>{convAmt=v;const e=document.getElementById("convAmt");if(e)e.value=String(v);const el=document.getElementById("convRes");if(el)el.innerHTML=_convResHtml();};
+window.convSwap=()=>{const f=convFrom||"USD";convFrom=convTo||"EUR";convTo=f;R();};
+window._convChoix=sens=>{const act=sens==="from"?(convFrom||"USD"):(convTo||"EUR");
+  sm(`<h3 class="titre-feuille">${sens==="from"?"Convertir depuis":"Convertir vers"}</h3><div class="liste-choix">${_convDevises().map(c=>`<button type="button" class="ligne-choix${c===act?" actif":""}" data-devise="${c}" onclick="_convPrendre('${sens}','${c}')"><span>${curSym(c)} ${c}</span></button>`).join("")}</div><button class="btn-x" onclick="cm()">✕</button>`);};
+window._convPrendre=(sens,c)=>{if(sens==="from")convFrom=c;else convTo=c;cm();R();};
+window._convChoixPru=()=>{const L=[];Object.entries(D.poches||{}).forEach(([n,pk])=>(pk.positions||[]).forEach(x=>{if(x&&!x.manual&&x.pru>0&&_pruCur(x)!=="EUR")L.push([n,x]);}));
+  if(!L.length){toast("Aucune position avec un PRU en devise.");return;}
+  sm(`<h3 class="titre-feuille">PRU d'une position</h3><div class="liste-choix">${L.map(([n,x])=>`<button type="button" class="ligne-choix" data-pru-ticker="${escAttr(x.ticker)}" onclick="_convPrendrePru('${escAttr(n)}','${escAttr(x.ticker)}')"><span>${esc(x.ticker)} · ${esc(n)}</span><span class="mono">${_fmtCours(x.pru)} ${curSym(_pruCur(x))}</span></button>`).join("")}</div><button class="btn-x" onclick="cm()">✕</button>`);};
+window._convPrendrePru=(n,tk)=>{const x=((D.poches[n]||{}).positions||[]).find(y=>y.ticker===tk);if(!x)return;convAmt=x.pru;convFrom=_pruCur(x);convTo="EUR";cm();R();};
 window.openCmp=()=>{_navPush();cmpOpen=true;cmpList=[];R();scrollTo(0,0);};
 window.closeCmp=()=>{_navBack();};
 window.cmpRemove=(sym)=>{cmpList=cmpList.filter(x=>x.sym!==sym);R();};
