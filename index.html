@@ -322,9 +322,6 @@ h1:not(.nom-titre),h2:not(.nom-titre),h3:not(.nom-titre),[style*="font-size:var(
 .nom-titre{font-family:var(--police-texte)}
 /* v262 : grands montants (24 px et plus) en Diamond Grotesk, chiffres compris. Tous les autres chiffres restent en Poppins. */
 .mono[style*="font-size:var(--fs-titre)"],.mono[style*="font-size:var(--fs-grand)"],.mono[style*="font-size:var(--t-24)"],.mono[style*="font-size:var(--t-30)"],.mono[style*="font-size:var(--t-40)"],.montant-grand,.mono.montant-grand{font-family:var(--police-montant);font-synthesis:none}
-/* v274 : dans Poppins, le signe moins (U+2212) est dessiné exactement comme le tiret (mesuré : 41 contre 40 px à 100 px) ;
-   celui de Diamond Grotesk est deux fois plus long. Un signe moins isolé dans un texte en Poppins prend donc celui de Diamond. */
-.signe-moins{font-family:var(--police-montant);font-synthesis:none;}
 /* ═══ SOCLE-FORMES-FIN ═══ */
 /* ═══ SOCLE-MOUVEMENT-DEBUT ═══════════════════════════════════════════════════════════════════
    Les animations des maquettes (v262), reprises telles quelles : noms, durées et courbes. Branchées sur les écrans
@@ -732,7 +729,7 @@ html.anim-pause .cv-float,html.anim-pause .cv-float2,html.anim-pause .cv-twinkle
 .cq-phrase{margin:12px 0 0;font-size:var(--fs-onglet);line-height:20px;}
 .cq-mention{margin:6px 0 0;font-size:var(--fs-legende);line-height:16px;color:var(--dim);}
 .tuiles-fond{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;}
-.tuile-fond{min-width:0;margin:0;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;grid-row:span 4;display:grid;grid-template-rows:subgrid;row-gap:4px;align-content:start;text-align:left;font-family:var(--police-texte);color:var(--txt);}
+.tuile-fond{min-width:0;margin:0;background:var(--card);border:1px solid var(--bdr);border-radius:var(--r-18);padding:12px 14px;grid-row:span 3;display:grid;grid-template-rows:subgrid;row-gap:4px;align-content:start;text-align:left;font-family:var(--police-texte);color:var(--txt);}
 button.tuile-fond{cursor:pointer;}
 .tf-lib{display:block;font-size:var(--fs-corps);color:var(--dim);font-weight:600;}
 .tf-fin{white-space:nowrap;}
@@ -740,7 +737,6 @@ button.tuile-fond{cursor:pointer;}
 .tf-val{font-size:var(--fs-sous-titre);font-weight:700;font-variant-numeric:tabular-nums;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 .tf-val.hausse{color:var(--positif);}
 .tf-periode{font-size:var(--fs-legende);color:var(--dim);line-height:16px;}
-.tf-gonfle{font-size:var(--fs-legende);color:var(--txt);font-weight:600;line-height:16px;}
 .tf-val.baisse{color:var(--baisse);}
 .an-chiffres{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px;}
 .an-col{display:flex;flex-direction:column;gap:2px;align-items:flex-start;min-width:0;}
@@ -815,6 +811,57 @@ button.tuile-fond{cursor:pointer;}
 .pru-avant-apres{display:flex;flex-direction:column;gap:8px;}
 .pru-avant-apres>div{display:flex;justify-content:space-between;gap:10px;font-size:var(--fs-corps-fort);}
 .pru-boutons{display:flex;gap:8px;margin-top:14px;}
+.pru-erreur{margin:12px 2px 0;padding:12px 14px;border-radius:var(--r-grand);background:var(--baisse-f);color:var(--baisse);font-size:var(--fs-onglet);font-weight:600;}
+.pru-alerte{margin:12px 0 0;padding:10px 12px;border-radius:var(--r-grand);background:var(--baisse-f);color:var(--baisse);font-size:var(--fs-onglet);font-weight:600;}
+.ligne-choix{text-align:left;}
+.lc-nom{flex:1;min-width:0;text-align:left;}
+.lc-droite{flex-shrink:0;font-size:var(--fs-corps);font-weight:500;color:var(--dim);white-space:nowrap;}
+.lc-droite .mono{color:var(--txt);font-weight:600;}
+.moins{display:inline-block;text-align:center;transform-origin:50% 50%;}
+/* v276 — Comparer (maquette B7) et Liste de suivi (maquette B9) */
+.cmp-puces{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;}
+.cmp-puce{height:40px;padding:0 6px 0 14px;border-radius:var(--r-pilule);border:1.5px solid;color:var(--txt);font-size:var(--fs-onglet);font-weight:700;display:inline-flex;align-items:center;gap:6px;}
+.cmp-point{width:10px;height:10px;border-radius:var(--r-pilule);display:block;flex-shrink:0;}
+.cmp-retirer{width:30px;height:30px;border:0;background:transparent;color:var(--txt);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.cmp-ajouter{width:40px;height:40px;border-radius:var(--r-pilule);border:1.5px dashed var(--c-emeraude);background:var(--c-menthe-claire);color:var(--txt);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.carte-cmp{padding:12px;margin-top:12px;}
+.cmp-legende{display:flex;flex-wrap:wrap;gap:14px;margin-top:8px;}
+.cmp-leg{display:inline-flex;align-items:center;gap:6px;font-size:var(--fs-corps);}
+.cmp-tableau{padding:12px 16px 8px;margin-top:10px;}
+.cmp-tete,.cmp-ligne{display:grid;align-items:center;column-gap:4px;}
+.cmp-tete{font-size:var(--fs-corps);font-weight:700;padding-bottom:6px;}
+.cmp-tete span+span,.cmp-ligne span+span{justify-self:end;}
+.cmp-tete span+span,.cmp-val{padding-right:10px;}
+.cmp-ligne{min-height:42px;font-size:var(--fs-onglet);border-top:1px solid var(--bdr);}
+.cmp-ligne:first-of-type{border-top:0;}
+.cmp-ligne>span:first-child{color:var(--dim);}
+.cmp-meilleur{height:28px;padding:0 10px;border-radius:var(--r-pilule);color:var(--txt);font-weight:700;display:inline-flex;align-items:center;}
+.cmp-note{margin:6px 0 4px;font-size:var(--fs-legende);color:var(--dim);}
+.wl-barre-haut{display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.bouton-options{width:44px;height:44px;border-radius:var(--r-grand);border:1px solid var(--bdr);background:var(--card);color:var(--txt);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;}
+.wl-tete{display:flex;align-items:center;gap:10px;margin:0 2px;}
+.wl-point{width:14px;height:14px;border-radius:var(--r-pilule);display:block;flex-shrink:0;}
+.wl-carte{padding:2px 16px;margin-top:14px;}
+.wl-ligne{padding:12px 0;}
+.wl-ligne+.wl-ligne{border-top:1px solid var(--bdr);}
+.wl-haut{display:flex;align-items:center;gap:10px;}
+.wl-gauche{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;cursor:pointer;}
+.wl-tk{display:flex;align-items:center;gap:8px;font-size:var(--fs-bouton);font-weight:700;}
+.wl-nom{font-size:var(--fs-corps);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.wl-droite{display:flex;flex-direction:column;align-items:flex-end;gap:2px;}
+.wl-cours{font-size:var(--fs-bouton);font-weight:700;white-space:nowrap;}
+.wl-sous{font-size:var(--fs-legende);color:var(--dim);white-space:nowrap;}
+.wl-atteinte{height:26px;padding:0 9px;border-radius:var(--r-pilule);background:var(--c-navy);color:var(--heros-accent);font-size:var(--fs-legende);font-weight:700;display:inline-flex;align-items:center;gap:4px;}
+.wl-distance{font-size:var(--fs-legende);font-weight:600;color:var(--dim);}
+.wl-options{width:40px;height:40px;border-radius:var(--r-12);border:0;background:transparent;color:var(--txt);display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer;flex-shrink:0;}
+.wl-barre{height:6px;border-radius:var(--r-pilule);background:var(--c-onglets);margin-top:8px;overflow:hidden;}
+.wl-barre.atteinte{background:var(--c-emeraude);}
+.wl-barre-rempli{height:6px;border-radius:var(--r-pilule);background:var(--c-mauve);}
+.wl-ajouter{margin-top:12px;width:100%;min-height:48px;display:flex;align-items:center;justify-content:center;gap:6px;border-radius:var(--r-grand);border:1.5px dashed var(--c-emeraude);background:var(--c-menthe-claire);color:var(--txt);font-family:var(--police-texte);font-size:var(--fs-corps-fort);font-weight:700;cursor:pointer;}
+.moins.w400{width:.683em;transform:scaleX(1.268);}
+.moins.w500{width:.714em;transform:scaleX(1.214);}
+.moins.w600{width:.674em;transform:scaleX(1.186);}
+.moins.w700{width:.628em;transform:scaleX(1.159);}
 .pru-boutons .btn{flex:1;}
 .simu-graphe{display:block;height:auto;}
 .sg-objectif{font-size:var(--fs-legende);font-weight:700;fill:var(--c-mauve-fonce);}
@@ -930,7 +977,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "274";
+const APP_VERSION = "276";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -1523,7 +1570,10 @@ const DEF = {
 // RESTAURATION fb23f43 : ajout de aEnvSel pour le filtre Analyse, retrait de benchmarkData
 let D=null,H=[],tab="bourse",sel=null,htf="tout",aEnvSel="tout",convEnv="",scOpen=false,scSort="best",scEnv="tout",scExpand=null,divNet=false,anaSub="synthese",perfSub="evol",convHz="tout",convView=null,convFill=null,_convSkip=[],convPlanTk=null,convPlanPoche=null,benchSel=null,convAmt=100,convFrom="USD",convTo="EUR",oWidget=null,aSym=null,aName=null,aCur=null,aTab="chart",aChartType="line",aPeriod="1y",aData={},swiPru=false,bSub="resume",cmpOpen=false,cmpList=[],cmpPeriod="1y",_nav=[],_watchBusy=false,_planUnitPend=null,_achatUnitPend=null,alertsSub=null,divSecOpen={},divPosExpand=null,agendaOpen=false,agendaExpEarn=false,agendaExpDiv=false,agendaSub=null,agendaExpPos=false,resDetail=null,watchListOpen=null,qSort="best",anaView=null,convMode="conv",bTool=null,bPage=null,_simu=null,_simuT=null,_envPending=null,_achatCtx=null,boussoleTk=null,boussoleFiltre="tout",boussoleOrdre="recent",_bsPending=null,_planFlash=0,achatTk=null,achatPoche="",_achatFlash=0,_ficheEdit=false,_theseOuverteTk=null,_notesOuverteTk=null,_horizonOuverteTk=null,_themesOuverteTk=null,_themesTitreStage=null,_convictionOuverteTk=null,_objectifsOuvertPoche=null,_objectifsOuvertTk=null,_ficheOuverteTk=null,_ficheOuvertePoche=null;
 let newsData=null,newsLoading=false,newsKey=null;
-const CMP_COLS=["var(--d1)","var(--d3)","var(--d2)","var(--d6)"];
+const CMP_COLS=["var(--d1)","var(--d3)","var(--d2)","var(--d6)"];// palette de données : bleu, mauve, navy, ardoise (les 2 premières = maquette B7)
+// v276 (maquette B7) : fond pâle de la pastille et couleur de texte de chaque série
+const CMP_PALES=["var(--c-bleu-pale)","var(--c-rose-pale)","var(--c-onglets)","var(--c-menthe-claire)"],CMP_TEXTES=["var(--c-bleu-fonce)","var(--c-mauve-fonce)","var(--c-navy)","var(--c-emeraude-fonce)"];
+const _SVG_POINTS='<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.5"></circle><circle cx="12" cy="12" r="1.5"></circle><circle cx="19" cy="12" r="1.5"></circle></svg>';
 let _pruVals={tot:"",pl:"",un:""};
 function _resetTools(){_pruVals={tot:"",pl:"",un:""};convAmt=100;convFrom="USD";convTo="EUR";}
 let st={loading:false,lastUp:null,ok:null,count:0,sync:null,loadingSince:0};
@@ -2910,6 +2960,7 @@ async function _synchroniser(){
       // formulaire actuel) ; la synchro suivante les envoie. Ne lève jamais de conflit (règle « remplie »).
       if(D&&D.poches&&_completerMonnaies(D))_syncPending=true;
       if(D&&D.poches&&_completerInvesti(D))_syncPending=true;
+      if(D&&D.prefs&&_completerDeparts(D))_syncPending=true;
       _bandeauAvisPremier();
       saveLocal();
       etat="ok";break;
@@ -3530,6 +3581,7 @@ async function applyPortfolioMigrations(){
   // Aucun calcul ne les lit encore : aucun chiffre ne bouge.
   if(_completerMonnaies(D))changed=true;
   if(_completerInvesti(D))changed=true;
+  if(_completerDeparts(D))changed=true;
   // v257 : les cryptos en euros reçoivent désormais un vrai cours en euros (avant : le cours en dollars
   // était compté comme des euros). Joué une fois : une note datée explique la marche sur la courbe.
   if(!(D.prefs&&D.prefs.migCryptoEur)){D.prefs=D.prefs||{};D.prefs.migCryptoEur=1;changed=true;
@@ -3789,6 +3841,19 @@ function _ongletActifVisible(r){try{(r||document).querySelectorAll(".onglets-pil
   const cr=c.getBoundingClientRect(),ar=a.getBoundingClientRect();if(ar.left>=cr.left-1&&ar.right<=cr.right+1)return;
   c.scrollLeft=Math.max(0,ar.left-cr.left+c.scrollLeft-(c.clientWidth-ar.width)/2);});}catch(e){}}
 // Repérés par leur police calculée : aucune liste de tailles à tenir à jour ici.
+// v275 (option B de Yanis) : dans Poppins, le signe moins est dessiné comme le tiret. Partout où un montant ou un
+// pourcentage négatif est écrit en Poppins, le « − » (et le « - » placé devant un chiffre) est mis dans un span.moins,
+// étiré à la largeur du « + » de Poppins (encre et place mesurées par graisse : voir .moins.w400 à .w700). Diamond
+// (grands montants) n'est pas touché. Méthode indépendante du navigateur : le texte produit est modifié.
+function _moinsPoppins(racine){try{if(!racine||racine.nodeType!==1)return;const w=document.createTreeWalker(racine,NodeFilter.SHOW_TEXT,null);const L=[];let n;
+  const signe=(s,i)=>s[i]==="\u2212"||(s[i]==="-"&&/\d/.test(s[i+1]||"")&&(i===0||/[\s(«▼▲]/.test(s[i-1])));
+  while((n=w.nextNode())){const v=n.nodeValue;if(v.indexOf("\u2212")<0&&!/-\d/.test(v))continue;const el=n.parentElement;if(!el||el.closest(".moins,svg,script,style,textarea,select,option,.montant-grand,[contenteditable]"))continue;
+    let ok=false;for(let i=0;i<v.length;i++)if(signe(v,i)){ok=true;break;}if(ok)L.push(n);}
+  L.forEach(t=>{const el=t.parentElement;if(!el)return;const cs=getComputedStyle(el);if(cs.fontFamily.split(",")[0].replace(/["']/g,"").trim()!=="Poppins")return;
+    const wt=parseInt(cs.fontWeight,10)||400;const cl="moins w"+(wt>=650?700:wt>=550?600:wt>=450?500:400);const v=t.nodeValue;const f=document.createDocumentFragment();let deb=0;
+    for(let i=0;i<v.length;i++){if(!signe(v,i))continue;if(i>deb)f.appendChild(document.createTextNode(v.slice(deb,i)));const sp=document.createElement("span");sp.className=cl;sp.textContent="\u2212";f.appendChild(sp);deb=i+1;}
+    if(deb<v.length)f.appendChild(document.createTextNode(v.slice(deb)));t.parentNode.replaceChild(f,t);});}catch(e){}}
+try{new MutationObserver(ms=>{ms.forEach(m=>{m.addedNodes.forEach(nd=>{if(nd.nodeType===1)_moinsPoppins(nd);else if(nd.nodeType===3&&nd.parentElement)_moinsPoppins(nd.parentElement);});});}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
 function _espacesChiffres(racine){try{if(!racine)return;racine.querySelectorAll(".mono,.montant-grand").forEach(g=>{
   if(!/[\u00a0\u202f]/.test(g.textContent))return;
   if(getComputedStyle(g).fontFamily.indexOf("Diamond Grotesk Chiffres")<0)return;
@@ -4557,7 +4622,7 @@ if($){
    $.classList.toggle("sans-anim",_sig===_dernierEcran);
    _dernierEcran=_sig;}
   h=h.replace("<!--BARRE-HAUT-->",h.indexOf('class="entete-detail"')>=0?'<div id="ptr" class="ptr" aria-hidden="true"></div>':_barreHaut(h.indexOf('class="retour"')>=0));// v265 : un bouton de retour = page de détail ; v268 : en-tête propre de la maquette
-  $.innerHTML=h;_espacesChiffres($);_ajusterValeurs($);_alignerTuiles($);_ongletActifVisible($);
+  $.innerHTML=h;_espacesChiffres($);_moinsPoppins($);_ajusterValeurs($);_alignerTuiles($);_ongletActifVisible($);
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
@@ -5863,7 +5928,7 @@ function _syncCibleAchat(){
     const px=mk("",sy);const k="ws:"+sy,cP=_cleSuivi(sy);let m=D.prefs.achatSync[k];
     if(m===undefined&&cP&&cP==="|"+_tkDeSym(sy))m=D.prefs.achatSync["wl:"+_tkDeSym(sy)];
     if(!(px>0)){if(m!=null&&w.target===m){delete w.target;delete w.targetCur;}delete D.prefs.achatSync[k];return;}
-    if(w.target==null||w.target===m){w.target=px;D.prefs.achatSync[k]=px;const oA=_achat("",sy);if(oA&&oA.dev&&oA.dev!==w.cur)w.targetCur=oA.dev;else delete w.targetCur;}
+    if(w.target==null||w.target===m){if(w.target!==px&&w.lastCours>0)w.targetDepart=w.lastCours;w.target=px;D.prefs.achatSync[k]=px;const oA=_achat("",sy);if(oA&&oA.dev&&oA.dev!==w.cur)w.targetCur=oA.dev;else delete w.targetCur;}
   });
 }
 // Le seuil bas a-t-il été fixé à la main, différent du plan ? On le constate, on ne corrige rien.
@@ -6812,7 +6877,8 @@ function _titreFond(t){return `<div class="titre-section-ligne fond"><h2 class="
 // comparé au même trimestre un an plus tôt ; PER, marges, ROE, part versée = 12 derniers mois ; bilan = dernier publié)
 const _PERIODE_FOND={per:"12 derniers mois",fper:"bénéfice attendu l'an prochain",pb:"dernier bilan",roe:"12 derniers mois",mNette:"12 derniers mois",mOp:"12 derniers mois",mBrute:"12 derniers mois",
   revG:"dernier trimestre, sur 1\u00a0an",epsG:"dernier trimestre, sur 1\u00a0an",netCash:"dernier bilan",debtEq:"dernier bilan",beta:"sur 5\u00a0ans",divY:"dividende annuel attendu",payout:"12 derniers mois"};
-function _tuilesFond(rows){return `<div class="tuiles-fond">`+rows.map(r=>{const k=r[2],hd=k&&_METRIC_DEFS[k];const per=r[4]!==undefined?r[4]:(k&&_PERIODE_FOND[k]);const val=`<span class="tf-val${r[3]?" "+r[3]:""}">${r[1]}</span><span class="tf-gonfle">${r[5]||""}</span>`+(per?`<span class="tf-periode">${per}</span>`:"");
+function _tuilesFond(rows){return `<div class="tuiles-fond">`+rows.map(r=>{const k=r[2],hd=k&&_METRIC_DEFS[k];const per=r[4]!==undefined?r[4]:(k&&_PERIODE_FOND[k]);// v275 : la mention « gonflé par des gains exceptionnels » suit la période, même style discret (« 12 derniers mois · … »)
+  const ligne=[per,r[5]].filter(Boolean).join(" · ");const val=`<span class="tf-val${r[3]?" "+r[3]:""}">${r[1]}</span>`+(ligne?`<span class="tf-periode">${ligne}</span>`:"");
   // l'icône ⓘ reste collée au dernier mot quand le libellé passe sur deux lignes
   const mots=String(r[0]).split(" "),der=mots.pop(),lib=(mots.length?mots.join(" ")+" ":"")+`<span class="tf-fin">${der}${_SVG_AIDE14}</span>`;
   return hd?`<button type="button" class="tuile-fond" data-k="${k}" data-v="${esc(String(r[1]).replace(/<[^>]*>/g,""))}" onclick="_metricInfo(this.dataset.k,this.dataset.v)"><span class="tf-lib">${lib}</span>${val}</button>`
@@ -7564,18 +7630,30 @@ function _champOutil(id,lib,v,unite,fn,avant){return `<div class="champ-outil"><
 function pruCalcHtml(){const pv=_pruVals||{};const moins=pv.signe==="moins";
   const bascule=`<div class="segment pru-signe" role="group" aria-label="Plus ou moins-value"><button type="button" aria-pressed="${!moins}" class="${moins?"":"actif"}" onclick="_pruSigne('plus')">Plus</button><button type="button" aria-pressed="${moins}" class="${moins?"actif":""}" onclick="_pruSigne('moins')">Moins</button></div>`;
   return `<div class="card carte-outil"><div class="champs-outil">${_champOutil("pruTot","Valeur totale aujourd'hui",pv.tot,"€","_pruCalc()")}${_champOutil("pruPl","Plus ou moins-value",pv.pl,"€","_pruCalc()",bascule)}${_champOutil("pruUn","Nombre d'unités",pv.un,"u.","_pruCalc()")}</div></div><div id="pruRes">${_pruResHtml()}</div>`;}
-function _pruResHtml(){const pv=_pruVals||{};const t=pn(pv.tot),p2=pv.pl===""||pv.pl==null?NaN:pn(pv.pl),u=pn(pv.un);if(!(t>0&&u>0&&!isNaN(p2)))return "";
+// v275 : cas impossibles -> pas de résultat, un message clair (et donc pas de bouton « Enregistrer »)
+function _pruErreur(){const pv=_pruVals||{};const rempli=v=>v!=null&&String(v).trim()!=="";const t=pn(pv.tot),u=pn(pv.un);
+  if(rempli(pv.tot)&&!(t>0))return "La valeur totale doit être supérieure à 0.";
+  if(rempli(pv.un)&&!(u>0))return "Le nombre d'unités doit être supérieur à 0.";
+  if(t>0&&u>0&&rempli(pv.pl)){const p2=pn(pv.pl);const inv=pv.signe==="moins"?t+Math.abs(p2):t-p2;if(!(inv>0))return "La plus-value ne peut pas dépasser la valeur totale.";}
+  return null;}
+function _pruResHtml(){const pv=_pruVals||{};const err=_pruErreur();if(err)return `<p class="pru-erreur" role="alert">${err}</p>`;
+  const t=pn(pv.tot),p2=pv.pl===""||pv.pl==null?NaN:pn(pv.pl),u=pn(pv.un);if(!(t>0&&u>0&&!isNaN(p2)))return "";
   const moins=pv.signe==="moins";const inv=moins?t+Math.abs(p2):t-p2;const pru=inv/u;const priv=isPriv();const F=n=>Number(n).toLocaleString("fr-FR",{maximumFractionDigits:2});
-  return `<div class="carte-heros-outil pru-resultat cv-rise"><div class="cv-float piece-outil">${_svgPiece("var(--c-emeraude)",56,"var(--c-emeraude-moyen)","var(--c-menthe)")}</div><span class="ho-lib">Ton prix de revient unitaire</span><div class="mono montant-grand ho-montant">${priv?"•••":_fmtCours(pru)+" €"}</div><span class="ho-sous">(${priv?"•••":F(t)} ${moins?"+":`<span class="signe-moins">−</span>`} ${priv?"•••":F(Math.abs(p2))}) ÷ ${F(u)} unité${u>1?"s":""}</span><span class="ho-sous">Investi ≈ ${priv?"•••":Math.round(inv).toLocaleString("fr-FR")+" €"} · prix d'une unité aujourd'hui ≈ ${priv?"•••":_fmtCours(t/u)+" €"}</span><button type="button" class="pru-enregistrer" onclick="_pruEnregistrer()">Enregistrer sur une position<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></div>`;}
+  return `<div class="carte-heros-outil pru-resultat cv-rise"><div class="cv-float piece-outil">${_svgPiece("var(--c-emeraude)",56,"var(--c-emeraude-moyen)","var(--c-menthe)")}</div><span class="ho-lib">Ton prix de revient unitaire</span><div class="mono montant-grand ho-montant">${priv?"•••":_fmtCours(pru)+" €"}</div><span class="ho-sous">(${priv?"•••":F(t)} ${moins?"+":"−"} ${priv?"•••":F(Math.abs(p2))}) ÷ ${F(u)} unité${u>1?"s":""}</span><span class="ho-sous">Investi ≈ ${priv?"•••":Math.round(inv).toLocaleString("fr-FR")+" €"} · prix d'une unité aujourd'hui ≈ ${priv?"•••":_fmtCours(t/u)+" €"}</span><button type="button" class="pru-enregistrer" onclick="_pruEnregistrer()">Enregistrer sur une position<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></div>`;}
 // v274 (proposition validée) : enregistrer le PRU calculé sur une ligne au PRU en euros ; avant / après, puis confirmation ;
 // seuls le PRU (et la quantité si elle diffère) changent.
-function _pruCalcule(){const pv=_pruVals||{};const t=pn(pv.tot),p2=pv.pl===""||pv.pl==null?NaN:pn(pv.pl),u=pn(pv.un);if(!(t>0&&u>0&&!isNaN(p2)))return null;const inv=pv.signe==="moins"?t+Math.abs(p2):t-p2;return {pru:inv/u,u:u};}
-window._pruEnregistrer=()=>{const L=[];Object.entries(D.poches||{}).forEach(([n,pk])=>(pk.positions||[]).forEach(x=>{if(x&&_pruCur(x)==="EUR")L.push([n,x]);}));
+function _pruCalcule(){const pv=_pruVals||{};if(_pruErreur())return null;const t=pn(pv.tot),p2=pv.pl===""||pv.pl==null?NaN:pn(pv.pl),u=pn(pv.un);if(!(t>0&&u>0&&!isNaN(p2)))return null;const inv=pv.signe==="moins"?t+Math.abs(p2):t-p2;if(!(inv>0))return null;return {pru:inv/u,u:u};}
+// v275 : les objets (lignes exclues de la performance : montres…) ne sont pas proposés ; assurance vie, puis PEE / PER d'abord
+function _rangPlacement(n){return /assurance|\bvie\b|\bav\b/i.test(n)?0:/\bpee\b|\bper\b|perco|épargne salariale|retraite/i.test(n)?1:2;}
+window._pruEnregistrer=()=>{const L=[];Object.entries(D.poches||{}).forEach(([n,pk])=>(pk.positions||[]).forEach(x=>{if(x&&!x.noPerf&&_pruCur(x)==="EUR")L.push([n,x]);}));
+  L.sort((a,b)=>_rangPlacement(a[0])-_rangPlacement(b[0]));
   if(!L.length){toast("Aucune ligne au PRU en euros.");return;}
-  sm(`<h3 class="titre-feuille">Enregistrer sur une position</h3><div class="liste-choix">${L.map(([n,x])=>`<button type="button" class="ligne-choix" data-pos="${escAttr(n+"|"+x.ticker)}" onclick="_pruChoisir('${escAttr(n)}','${escAttr(x.ticker)}')"><span>${esc(x.titre||x.ticker)} · ${esc(n)}</span><span class="mono">${_fmtCours(x.pru)}\u00a0€</span></button>`).join("")}</div><button class="btn-x" onclick="cm()">✕</button>`);};
+  sm(`<h3 class="titre-feuille">Enregistrer sur une position</h3><div class="liste-choix">${L.map(([n,x])=>`<button type="button" class="ligne-choix" data-pos="${escAttr(n+"|"+x.ticker)}" onclick="_pruChoisir('${escAttr(n)}','${escAttr(x.ticker)}')"><span class="lc-nom">${esc(x.titre||x.ticker)} · ${esc(n)}</span><span class="lc-droite">PRU actuel <span class="mono">${_fmtCours(x.pru)}\u00a0€</span></span></button>`).join("")}</div><button class="btn-x" onclick="cm()">✕</button>`);};
 window._pruChoisir=(n,tk)=>{const x=((D.poches[n]||{}).positions||[]).find(y=>y.ticker===tk);const c=_pruCalcule();if(!x||!c)return;
-  const qd=Math.abs((x.qty||0)-c.u)>1e-9;
-  sm(`<h3 class="titre-feuille">${esc(x.titre||tk)} · ${esc(n)}</h3><div class="pru-avant-apres"><div><span>PRU</span><span class="mono">${_fmtCours(x.pru)}\u00a0€ → ${_fmtCours(c.pru)}\u00a0€</span></div>${qd?`<div><span>Quantité</span><span class="mono">${fmt2_(x.qty)} → ${fmt2_(c.u)}</span></div>`:""}</div><p class="mention-outil">Rien d'autre ne change sur cette ligne.</p><div class="pru-boutons"><button type="button" class="btn btn-s pru-annuler" onclick="cm()">Annuler</button><button type="button" class="btn btn-a pru-confirmer" onclick="_pruConfirmer('${escAttr(n)}','${escAttr(tk)}')">Confirmer</button></div>`);};
+  const qd=Math.abs((x.qty||0)-c.u)>1e-9;const F0=v=>Math.round(v).toLocaleString("fr-FR");
+  // v275 : l'investi change aussi ; alerte si le PRU ou la quantité est multiplié ou divisé par plus de 2
+  const rp=x.pru>0?c.pru/x.pru:Infinity,rq=x.qty>0?c.u/x.qty:Infinity;const fort=rp>2||rp<0.5||rq>2||rq<0.5;
+  sm(`<h3 class="titre-feuille">${esc(x.titre||tk)} · ${esc(n)}</h3><div class="pru-avant-apres"><div><span>PRU</span> <span class="mono">${_fmtCours(x.pru)}\u00a0€ → ${_fmtCours(c.pru)}\u00a0€</span></div>${qd?`<div><span>Quantité</span> <span class="mono">${fmt2_(x.qty)} → ${fmt2_(c.u)}</span></div>`:""}<div><span>Investi (en €)</span> <span class="mono">${F0(_investiLigne(x))}\u00a0€ → ${F0(c.pru*c.u)}\u00a0€</span></div></div>${fort?`<p class="pru-alerte" role="alert">Changement important : vérifie ta saisie</p>`:""}<p class="mention-outil">Seuls ces chiffres changent sur cette ligne.</p><div class="pru-boutons"><button type="button" class="btn btn-s pru-annuler" onclick="cm()">Annuler</button><button type="button" class="btn btn-a pru-confirmer" onclick="_pruConfirmer('${escAttr(n)}','${escAttr(tk)}')">Confirmer</button></div>`);};
 window._pruConfirmer=(n,tk)=>{const x=((D.poches[n]||{}).positions||[]).find(y=>y.ticker===tk);const c=_pruCalcule();if(!x||!c)return;x.pru=c.pru;if(Math.abs((x.qty||0)-c.u)>1e-9)x.qty=c.u;cm();save();toast("PRU enregistré sur "+(x.titre||tk));};
 window._pruSigne=sg=>{_pruVals=_pruVals||{};_pruVals.signe=sg;document.querySelectorAll(".pru-signe button").forEach((b,i)=>{const on=(i===1)===(sg==="moins");b.classList.toggle("actif",on);b.setAttribute("aria-pressed",String(on));});_pruCalc();};
 window.togglePruSign=()=>_pruSigne((_pruVals&&_pruVals.signe==="moins")?"plus":"moins");
@@ -7687,7 +7765,9 @@ function _versementMoyen(){const MOIS=30.4375*86400000,now=Date.now();
   const P=(H||[]).filter(x=>x&&x.t&&x.inv!=null&&x.env&&x.env.Cash!=null).sort((a,b)=>a.t-b.t);if(P.length<2)return null;
   const p1=P[P.length-1],p0=P.find(x=>x.t>=p1.t-12*MOIS-7*86400000);if(!p0||p0===p1)return null;const mois=(p1.t-p0.t)/MOIS;if(mois<3)return null;
   const pv=(D.sales||[]).filter(v=>{const t=new Date(v.date).getTime();return t>=p0.t-86400000&&t<=p1.t;}).reduce((a,v)=>a+(Number(v.pl)||0),0);
-  const delta=(p1.inv+p1.env.Cash)-(p0.inv+p0.env.Cash)-pv;return {v:Math.max(0,Math.round(delta/mois)),t0:p0.t,t1:p1.t,mois:Math.round(mois)};}
+  // v275 (Yanis) : les dividendes reçus sur la période ne sont pas de l'argent ajouté
+  const dv=(D.divReceived||[]).filter(v=>{const t=new Date(v.date).getTime();return t>=p0.t-86400000&&t<=p1.t;}).reduce((a,v)=>a+(Number(v.montant)||0),0);
+  const delta=(p1.inv+p1.env.Cash)-(p0.inv+p0.env.Cash)-pv-dv;return {v:Math.max(0,Math.round(delta/mois)),t0:p0.t,t1:p1.t,mois:Math.round(mois)};}
 function _simuInit(){if(_simu)return;const vm=_versementMoyen();_simu={dep:String(Math.round(ga().tF||0)),vers:vm?String(vm.v):"",tx:"5"};}
 function simuObjHtml(){_simuInit();const v=_simu;const f="_simuSet(this.id,this.value)";const vm=_versementMoyen();
   const autre=!!v.txAutre||!_SIMU_RDT.some(r=>r[0]===String(v.tx));
@@ -7740,6 +7820,17 @@ if(unlistedCount>0)s+=rowHtml("_unlisted","Non classées",unlistedCount,"var(--m
 }
 return s;
 }
+// v276 — maquette B9 : « N titres · N cibles atteintes » ; par titre : « Cible atteinte » (badge navy) ou « encore −3,7 % »,
+// cours et cible, barre de progression depuis le cours à la pose de l'alerte (décision 3 de Yanis), menu « … » ;
+// Renommer / Supprimer la liste rangés dans le menu « … » de l'en-tête.
+function _wlEtat(w){const c=w.lastCours;const lo=w.target!=null?Number(w.target):null,hi=w.targetHigh!=null?Number(w.targetHigh):null;if(!(c>0))return {c:null,lo,hi,hit:false};
+  const hit=(lo!=null&&c<=lo)||(hi!=null&&c>=hi);const cible=lo!=null?lo:hi,haut=lo==null&&hi!=null;
+  const dep=haut?(w.targetHighDepart!=null?Number(w.targetHighDepart):null):(w.targetDepart!=null?Number(w.targetDepart):null);
+  let prog=null;if(cible!=null&&dep!=null&&dep!==cible)prog=Math.max(0,Math.min(1,haut?(c-dep)/(cible-dep):(dep-c)/(dep-cible)));
+  return {c,lo,hi,hit,cible,haut,prog,dist:cible!=null?(cible-c)/c*100:null};}
+// Ancienne alerte sans cours de départ : celui du jour de la mise à jour (décision 3)
+function _completerDeparts(d){let n=0;((d&&d.prefs&&d.prefs.watchlist)||[]).forEach(w=>{if(!(w.lastCours>0))return;if(w.target!=null&&w.targetDepart==null){w.targetDepart=w.lastCours;n++;}if(w.targetHigh!=null&&w.targetHighDepart==null){w.targetHighDepart=w.lastCours;n++;}});return n>0;}
+const _SVG_CLOCHE='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"></path><path d="M10 20a2 2 0 0 0 4 0"></path></svg>';
 function watchListDetailHtml(){
 const id=watchListOpen;
 const isUnlisted=id==="_unlisted";
@@ -7748,27 +7839,25 @@ if(!isUnlisted&&!l){watchListOpen=null;return watchListsHubHtml();}
 const name=isUnlisted?"Non classées":l.name;
 const wl=(D.prefs&&D.prefs.watchlist)||[];
 const items=isUnlisted?wl.filter(w=>!w.listId):wl.filter(w=>w.listId===id);
-let s=`${_retourHtml("closeWatchList()",_navLbl())}`;
-const _dotCol=isUnlisted?"var(--mut)":_wlCouleur(l);
-s+=`<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:800;margin:0;display:flex;align-items:center;gap:9px;min-width:0"><span style="width:9px;height:9px;border-radius:var(--r-rond);background:${_dotCol};flex-shrink:0"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(name)}</span></h3>`;
-if(!isUnlisted)s+=`<span style="display:flex;gap:8px;flex-shrink:0"><button class="btn btn-s btn-xs" onclick="renameWatchList('${escAttr(id)}')" style="white-space:nowrap">✎ Renommer</button><button class="btn btn-dl btn-xs" onclick="delWatchList('${escAttr(id)}')" style="white-space:nowrap">🗑 Supprimer</button></span>`;
-s+=`</div>`;
-s+=`<div class="card" style="padding:2px 12px">`;
+const nH=items.filter(w=>_wlEtat(w).hit).length;
+let s=`<div class="wl-barre-haut">${_retourHtml("closeWatchList()",_navLbl())}${isUnlisted?"":`<button type="button" class="bouton-options" aria-label="Options de la liste" onclick="_wlOptions('${escAttr(id)}')">${_SVG_POINTS}</button>`}</div>`;
+s+=`<div class="wl-tete"><span class="wl-point" style="background:${isUnlisted?"var(--mut)":_wlCouleur(l)}"></span><div class="tete-outil"><h1 class="titre-outil">${esc(name)}</h1><span class="sous-outil wl-resume">${items.length} titre${items.length>1?"s":""} · ${nH} cible${nH>1?"s":""} atteinte${nH>1?"s":""}</span></div></div>`;
+s+=`<div class="card wl-carte">`;
 if(!items.length){s+=`<div style="text-align:center;color:var(--mut);font-size:var(--fs-petit);padding:16px 6px">Aucune valeur ici pour l'instant.</div>`;}
-else{s+=items.map((w)=>{const sym=curSym(w.cur);
-// Un cours vieux de plusieurs jours reste affiché comme s'il était du jour : on date ceux
-// qui n'ont pas été rafraîchis, plutôt que de laisser croire à un chiffre frais.
+else{s+=items.map((w)=>{const sym=curSym(w.cur);const e=_wlEtat(w);
+// Un cours vieux de plusieurs jours reste affiché comme s'il était du jour : on date ceux qui n'ont pas été rafraîchis.
 const _age=w.lastUpd?(Date.now()-w.lastUpd)/86400000:null;
-const _vieux=(_age!=null&&_age>3)?`<div style="font-size:var(--fs-legende);color:var(--mut)">cours du ${new Date(w.lastUpd).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})}</div>`:"";
-const hasLo=w.target!=null;const hasHi=w.targetHigh!=null;const hitLo=hasLo&&w.lastCours!=null&&w.lastCours<=w.target;const hitHi=hasHi&&w.lastCours!=null&&w.lastCours>=w.targetHigh;const hit=hitLo||hitHi;
-return `<div style="display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:9px 0;border-bottom:1px solid var(--sep)">
-<div style="min-width:0;cursor:pointer" onclick="aOpen('${escAttr(w.sym)}','${escAttr(w.name||w.ticker)}','${escAttr(w.cur)}')"><div style="font-size:var(--fs-corps);font-weight:600">${esc(w.ticker)}${hit?` <span style="color:var(--avert-t);font-size:var(--fs-legende)">🔔 cible atteinte</span>`:""}</div><div style="font-size:var(--fs-legende);color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(w.name||"")}</div></div>
-<div style="text-align:right"><div class="mono" style="font-size:var(--fs-corps)">${w.lastCours!=null?fmt2_(w.lastCours)+" "+sym:`<span style="font-size:var(--fs-legende);color:var(--mut);font-family:inherit">${w.coursEchec?"cours indisponible":"cours en attente"}</span>`}</div>${_vieux}${(hasLo||hasHi)?`<div class="mono" style="font-size:var(--fs-legende);color:var(--mut)">${hasLo?"↓"+fmt2_(w.target)+" "+curSym(w.targetCur||w.cur||"EUR"):""}${hasLo&&hasHi?" · ":""}${hasHi?"↑"+fmt2_(w.targetHigh)+" "+curSym(w.targetHighCur||w.cur||"EUR"):""}</div>`:""}</div>
-<div style="display:flex"><span onclick="_wlMenu('${escAttr(w.sym)}')" style="cursor:pointer;color:var(--dim);font-size:var(--fs-sous-titre);line-height:1;padding:7px 11px;border:1px solid var(--bdr);border-radius:var(--r-moyen)">⋯</span></div></div>`;}).join("");}
+const _vieux=(_age!=null&&_age>3)?`<span class="wl-sous">cours du ${new Date(w.lastUpd).toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit"})}</span>`:"";
+const cl=(v,cur)=>_fmtCours(v)+"\u00a0"+curSym(cur||w.cur||"EUR");
+const cible=(e.lo!=null||e.hi!=null)?`<span class="wl-sous wl-cible">cible ${e.lo!=null?cl(e.lo,w.targetCur):""}${e.lo!=null&&e.hi!=null?" · ":""}${e.hi!=null?"↑\u00a0"+cl(e.hi,w.targetHighCur):""}</span>`:"";
+const etat=e.hit?`<span class="wl-atteinte">${_SVG_CLOCHE}Cible atteinte</span>`:(e.dist!=null?`<span class="wl-distance">encore ${e.dist>=0?"+":"−"}${vg(Math.abs(e.dist),1)}\u00a0%</span>`:"");
+const barre=e.hit?`<div class="wl-barre atteinte"></div>`:(e.prog!=null?`<div class="wl-barre"><div class="wl-barre-rempli cv-grow" style="width:${_nCss(e.prog*100,1)}%"></div></div>`:"");
+return `<div class="wl-ligne"><div class="wl-haut"><div class="wl-gauche" onclick="aOpen('${escAttr(w.sym)}','${escAttr(w.name||w.ticker)}','${escAttr(w.cur)}')"><span class="wl-tk">${esc(w.ticker)}${etat}</span><span class="wl-nom">${esc(w.name||"")}</span></div><div class="wl-droite"><span class="wl-cours">${e.c!=null?cl(e.c,w.cur):`<span class="wl-sous">${w.coursEchec?"cours indisponible":"cours en attente"}</span>`}</span>${_vieux}${cible}</div><button type="button" class="wl-options" aria-label="Options pour ${escAttr(w.ticker)}" onclick="_wlMenu('${escAttr(w.sym)}')">${_SVG_POINTS}</button></div>${barre}</div>`;}).join("");}
 s+=`</div>`;
-s+=`<div class="card card-tap" onclick="openSearchModal('add',${isUnlisted?"null":`'${escAttr(id)}'`})" style="display:flex;align-items:center;justify-content:center;gap:6px;padding:10px;margin-top:10px;border:1px dashed var(--action-m);color:var(--txt);font-size:var(--fs-corps);font-weight:700">＋ Ajouter à cette liste</div>`;
+s+=`<button type="button" class="wl-ajouter" onclick="openSearchModal('add',${isUnlisted?"null":`'${escAttr(id)}'`})"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Ajouter un titre</button>`;
 return s;
 }
+window._wlOptions=id=>{sm(`<h3 class="titre-feuille">Options de la liste</h3><div class="liste-choix"><button type="button" class="ligne-choix" onclick="cm();renameWatchList('${escAttr(id)}')"><span class="lc-nom">Renommer la liste</span></button><button type="button" class="ligne-choix" onclick="cm();delWatchList('${escAttr(id)}')"><span class="lc-nom">Supprimer la liste</span></button></div><button class="btn-x" onclick="cm()">✕</button>`);};
 window.newWatchList=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Nouvelle liste</h3><button class="btn-x" onclick="cm()">✕</button></div><div class="field"><label>Nom</label><input id="wlName" placeholder="ex: Semi &amp; IA" autocomplete="off"></div><button class="btn btn-p" onclick="saveNewWatchList()">Créer</button>`);setTimeout(()=>{const e=document.getElementById("wlName");if(e)e.focus();},50);};
 /* TRAD-WL-DEBUT — à supprimer après le nettoyage des données (prévu après le passage à Supabase Pro).
    Les listes de suivi enregistrent leur couleur dans les données (watchLists[].color) sous la forme
@@ -7848,18 +7937,21 @@ window.cmpSetPeriod=(pp)=>{cmpPeriod=pp;cmpList.forEach(c=>{c.ohlc=null;});R();c
 window.cmpSearch=async()=>{const q=(document.getElementById("cmpSrch")||{}).value;const out=document.getElementById("cmpResList");if(!out)return;if(!q||!q.trim()){out.innerHTML="";return;}out.innerHTML=`<div style="color:var(--mut);font-size:var(--fs-petit);padding:6px">Recherche…</div>`;try{const r=await fetchT(`${WORKER_URL}/?search=${encodeURIComponent(q.trim())}`);const j=await r.json();const quotes=(j.quotes||[]).filter(m=>m.quoteType&&m.quoteType!=="CURRENCY"&&m.symbol);if(!quotes.length){out.innerHTML=`<div style="color:var(--mut);font-size:var(--fs-petit);padding:6px">Aucun résultat.</div>`;return;}window._cmpRes=_rankQuotes(quotes).slice(0,8);out.innerHTML=window._cmpRes.map((m,i)=>{const nm=m.longname||m.shortname||"";return `<div onclick="cmpPickIdx(${i})" style="padding:8px;border:1px solid var(--bdr);border-radius:var(--r-moyen);margin-bottom:4px;cursor:pointer;background:var(--inp)"><div style="font-size:var(--fs-corps);font-weight:600">${esc(m.symbol)} <span style="color:var(--dim);font-weight:400">· ${esc(_devise(m.currency,m.symbol,m.exchange))}</span></div><div style="font-size:var(--fs-legende);color:var(--dim)">${esc(nm)}</div><div style="font-size:var(--fs-legende);color:var(--mut)">${esc(m.exchange||"")}</div></div>`;}).join("");}catch(e){out.innerHTML=`<div style="color:var(--mut);font-size:var(--fs-petit);padding:6px">Erreur réseau, réessaie.</div>`;}};
 window.cmpPickIdx=(i)=>{const m=window._cmpRes&&window._cmpRes[i];if(!m)return;if(cmpList.length>=4)return toast("4 actions maximum, pour rester lisible.");if(cmpList.some(x=>x.sym===m.symbol))return;cmpList.push({sym:m.symbol,name:m.longname||m.shortname||m.symbol,cur:_devise(m.currency,m.symbol,m.exchange)||"USD"});const el=document.getElementById("cmpResList");if(el)el.innerHTML="";const se=document.getElementById("cmpSrch");if(se)se.value="";R();cmpLoadAll();};
 async function cmpLoadAll(){const itv=(cmpPeriod==="1mo"?"1d":cmpPeriod==="3mo"?"1d":cmpPeriod==="1y"?"1d":"1wk");await Promise.all(cmpList.map(async c=>{if(c.ohlc&&c.sum)return;try{const d=await fundFetch("ohlc",c.sym,`&range=${cmpPeriod}&interval=${itv}`);c.ohlc=d&&d.bars?d.bars:[];}catch(e){c.ohlc=[];}try{c.sum=await fundFetch("summary",c.sym);}catch(e){c.sum=null;}}));if(cmpOpen)R();}
-function cmpChartSvg(){const series=cmpList.filter(c=>c.ohlc&&c.ohlc.length>1);const COLS=CMP_COLS;if(!series.length)return `<div style="text-align:center;color:var(--mut);font-size:var(--fs-petit);padding:30px 0">Chargement…</div>`;const norm=series.map(s=>{const b=s.ohlc;const base=b[0].c||1;return b.map(x=>(x.c/base-1)*100);});let mn=0,mx=0;norm.forEach(arr=>arr.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const pad=(mx-mn)*0.08||1;mn-=pad;mx+=pad;const yf=v=>50-((v-mn)/(mx-mn||1))*46-2;const nPts=norm[0].length;const xf=k=>(k/(nPts-1||1))*100;const paths=norm.map((arr,i)=>{const n=arr.length;const d=arr.map((v,k)=>{const x=(k/(n-1||1))*100;const y=yf(v);return (k===0?"M":"L")+x.toFixed(2)+","+y.toFixed(2);}).join(" ");return `<path d="${d}" fill="none" stroke="${COLS[i%COLS.length]}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;}).join("");const zero=`<line x1="0" y1="${yf(0).toFixed(2)}" x2="100" y2="${yf(0).toFixed(2)}" stroke="var(--mut)" stroke-width="0.4" stroke-dasharray="2,2"/>`;const legend=series.map((s,i)=>{const last=norm[i][norm[i].length-1];return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:var(--fs-legende);margin-right:10px;margin-top:4px"><span style="width:8px;height:8px;border-radius:var(--r-rond);background:${COLS[i%COLS.length]};display:inline-block"></span>${esc(s.sym)} <span class="mono" style="${_vs(last>=0)}">${last>=0?"+":""}${vg(last,1)}\u00a0%</span></span>`;}).join("");
+function cmpChartSvg(){const series=cmpList.filter(c=>c.ohlc&&c.ohlc.length>1);const COLS=CMP_COLS;if(!series.length)return `<div style="text-align:center;color:var(--mut);font-size:var(--fs-petit);padding:30px 0">Chargement…</div>`;const norm=series.map(s=>{const b=s.ohlc;const base=b[0].c||1;return b.map(x=>(x.c/base-1)*100);});let mn=0,mx=0;norm.forEach(arr=>arr.forEach(v=>{if(v<mn)mn=v;if(v>mx)mx=v;}));const pad=(mx-mn)*0.08||1;mn-=pad;mx+=pad;const yf=v=>50-((v-mn)/(mx-mn||1))*46-2;const nPts=norm[0].length;const xf=k=>(k/(nPts-1||1))*100;const paths=norm.map((arr,i)=>{const n=arr.length;const d=arr.map((v,k)=>{const x=(k/(n-1||1))*100;const y=yf(v);return (k===0?"M":"L")+x.toFixed(2)+","+y.toFixed(2);}).join(" ");return `<path d="${d}" fill="none" stroke="${COLS[i%COLS.length]}" stroke-width="1.6" vector-effect="non-scaling-stroke"/>`;}).join("");const zero=`<line x1="0" y1="${yf(0).toFixed(2)}" x2="100" y2="${yf(0).toFixed(2)}" stroke="var(--mut)" stroke-width="0.4" stroke-dasharray="2,2"/>`;const legend=series.map((s,i)=>{const last=norm[i][norm[i].length-1];return `<span class="cmp-leg"><span class="cmp-point" style="background:${COLS[i%COLS.length]}"></span>${esc(s.sym)} ${_pastilleVar(last>=0,(last>=0?"+":"−")+vg(Math.abs(last),1)+"\u00a0%",false,"douce")}</span>`;}).join("");
 const uid=Math.random().toString(36).substring(2,9);
 window._CMP=window._CMP||{};
 const _cmpBars=series[0].ohlc||[];const _cmpIntraday=_cmpBars.some((b,i)=>i>0&&b.t&&_cmpBars[i-1].t&&new Date(b.t*1000).toDateString()===new Date(_cmpBars[i-1].t*1000).toDateString());const formatT=(sec)=>{if(!sec)return"";const d=new Date(sec*1000);return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})+(_cmpIntraday?" "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"}):"");};
 window._CMP[uid]={xs:Array.from({length:nPts},(_,k)=>xf(k)),ys:norm.map(arr=>arr.map(v=>yf(v))),vs:norm,syms:series.map(s=>s.sym),cols:series.map((s,i)=>COLS[i%COLS.length]),tsf:(series[0].ohlc||[]).map(b=>formatT(b.t))};
 const dots=series.map((s,i)=>`<circle id="cmpc-${uid}-${i}" cx="-9" cy="0" r="1.6" fill="${COLS[i%COLS.length]}" stroke="var(--card)" stroke-width="0.5" opacity="0" vector-effect="non-scaling-stroke"/>`).join("");
-return `<div style="position:relative"><svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:100%;height:180px;display:block">${zero}${paths}<g style="pointer-events:none"><line id="cmpl-${uid}" x1="-9" y1="0" x2="-9" y2="50" stroke="var(--dim)" stroke-width="0.4" stroke-dasharray="1.5 1.5" opacity="0" vector-effect="non-scaling-stroke"/>${dots}</g><rect x="0" y="0" width="100" height="50" fill="transparent" style="cursor:crosshair" onmousemove="_cmpHover(event,'${uid}')" onmouseleave="_cmpOut('${uid}')" ontouchstart="_cmpHover(event,'${uid}')" ontouchmove="_cmpHover(event,'${uid}')" ontouchend="_cmpOut('${uid}')"/></svg><div id="cmpt-${uid}" style="display:none;margin-top:4px;font-size:var(--fs-legende);color:var(--dim)"></div><div id="cmpl2-${uid}" style="margin-top:4px;display:flex;flex-wrap:wrap">${legend}</div></div>`;}
+return `<div style="position:relative"><svg viewBox="0 0 100 50" preserveAspectRatio="none" style="width:100%;height:180px;display:block">${zero}${paths}<g style="pointer-events:none"><line id="cmpl-${uid}" x1="-9" y1="0" x2="-9" y2="50" stroke="var(--dim)" stroke-width="0.4" stroke-dasharray="1.5 1.5" opacity="0" vector-effect="non-scaling-stroke"/>${dots}</g><rect x="0" y="0" width="100" height="50" fill="transparent" style="cursor:crosshair" onmousemove="_cmpHover(event,'${uid}')" onmouseleave="_cmpOut('${uid}')" ontouchstart="_cmpHover(event,'${uid}')" ontouchmove="_cmpHover(event,'${uid}')" ontouchend="_cmpOut('${uid}')"/></svg><div id="cmpt-${uid}" style="display:none;margin-top:4px;font-size:var(--fs-legende);color:var(--dim)"></div><div id="cmpl2-${uid}" class="cmp-legende">${legend}</div></div>`;}
 window._cmpHover=function(e,uid){const o=window._CMP&&window._CMP[uid];if(!o)return;if(e.touches&&e.cancelable)e.preventDefault();const cx=e.touches?e.touches[0].clientX:e.clientX;const r=e.currentTarget.getBoundingClientRect();let rel=(cx-r.left)/r.width;rel=Math.max(0,Math.min(1,rel));const i=Math.round(rel*(o.xs.length-1));const ln=document.getElementById("cmpl-"+uid);if(ln){ln.setAttribute("x1",o.xs[i]);ln.setAttribute("x2",o.xs[i]);ln.setAttribute("opacity","0.7");}o.syms.forEach((sym,si)=>{const c=document.getElementById("cmpc-"+uid+"-"+si);if(!c)return;c.setAttribute("cx",o.xs[i]);c.setAttribute("cy",o.ys[si][i]);c.setAttribute("opacity","1");});const t=document.getElementById("cmpt-"+uid),lg=document.getElementById("cmpl2-"+uid);if(t){t.style.display="block";t.innerHTML=`<b style="color:var(--txt)">${esc(o.tsf[i]||"")}</b> — `+o.syms.map((sym,si)=>`<span style="color:var(--txt);border-bottom:2px solid ${o.cols[si]};font-weight:600">${esc(sym)} ${o.vs[si][i]>=0?"+":""}${vg(o.vs[si][i],1)}\u00a0%</span>`).join("  ·  ");}if(lg)lg.style.display="none";};
 window._cmpOut=function(uid){const ln=document.getElementById("cmpl-"+uid);if(ln)ln.setAttribute("opacity","0");const o=window._CMP&&window._CMP[uid];if(o)o.syms.forEach((sym,si)=>{const c=document.getElementById("cmpc-"+uid+"-"+si);if(c)c.setAttribute("opacity","0");});const t=document.getElementById("cmpt-"+uid),lg=document.getElementById("cmpl2-"+uid);if(t)t.style.display="none";if(lg)lg.style.display="flex";};
-function cmpHtml(){const COLS=CMP_COLS;let h=`<div class="fade">${_retourHtml("closeCmp()",_navLbl())}<h2 style="font-size:var(--fs-titre);font-weight:700;margin:6px 0 12px">⇄ Comparateur</h2>`;
-if(cmpList.length){h+=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${cmpList.map((c,i)=>`<span style="display:inline-flex;align-items:center;gap:5px;font-size:var(--fs-petit);padding:5px 8px;border-radius:var(--r-moyen);background:${_ca(COLS[i%COLS.length],.14)};border:1.5px solid ${COLS[i%COLS.length]};color:var(--txt);font-weight:600">${esc(c.sym)}<span onclick="cmpRemove('${escAttr(c.sym)}')" style="cursor:pointer;color:var(--mut)">✕</span></span>`).join("")}</div>`;}
-if(cmpList.length<4){h+=`<div class="card" style="padding:8px 12px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:9px"><span style="font-size:var(--fs-corps-fort);color:var(--mut)">🔎</span><input id="cmpSrch" placeholder="Ajouter une action à comparer" style="flex:1;background:none;border:none;color:var(--txt);font-family:inherit;font-size:var(--fs-corps);outline:none;padding:6px 0" onkeydown="if(event.key==='Enter'){event.preventDefault();cmpSearch()}"><span onclick="cmpSearch()" style="color:var(--lien);font-size:var(--fs-corps);cursor:pointer;font-weight:700;padding:4px 6px">OK</span></div><div id="cmpResList"></div></div>`;}
+// v276 — maquette B7 : titres en pastilles colorées (point = couleur de la courbe), bouton rond « + » qui ouvre la recherche,
+// légende avec la performance, tableau où le meilleur de chaque critère est en pastille de sa couleur.
+window._cmpOuvrirRecherche=()=>{window._cmpRech=true;R();setTimeout(()=>{const e=document.getElementById("cmpSrch");if(e)e.focus();},0);};
+function cmpHtml(){const COLS=CMP_COLS;let h=`<div class="fade">${_retourHtml("closeCmp()",_navLbl())}<div class="tete-outil"><h1 class="titre-outil">Comparer</h1></div>`;
+h+=`<div class="cmp-puces">${cmpList.map((c,i)=>`<span class="cmp-puce" style="background:${CMP_PALES[i%4]};border-color:${COLS[i%4]}"><span class="cmp-point" style="background:${COLS[i%4]}"></span>${esc(c.sym)}<button type="button" class="cmp-retirer" aria-label="Retirer ${escAttr(c.sym)}" onclick="cmpRemove('${escAttr(c.sym)}')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></span>`).join("")}${cmpList.length<4?`<button type="button" class="cmp-ajouter" aria-label="Ajouter un titre à comparer" onclick="_cmpOuvrirRecherche()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg></button>`:""}</div>`;
+if(cmpList.length<4&&(cmpList.length<2||window._cmpRech)){h+=`<div class="card" style="padding:8px 12px;margin-bottom:12px"><div style="display:flex;align-items:center;gap:9px"><span style="font-size:var(--fs-corps-fort);color:var(--mut)">🔎</span><input id="cmpSrch" placeholder="Ajouter une action à comparer" style="flex:1;background:none;border:none;color:var(--txt);font-family:inherit;font-size:var(--fs-corps);outline:none;padding:6px 0" onkeydown="if(event.key==='Enter'){event.preventDefault();cmpSearch()}"><span onclick="cmpSearch()" style="color:var(--lien);font-size:var(--fs-corps);cursor:pointer;font-weight:700;padding:4px 6px">OK</span></div><div id="cmpResList"></div></div>`;}
 if(cmpList.length<2){
   // Plutôt qu'un écran vide : ses propres lignes, ajoutables d'un tap.
   const mes=(ga().ap||[]).filter(x=>!x.manual&&!x.noPerf&&x.ticker)
@@ -7872,10 +7964,13 @@ if(cmpList.length<2){
     h+=`<div style="display:flex;flex-wrap:wrap;gap:7px">`+mes.map(x=>`<span onclick="cmpAddPos('${escAttr(x.ticker)}')" class="pilule pilule-action">+ ${esc(_nomAffiche(x,18))}</span>`).join("")+`</div>`;
   }
   h+=`</div>`;return h;}
-h+=`<div class="card" style="padding:12px">${[["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<span onclick="cmpSetPeriod('${pp[0]}')" style="font-size:var(--fs-petit);padding:5px 10px;cursor:pointer;border-radius:var(--r-moyen);margin-right:4px;${cmpPeriod===pp[0]?"background:var(--action-f);color:var(--txt);font-weight:700":"color:var(--dim)"}">${pp[1]}</span>`).join("")}<div style="margin-top:10px">${cmpChartSvg()}</div></div>`;
+h+=`<div class="card carte-cmp"><div class="segment periodes-cmp" role="group" aria-label="Période">${[["1mo","1M"],["3mo","3M"],["1y","1A"],["5y","5A"]].map(pp=>`<button type="button" aria-pressed="${cmpPeriod===pp[0]}" class="${cmpPeriod===pp[0]?"actif":""}" onclick="cmpSetPeriod('${pp[0]}')">${pp[1]}</button>`).join("")}</div><div style="margin-top:10px">${cmpChartSvg()}</div></div>`;
 const rows=[["PER",c=>c.sum&&c.sum.per!=null?vg(c.sum.per,1):"—"],["Marge nette",c=>c.sum?_fmtPct(c.sum.mNette):"—"],["Croissance CA",c=>c.sum?_fmtPct(c.sum.revG):"—"],["Dividende",c=>c.sum?_fmtPct(c.sum.divY):"—"],["Potentiel analystes",c=>{if(!c.sum||c.sum.target==null||!c.ohlc||!c.ohlc.length)return"—";const px=c.ohlc[c.ohlc.length-1].c;return _fmtPct((c.sum.target-px)/px);}]];
 const higherBetter={"PER":false,"Marge nette":true,"Croissance CA":true,"Dividende":true,"Potentiel analystes":true};
-h+=`<div class="card" style="margin-top:12px;overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:var(--fs-petit)"><thead><tr><td></td>${cmpList.map((c,i)=>`<td style="padding:6px 8px;font-weight:700;color:var(--txt);box-shadow:inset 0 -2px 0 ${COLS[i%COLS.length]};text-align:right">${esc(c.sym)}</td>`).join("")}</tr></thead><tbody>${rows.map(r=>{const vals=cmpList.map(c=>r[1](c));const nums=vals.map(v=>{const n=parseFloat(String(v).replace("%","").replace(",","."));return isNaN(n)?null:n;});let bestIdx=-1;if(nums.some(n=>n!=null)){const dir=higherBetter[r[0]];let best=null;nums.forEach((n,i)=>{if(n==null)return;if(best==null||(dir?n>best:n<best)){best=n;bestIdx=i;}});}return `<tr style="border-top:1px solid var(--sep)"><td style="padding:6px 8px;color:var(--dim)">${r[0]}</td>${vals.map((v,i)=>`<td style="padding:6px 8px;text-align:right;font-family:var(--police-texte);${i===bestIdx?"color:var(--txt);font-weight:700":""}">${v}</td>`).join("")}</tr>`;}).join("")}</tbody></table></div>`;
+const _gc=`grid-template-columns:minmax(0,1fr) repeat(${cmpList.length},minmax(64px,auto))`;
+h+=`<div class="card cmp-tableau"><div class="cmp-tete" style="${_gc}"><span></span>${cmpList.map((c,i)=>`<span style="color:${CMP_TEXTES[i%4]}">${esc(c.sym)}</span>`).join("")}</div>${rows.map(r=>{const vals=cmpList.map(c=>r[1](c));const nums=vals.map(v=>{const n=parseFloat(String(v).replace(/\s|%/g,"").replace("−","-").replace(",","."));return isNaN(n)?null:n;});let bestIdx=-1;
+  if(nums.some(n=>n!=null)){const dir=higherBetter[r[0]];let best=null;nums.forEach(n=>{if(n==null)return;if(best==null||(dir?n>best:n<best))best=n;});const k=nums.filter(n=>n===best).length;bestIdx=k===1?nums.indexOf(best):-1;}// égalité : aucune pastille
+  return `<div class="cmp-ligne" style="${_gc}"><span>${r[0]}</span>${vals.map((v,i)=>i===bestIdx?`<span class="cmp-meilleur" style="background:${CMP_PALES[i%4]}">${v}</span>`:`<span class="cmp-val">${v}</span>`).join("")}</div>`;}).join("")}<p class="cmp-note">${cmpList.length===2?"Pastille = meilleur des deux sur ce critère.":"Pastille = le meilleur sur ce critère."}</p></div>`;
 h+=`</div>`;return h;}
 window.addWatch=(sym,name,cur,listId)=>{if(!D.prefs)D.prefs={};if(!D.prefs.watchlist)D.prefs.watchlist=[];const existing=D.prefs.watchlist.find(x=>x.sym===sym);if(existing){if(listId!==undefined)existing.listId=listId||null;save();return;}const tk=sym.includes(".")?sym.split(".")[0]:sym;D.prefs.watchlist.push({sym,ticker:tk,name:name||tk,cur:cur||"USD",listId:listId||null});save();};
 window._askDelWatchPlan=(sym,tk)=>{const n=_achatRows("",sym).length;
@@ -7900,7 +7995,10 @@ window.askDelWatch=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist
   if(_achatRows("",sym).length)return _askDelWatchPlan(sym,w.ticker);
   sm(`<div style="margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Retirer du suivi ?</h3></div><p style="font-size:var(--fs-corps);color:var(--dim);line-height:1.5;margin-bottom:16px">Retirer <b>${esc(w.ticker||w.name||sym)}</b> de ta liste de suivi ?</p><button class="btn btn-d" style="width:100%" onclick="delWatch('${escAttr(sym)}');cm();R();">Retirer</button><button class="btn btn-s" style="width:100%;margin-top:8px" onclick="cm()">Annuler</button>`);};
 window.setWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;sm(`<div style="display:flex;justify-content:space-between;margin-bottom:14px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Alertes ${esc(w.ticker)}</h3><button class="btn-x" onclick="cm()">✕</button></div><p style="font-size:var(--fs-petit);color:var(--dim);margin-bottom:12px">Mets un seuil bas, un seuil haut, ou les deux, dans la monnaie du cours (${esc(w.cur||"EUR")}) ou en euros.</p><div class="row">${_alerteChampWatch("wtl","wtlcur","↓ bas",w.target,w.targetCur||w.cur||"EUR",w.cur||"EUR","ex: 5")}${_alerteChampWatch("wth","wthcur","↑ haut",w.targetHigh,w.targetHighCur||w.cur||"EUR",w.cur||"EUR","ex: 10")}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin:2px 0 12px">↓ alerte quand le cours descend dessous · ↑ quand il monte dessus</div><button class="btn btn-p" onclick="saveWatchTarget('${escAttr(sym)}')">Enregistrer</button>`);};
-window.saveWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;const loRaw=(document.getElementById("wtl")||{}).value||"";const hiRaw=(document.getElementById("wth")||{}).value||"";const lo=pn(loRaw),hi=pn(hiRaw);if(loRaw.trim()&&lo>0){w.target=lo;}else{delete w.target;delete w.notified;}if(hiRaw.trim()&&hi>0){w.targetHigh=hi;}else{delete w.targetHigh;delete w.notifiedHigh;}
+window.saveWatchTarget=(sym)=>{const w=D.prefs&&D.prefs.watchlist&&D.prefs.watchlist.find(x=>x.sym===sym);if(!w)return;const loRaw=(document.getElementById("wtl")||{}).value||"";const hiRaw=(document.getElementById("wth")||{}).value||"";const lo=pn(loRaw),hi=pn(hiRaw);const _lo0=w.target,_hi0=w.targetHigh;if(loRaw.trim()&&lo>0){w.target=lo;}else{delete w.target;delete w.notified;}if(hiRaw.trim()&&hi>0){w.targetHigh=hi;}else{delete w.targetHigh;delete w.notifiedHigh;}
+  // v276 : cours de départ de la barre de progression = cours au moment où l'alerte est posée ou changée
+  if(w.target!=null&&w.target!==_lo0){if(w.lastCours>0)w.targetDepart=w.lastCours;else delete w.targetDepart;}if(w.target==null)delete w.targetDepart;
+  if(w.targetHigh!=null&&w.targetHigh!==_hi0){if(w.lastCours>0)w.targetHighDepart=w.lastCours;else delete w.targetHighDepart;}if(w.targetHigh==null)delete w.targetHighDepart;
   // v257 : monnaie de chaque seuil (rien = monnaie du cours)
   const _lc=(document.getElementById("wtlcur")||{}).value,_hc=(document.getElementById("wthcur")||{}).value;
   if(w.target!=null&&_lc&&_lc!==(w.cur||"EUR"))w.targetCur=_lc;else delete w.targetCur;
