@@ -1077,7 +1077,15 @@ html.chargement,html.chargement body{background:var(--c-emeraude);}
 .feuille-titre{font-size:var(--fs-sous-titre);font-weight:700;margin:0;}
 /* v296 : « Voir plus » — même bouton que « Lire la suite » */
 .voir-plus{display:flex;flex-direction:column;align-items:inherit;}
-.voir-plus-reste{margin-top:2px;}
+.voir-plus-reste{margin-top:2px;font-size:var(--fs-legende);font-weight:400;line-height:16px;color:var(--dim);}
+/* v298 : mention « pas un conseil », une ligne courte, toujours visible */
+.pas-conseil{margin:8px 0 0;font-size:var(--fs-legende);font-weight:400;line-height:16px;color:var(--dim);}
+.card>.pas-conseil:last-child{margin-bottom:0;}
+/* v298 : Résumé — petit compactage du haut (marges et espacements seulement) */
+.resume-compact .carte-heros{padding-top:18px;padding-bottom:16px;}
+.resume-compact .tuiles{margin-top:8px;}
+.resume-compact .titre-section-ligne{margin-top:16px;margin-bottom:6px;}
+.resume-compact .card.repartition{padding-top:12px;}
 .voir-plus .desc-suite{min-height:32px;font-size:var(--fs-corps);}
 [id$="Prev"]:empty{display:none;}
 .splash{position:relative;min-height:100vh;min-height:100dvh;background:var(--c-emeraude);display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;}
@@ -1586,7 +1594,7 @@ if ('serviceWorker' in navigator) {
 // Clés API sensibles déplacées côté serveur (Worker Cloudflare).
 // Seules les clés Supabase restent ici : l'anon key est conçue pour le client
 // et est sécurisée par les politiques RLS.
-const APP_VERSION = "297";
+const APP_VERSION = "298";
 const WORKER_URL = "https://proud-bar-fc46yahoo-proxy.bya-2mo.workers.dev";
 // Détecteur de mise à jour : l'app installée (PWA) garde souvent l'ancienne
 // version en cache navigateur même après un déploiement → "je déploie mais rien
@@ -2209,7 +2217,7 @@ let _pendingSale=null;
 // Sans cette correction, la modal de login ne pouvait jamais être fermée
 // (currentUser est null au moment où l'on affiche la page d'auth).
 // _pendingSale est vidé uniquement quand un utilisateur est connecté.
-function sm(h){const r=document.getElementById("modal-root");const deja=!!r.querySelector(".modal");r.innerHTML=`<div class="modal-bg" onclick="_fermerFenetre()"><div class="modal${deja?" sans-anim":""}" onclick="event.stopPropagation()">${h}</div></div>`;_espacesChiffres(r);_brancherFeuille(r.querySelector(".modal"));_pilePlacer();_champsFr(document.getElementById("modal-root"));}
+function sm(h){const r=document.getElementById("modal-root");const deja=!!r.querySelector(".modal");r.innerHTML=`<div class="modal-bg" onclick="_fermerFenetre()"><div class="modal${deja?" sans-anim":""}" onclick="event.stopPropagation()">${h}</div></div>`;_espacesChiffres(r);_espacesFines(r);_brancherFeuille(r.querySelector(".modal"));_pilePlacer();_champsFr(document.getElementById("modal-root"));}
 // v266 : les fenêtres se ferment en glissant vers le bas (au-delà de 100 px) ou en touchant la zone assombrie.
 // La croix n'est plus affichée, mais son action reste celle de la fermeture (revenir à la fenêtre d'avant,
 // annuler une vente en cours…). Le geste ne démarre que si le contenu est tout en haut (ou depuis la poignée) :
@@ -2354,6 +2362,8 @@ function rc(d){
   // normale, sans écriture déclenchée exprès.
   if(d.prefs){ delete d.prefs.seedMode; delete d.prefs.smoothMid; }
   // v297 : le taux affiché suit le taux chargé (une synchro pouvait ramener l'ancienne valeur par défaut 1,1)
+  // v298 : un choix « Barres » enregistré avant la v297 (carte par défaut) est effacé UNE fois ; le suivant est gardé
+  if(d.prefs&&!d.prefs.geoVueRaz){delete d.prefs.geoVue;d.prefs.geoVueRaz=1;}
   if(d.prefs&&d.prefs.fxRates&&d.prefs.fxRates.USD>0)d.eurUsd=Math.round(d.prefs.fxRates.USD*10000)/10000;
   Object.entries(d.poches).forEach(([pocheName,p])=>{
     p.positions.forEach(x=>{
@@ -2545,24 +2555,22 @@ function _convLbl(tk){const t=String(tk||"").trim();return t.length>11?t.slice(0
 let _convBulleTk=null;
 function _convChartSvg(items,S){
   if(!items.length)return `<div style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:20px 6px">Aucune position à afficher pour ce filtre.</div>`;
-  S=S>0?S:items.reduce((s,i)=>s+(i.conv||0),0);
+  S=S>0?S:items.reduce((s,i)=>s+Math.max(0,(i.conv||0)-50),0);
   let lo=Math.min(...items.map(i=>i.conv)), hi=Math.max(...items.map(i=>i.conv));
   lo=Math.max(0,Math.floor((lo-4)/5)*5); hi=Math.min(100,Math.ceil((hi+4)/5)*5);
   if(hi-lo<20){const mid=(hi+lo)/2;lo=Math.max(0,Math.round((mid-10)/5)*5);hi=Math.min(100,lo+20);}
-  const ws=c=>c/S*100,tol=c=>_convTol(ws(c));
+  const ws=c=>_convPoidsCoherent(c,S),tol=c=>_convTol(ws(c));
   const maxP=Math.max(4,Math.max(...items.map(i=>i.poids),ws(hi)+tol(hi))*1.06);
   const VW=390,VH=350,X0=40,X1=382,Y0=30,Y1=318;
-  const xf=p=>X0+(Math.max(0,Math.min(p,maxP))/maxP)*(X1-X0);
-  const yf=c=>Y1-((Math.max(lo,Math.min(hi,c))-lo)/(hi-lo))*(Y1-Y0);
+  const PAD=14;/* v298 : marge intérieure = plus grand rayon + 2 : un point à 100 n'est plus coupé */
+  const xf=p=>X0+PAD+(Math.max(0,Math.min(p,maxP))/maxP)*(X1-X0-2*PAD);
+  const yf=c=>Y1-PAD-((Math.max(lo,Math.min(hi,c))-lo)/(hi-lo))*(Y1-Y0-2*PAD);
   const f1=v=>v.toFixed(1);
   // zones et bande d'équilibre, échantillonnées le long de l'axe des convictions
   const N=24,G=[],Dr=[];for(let k=0;k<=N;k++){const c=lo+(hi-lo)*k/N,y=yf(c);G.push([xf(Math.max(0,ws(c)-tol(c))),y]);Dr.push([xf(ws(c)+tol(c)),y]);}
   const pts=a=>a.map(p=>f1(p[0])+","+f1(p[1])).join(" ");
-  const motifs=`<defs><pattern id="motifSous" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" style="fill:var(--card)"></rect><circle cx="4" cy="4" r="1.3" style="fill:var(--c-graph-gris)"></circle></pattern><pattern id="motifSur" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" style="fill:var(--card)"></rect><line x1="0" y1="0" x2="0" y2="7" stroke-width="1.2" style="stroke:var(--c-graph-gris-clair)"></line></pattern></defs>`;
-  const zones=motifs
-    +`<polygon class="conv-zone-sous" points="${X0},${Y1} ${pts(G)} ${X0},${Y0}" fill="url(#motifSous)"/>`
-    +`<polygon class="conv-zone-sur" points="${pts(Dr)} ${X1},${Y0} ${X1},${Y1}" fill="url(#motifSur)"/>`
-    +`<polygon class="conv-bande" points="${pts(G)} ${pts(Dr.slice().reverse())}" style="fill:var(--c-menthe)"/>`;
+  /* v298 (décision de Yanis) : fond uni, seulement la bande d'équilibre menthe ; plus de pointillés ni de hachures */
+  const zones=`<polygon class="conv-bande" points="${pts(G)} ${pts(Dr.slice().reverse())}" style="fill:var(--c-menthe)"/>`;
   const diag=`<line class="conv-diag" x1="${f1(xf(ws(lo)))}" y1="${Y1}" x2="${f1(xf(ws(hi)))}" y2="${Y0}" stroke-width="1.5" stroke-dasharray="5 5" style="stroke:var(--c-emeraude-tranche)"/>`;
   const ticks=[lo,Math.round((lo+hi)/2),hi];
   let grid=`<path class="conv-axes" d="M${X0} ${Y0} V${Y1} H${X1}" fill="none" stroke-width="1" style="stroke:var(--c-graph-gris-vert)"/>`
@@ -2591,11 +2599,21 @@ function _convChartSvg(items,S){
 // La bulle ne déborde jamais de l'écran : ancrée à gauche près du bord gauche, à droite près du bord droit. La toucher
 // ouvre la fenêtre de pondération (_ptInfo), jamais le sommaire en direct (règle v247).
 function _convBulleHtml(it,px,py){const haut=py<22,anc=px<30?" ancre-g":px>70?" ancre-d":"";const msg=it.tk+"|"+(it.titre||"")+"|"+(it.poche||"")+"|"+Math.round(it.conv)+"|"+vg(it.poids,1)+"|";
-  return `<div class="conv-bulle${haut?" dessous":""}${anc}" role="button" tabindex="0" style="left:${_nCss(Math.max(2,Math.min(98,px)),2)}%;top:${_nCss(py,2)}%" onclick="_ptInfo('${escAttr(msg)}')"><span class="conv-bulle-nom">${esc(_nomCourt(it.tk))}</span><span class="conv-bulle-val">Conviction ${Math.round(it.conv)} · Poids ${vg(it.poids,1)} %</span></div>`;}
+  return `<div class="conv-bulle${haut?" dessous":""}${anc}" data-tk="${escAttr(it.tk)}" role="button" tabindex="0" style="left:${_nCss(Math.max(2,Math.min(98,px)),2)}%;top:${_nCss(py,2)}%" onclick="_ptInfo('${escAttr(msg)}')"><span class="conv-bulle-nom">${esc(_nomCourt(it.tk))}</span><span class="conv-bulle-val">Conviction ${Math.round(it.conv)} · Poids ${vg(it.poids,1)} %</span></div>`;}
+// v298 : la bulle est placée là où elle ne recouvre jamais le point touché, et le moins possible les autres
+function _convBullePlacer(g){try{g=g||document.querySelector("#app .conv-graph");if(!g)return;const b=g.querySelector(".conv-bulle");if(!b)return;
+  const pt=g.querySelector('circle.conv-pt[data-tk="'+CSS.escape(b.getAttribute("data-tk"))+'"]');if(!pt)return;
+  b.style.transform="none";const G=g.getBoundingClientRect(),C=pt.getBoundingClientRect(),bw=b.offsetWidth,bh=b.offsetHeight,cx=C.left+C.width/2-G.left,cy=C.top+C.height/2-G.top,r=C.width/2,e=6;
+  const autres=[].slice.call(g.querySelectorAll("circle.conv-pt")).filter(c=>c!==pt).map(c=>c.getBoundingClientRect());
+  const cand=[[cx-bw/2,cy-r-e-bh],[cx-bw/2,cy+r+e],[cx+r+e,cy-bh/2],[cx-r-e-bw,cy-bh/2],[cx+r+e,cy-r-e-bh],[cx-r-e-bw,cy-r-e-bh],[cx+r+e,cy+r+e],[cx-r-e-bw,cy+r+e]];
+  const sur=(a,x,y)=>Math.max(0,Math.min(a.right-G.left,x+bw)-Math.max(a.left-G.left,x))*Math.max(0,Math.min(a.bottom-G.top,y+bh)-Math.max(a.top-G.top,y));
+  let best=null,bp=Infinity;cand.forEach(p=>{const x=Math.max(0,Math.min(G.width-bw,p[0])),y=Math.max(0,Math.min(G.height-bh,p[1]));
+    const own=sur(C,x,y);let pen=own>0?1e9:0;autres.forEach(a=>{pen+=sur(a,x,y);});if(pen<bp){bp=pen;best=[x,y];}});
+  if(best){b.style.left=best[0]+"px";b.style.top=best[1]+"px";}}catch(e){}}
 window._convBulle=(el)=>{const g=el&&el.closest(".conv-graph");if(!g)return;const svg=g.querySelector("svg");const vb=svg.viewBox.baseVal;
   const it={tk:el.getAttribute("data-tk"),conv:+el.getAttribute("data-conv"),poids:+el.getAttribute("data-poids"),poche:el.getAttribute("data-env")};_convBulleTk=it.tk;
   const old=g.querySelector(".conv-bulle");const tmp=document.createElement("div");tmp.innerHTML=_convBulleHtml(it,(+el.getAttribute("cx"))/vb.width*100,(+el.getAttribute("cy"))/vb.height*100);
-  if(old)old.replaceWith(tmp.firstChild);else g.appendChild(tmp.firstChild);};
+  if(old)old.replaceWith(tmp.firstChild);else g.appendChild(tmp.firstChild);_convBullePlacer(g);};
 // Rattrapage groupé : la saisie à l'achat est volontairement passable, donc sans ce rattrapage
 // l'horizon resterait vide. Régler douze lignes d'affilée prend deux minutes ; douze interruptions,
 // personne ne les subit.
@@ -2855,7 +2873,7 @@ function _convVuePage(vue,ctx){
       if(f!=null&&fa!=null)corps+=`<div class="card" style="font-size:var(--fs-corps);color:var(--dim);line-height:1.7">${f>fa?"Tes fortes convictions performent mieux que tes faibles. Ton jugement tient jusqu'ici.":"Tes fortes convictions ne performent pas mieux que tes faibles. Ce que tu notes haut ne monte pas davantage — regarde ce qui distingue vraiment tes gagnantes."}</div>`;
       corps+=`<div class="card" style="border-left:3px solid var(--avert);font-size:var(--fs-petit);color:var(--dim);line-height:1.6">${echues.length} position${echues.length>1?"s":""} arrivée${echues.length>1?"s":""} à échéance, c'est peu. Un seul gros gain peut porter tout un groupe.</div>`;
     }
-    return _convRetour()+_convEntete("Mes convictions face au marché","On compare la performance de tes fortes convictions à celle de tes faibles — uniquement sur les positions dont l'horizon est écoulé.","marche")+corps;
+    return _convRetour()+_convEntete("Mes convictions face au marché","On compare la performance de tes fortes convictions à celle de tes faibles — uniquement sur les positions dont l'horizon est écoulé.","marche")+corps+_pasConseil("Constat sur le passé, pas un conseil.");
   }
   return _convRetour()+`<div class="card">Page inconnue.</div>`;
 }
@@ -2937,7 +2955,10 @@ window._convFiltreMenu=()=>{
 //  · bande d'équilibre = poids cohérent ± le plus petit entre 25 % du poids cohérent et 5 points.
 // C'est une convention de calcul, pas un conseil.
 function _convTol(ws){return Math.min(0.25*ws,5);}/* règle 5/25 : UNE seule formule, pour les zones et pour le dessin */
-function _convZoneDe(conv,poids,S){const ws=S>0?conv/S*100:0,tol=_convTol(ws);return Math.abs(poids-ws)<=tol+1e-9?"equilibre":(poids<ws?"renforcer":"alleger");}
+// v298 (à l'essai, décision de Yanis) : poids cohérent = (conviction − 50) ÷ somme des (conviction − 50) des lignes
+// affichées ; une conviction de 50 ou moins donne 0. Avec conviction ÷ somme, des notes de 60 à 100 donnaient toutes 4 à 6 %.
+function _convPoidsCoherent(conv,S){return S>0?Math.max(0,(conv||0)-50)/S*100:0;}
+function _convZoneDe(conv,poids,S){const ws=_convPoidsCoherent(conv,S),tol=_convTol(ws);return Math.abs(poids-ws)<=tol+1e-9?"equilibre":(poids<ws?"renforcer":"alleger");}
 function _convItems(d){d=d||ga();const cv=(D.prefs&&D.prefs.conv)||{};
 const _eh=(D.prefs&&D.prefs.etfHoldings)||{};
 const _estFonds=x=>!!(_eh[x.ticker]&&_eh[x.ticker].isFund)||KNOWN_DIVERSIFIED_ETF.has(x.ticker)||_isFundEnv(x.poche);
@@ -2955,7 +2976,7 @@ const gerables=candidats.filter(x=>_horsDefaut(x));
 // sinon on croirait que le portefeuille a bougé.
 const _totAff=retenus.reduce((s,x)=>s+(x.valeur||0),0)||1;
 const allItems=retenus.map(x=>{const c=cv[x.ticker],pw=(x.valeur||0)/_totAff*100;const flagged=(c<=40&&pw>15)||(c>=80&&pw<3);return{tk:x.ticker,titre:x.titre,poche:x.poche,conv:c,poids:pw,valeur:x.valeur||0,investi:_investiLigne(x),flagged,color:_pocheColor(x.poche),dormante:_convDormante(x.ticker)};});
-const S=allItems.reduce((s,i)=>s+(i.conv||0),0);allItems.forEach(i=>{i.zone=_convZoneDe(i.conv,i.poids,S);});
+const S=allItems.reduce((s,i)=>s+Math.max(0,(i.conv||0)-50),0);allItems.forEach(i=>{i.zone=_convZoneDe(i.conv,i.poids,S);});
 return {allItems,retenus,masques,gerables,candidats,S};}
 function convTabHtml(){const d=ga();const cv=(D.prefs&&D.prefs.conv)||{};
 // Qui a droit au nuage ? Par défaut les actions détenues en direct seulement. Un fonds regroupe des
@@ -2978,7 +2999,7 @@ const masquesLigne=!gerables.length?"":`<div onclick="_convShowPage()" class="ca
 const _nz={equilibre:0,renforcer:0,alleger:0};items.forEach(i=>{_nz[i.zone]++;});
 const compteursHtml=allItems.length?`<p class="conv-compteurs">${_nz.equilibre} équilibré${_nz.equilibre>1?"s":""} · ${_nz.renforcer} à renforcer · ${_nz.alleger} à alléger</p>`:"";
 const _legLigne=(fill,lib,n)=>`<div class="conv-leg-ligne"><svg class="conv-leg-motif" width="50" height="14" aria-hidden="true"><rect width="50" height="14" rx="4" style="fill:${fill};stroke:var(--c-ligne)"></rect></svg><span class="conv-leg-lib">${lib}</span><span class="conv-leg-n">${n}</span></div>`;
-const legendeZones=allItems.length?`<div class="conv-legende">${_legLigne("var(--c-menthe)","Équilibre (règle 5/25)",_nz.equilibre)}${_legLigne("url(#motifSous)","À renforcer : conviction plus haute que le poids",_nz.renforcer)}${_legLigne("url(#motifSur)","À alléger : poids plus haut que la conviction",_nz.alleger)}<p class="conv-legende-note">1 point = 1 action · sa couleur = son enveloppe</p></div>`:"";
+const legendeZones=allItems.length?`<div class="conv-legende">${_legLigne("var(--c-menthe)","Équilibre (règle 5/25)",_nz.equilibre)}${_legLigne("var(--card)","À renforcer : à gauche de la bande",_nz.renforcer)}${_legLigne("var(--card)","À alléger : à droite de la bande",_nz.alleger)}<p class="conv-legende-note">1 point = 1 action · sa couleur = son enveloppe</p>${_pasConseil("Convention de calcul, pas un conseil.")}</div>`:"";
 const chartHtml=(allItems.length?_convChartSvg(items,_convS):`<div style="text-align:center;padding:26px 10px"><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6">Aucune action détenue en direct à afficher.</div>${masques.length?`<div style="font-size:var(--fs-petit);color:var(--mut);margin-top:6px;line-height:1.5">Tu détiens ${masques.length} fonds ou crypto. Ajoute-les au nuage pour les comparer entre eux.</div><div onclick="_convShowPage()" style="margin-top:12px;font-size:var(--fs-corps);color:var(--lien);cursor:pointer;font-weight:600">Choisir les lignes à afficher ›</div>`:`<div style="font-size:var(--fs-petit);color:var(--mut);margin-top:6px">Note une conviction sur une position pour voir ce graphique.</div>`}</div>`)+``;
 // ── LES TROIS SECTIONS SOUS LE NUAGE ────────────────────────────────────────────────────────
 // Avant, onze éléments s'empilaient en mélangeant ce qui demande une réaction, ce qui reste à
@@ -3025,7 +3046,8 @@ const carnetsHtml=`<h2 class="titre-section-an carnets-titre">Mes carnets</h2><d
 const colonneHtml=`${carnetsHtml}${survHtml}`;
 if(convView)return _convVuePage(convView,{d,cv,noThesis,noPlan,noHz,derive,allItems});
 const _dec=_convDecalage?_positionsDecalage(d):[];/* v280 : arrivée depuis « Conviction vs poids » (Synthèse) */
-return `<p class="conv-entete">${relevant.length} ligne${relevant.length>1?"s":""} · ${_nSurv} à surveiller</p>`+(_dec.length?`<div class="card decalage-liste"><div class="decalage-tete"><span class="titre-carte-an">${_dec.length} position${_dec.length>1?"s":""} en décalage</span><button type="button" class="btn-x" aria-label="Fermer" onclick="_convDecalage=false;R()">✕</button></div><div class="decalage-sous">Ta conviction et ton poids ne collent pas.</div>${_dec.map(x=>`<div class="decalage-ligne" onclick="openTitre('${escAttr(x.ticker)}')"><span class="decalage-nom">${esc(_nomCourt(_nomActif(x.ticker,x.titre||x.ticker)))}</span><span class="decalage-val">conviction ${Math.round(((D.prefs&&D.prefs.conv)||{})[x.ticker]||0)} · poids ${vg(x.poids||0,1)}\u00a0%</span></div>`).join("")}</div>`:"")+`<div class="card conv-carte"><div class="conv-tete"><h2 class="conv-titre">Conviction vs poids</h2><button type="button" class="conv-aide" aria-label="Comment lire ce graphique" onclick="convChartHelp()">${_icoAn("info",20)}</button></div><p class="conv-sous">Mets-tu le plus d'argent là où tu crois le plus ?</p>${envSelectHtml}${compteursHtml}${chartHtml}${legendeZones}</div>
+const _nHors=allItems.filter(i=>i.zone!=="equilibre").length;/* v298 : même périmètre que le graphique, les compteurs et « en décalage » */
+return `<p class="conv-entete">${allItems.length} ligne${allItems.length>1?"s":""} · ${_nHors} à surveiller</p>`+(_dec.length?`<div class="card decalage-liste"><div class="decalage-tete"><span class="titre-carte-an">${_dec.length} position${_dec.length>1?"s":""} en décalage</span><button type="button" class="btn-x" aria-label="Fermer" onclick="_convDecalage=false;R()">✕</button></div><div class="decalage-sous">Ta conviction et ton poids ne collent pas.</div>${_dec.map(x=>`<div class="decalage-ligne" onclick="openTitre('${escAttr(x.ticker)}')"><span class="decalage-nom">${esc(_nomCourt(_nomActif(x.ticker,x.titre||x.ticker)))}</span><span class="decalage-val">conviction ${Math.round(((D.prefs&&D.prefs.conv)||{})[x.ticker]||0)} · poids ${vg(x.poids||0,1)}\u00a0%</span></div>`).join("")}</div>`:"")+`<div class="card conv-carte"><div class="conv-tete"><h2 class="conv-titre">Conviction vs poids</h2><button type="button" class="conv-aide" aria-label="Comment lire ce graphique" onclick="convChartHelp()">${_icoAn("info",20)}</button></div><p class="conv-sous">Mets-tu le plus d'argent là où tu crois le plus ?</p>${envSelectHtml}${compteursHtml}${chartHtml}${legendeZones}</div>
 ${accueilHtml}
 ${colonneHtml}`;}
 
@@ -3154,9 +3176,12 @@ setTimeout(()=>_splashFin(true),25000);
 // v296 — « Voir plus » : au-delà de 2 lignes de texte secondaire dans une carte, la suite se replie (même bouton que
 // « Lire la suite » de la Description). L'état ouvert est gardé d'un affichage à l'autre.
 const _voirPlusOuverts=new Set();
+// v298 — décision ferme de Yanis : la mention « pas un conseil » n'est JAMAIS repliée. Toujours visible, une ligne courte,
+// partout où l'app montre une note, une analyse, une projection ou un avis d'analystes.
+function _pasConseil(t){return `<p class="pas-conseil">${t}</p>`;}
 function _voirPlus(id,html){const o=_voirPlusOuverts.has(id);return `<div class="voir-plus"><div class="voir-plus-reste"${o?"":" hidden"}>${html}</div><button type="button" class="desc-suite voir-plus-btn" aria-expanded="${o}" onclick="event.stopPropagation();_voirPlusBasculer(this,'${escAttr(id)}')">${o?"Réduire":"Voir plus"}<svg class="${o?"fleche-haut":""}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button></div>`;}
 window._voirPlusBasculer=(b,id)=>{const o=!_voirPlusOuverts.has(id);if(o)_voirPlusOuverts.add(id);else _voirPlusOuverts.delete(id);const r=b.parentElement.querySelector(".voir-plus-reste");if(r)r.hidden=!o;b.setAttribute("aria-expanded",String(o));b.firstChild.nodeValue=o?"Réduire":"Voir plus";const s=b.querySelector("svg");if(s)s.classList.toggle("fleche-haut",o);};
-const _SYNC_PREFS_SOUPLE=new Set(["actuLues","geoVue","envGraph","horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
+const _SYNC_PREFS_SOUPLE=new Set(["actuLues","geoVue","geoVueRaz","envGraph","horsSeance","convTs","horizonTs","notesTs","achatVu","palierVu","dismissedAlerts","dismissedConvGap","divSeen","divRevue","ctrlOk","migCryptoEur","notesCourbe","splitSeen","manualUpdatedAt","manualUpdatedAtSym","boussoleVu","familiesInit","migAchatEnvFait","migPaliersEnvFait","theme","privacyMode","posSort","scoreProfile","convShow","convHidePlan","convHideThesis","showPocheGoals","onboardingDone"]);
 const _SYNC_PREFS_TECH=["_rev","_migs"];
 const _SYNC_POCHES_DEFAUT=["CTO","PEA","Assurance Vie","PEE","Crypto","Métaux"];
 const _POS_SYNC=["titre","qty","pru","cours","cible","cibleHaut","sector","dividend","avSymbol","currency","isin","pruCurrency","dividendCurrency","dividendUser","cibleCurrency","cibleHautCurrency","investiEur"];
@@ -4560,6 +4585,14 @@ function _moinsPoppins(racine){try{if(!racine||racine.nodeType!==1)return;const 
         if(nx&&nx.nodeType===3){const m=/^[0-9][0-9\u00a0\u202f.,]*(?:[\u00a0\u202f]?[%€$£¥])?/.exec(nx.nodeValue);if(m){g.appendChild(document.createTextNode(m[0]));nx.nodeValue=nx.nodeValue.slice(m[0].length);}}});
       t.parentNode.replaceChild(f,t);}});}catch(e){}}
 try{new MutationObserver(ms=>{ms.forEach(m=>{m.addedNodes.forEach(nd=>{if(nd.nodeType===1)_moinsPoppins(nd);else if(nd.nodeType===3&&nd.parentElement)_moinsPoppins(nd.parentElement);});});}).observe(document.documentElement,{childList:true,subtree:true});}catch(e){}
+// v298 : l'espace fine (U+202F) n'existe pas dans Poppins et Safari iOS l'affiche sans largeur (« sur 51344 € investis »).
+// Partout où elle sépare des chiffres, elle est posée dans une boîte de largeur fixe (.esp-chiffres.fine) ; dans un
+// graphique SVG, elle devient une espace insécable ordinaire.
+function _espacesFines(racine){try{if(!racine)return;const w=document.createTreeWalker(racine,NodeFilter.SHOW_TEXT,null);const L=[];let n;
+  while((n=w.nextNode())){if(n.nodeValue.indexOf("\u202f")<0)continue;const p=n.parentElement;if(!p||p.closest(".esp-chiffres,script,style,textarea"))continue;L.push(n);}
+  L.forEach(t=>{const p=t.parentElement;if(p.closest("svg,option,title")){t.nodeValue=t.nodeValue.replace(/\u202f/g,"\u00a0");return;}
+    const f=document.createDocumentFragment();t.nodeValue.split(/(\u202f)/).forEach(m=>{if(!m)return;if(m==="\u202f"){const sp=document.createElement("span");sp.className="esp-chiffres fine";sp.textContent=m;f.appendChild(sp);}else f.appendChild(document.createTextNode(m));});
+    p.replaceChild(f,t);});}catch(e){}}
 function _espacesChiffres(racine){try{if(!racine)return;racine.querySelectorAll(".mono,.montant-grand").forEach(g=>{
   if(!/[\u00a0\u202f]/.test(g.textContent))return;
   if(getComputedStyle(g).fontFamily.indexOf("Diamond Grotesk Chiffres")<0)return;
@@ -5122,7 +5155,7 @@ window.dismissConvGap=(tk)=>{D.prefs=D.prefs||{};D.prefs.dismissedConvGap=D.pref
 window.convChartHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Conviction vs poids</h3><button class="btn-x" onclick="cm()">✕</button></div><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.7">
 Ce graphique ne montre que tes <b style="color:var(--txt)">actions détenues en direct</b> — les fonds et cryptos s'ajoutent un par un depuis « Lignes non affichées ».<br><br>Chaque point est une position. <b style="color:var(--txt)">Plus haut</b> = tu y crois davantage. <b style="color:var(--txt)">Plus à droite</b> = elle pèse plus lourd. La <b style="color:var(--txt)">taille</b> du rond, c'est le montant investi, et la <b style="color:var(--txt)">couleur</b>, l'enveloppe.
 <div style="height:1px;background:var(--sep);margin:12px 0"></div>
-<b style="color:var(--txt)">Les trois zones (règle 5/25)</b><br>Le <b style="color:var(--txt)">poids cohérent</b> d'une ligne, c'est sa conviction divisée par la somme des convictions des lignes affichées (80 sur un total de 400 : 20\u00a0%). La <b style="color:var(--txt)">bande d'équilibre</b>, en menthe, l'entoure : l'écart toléré est le plus petit entre 25\u00a0% du poids cohérent et 5 points (règle « 5/25 » de Larry Swedroe). À gauche de la bande, la ligne pèse moins que ta conviction : <b style="color:var(--txt)">à renforcer</b>. À droite, elle pèse plus : <b style="color:var(--txt)">à alléger</b>. C'est une convention de calcul, pas un conseil.
+<b style="color:var(--txt)">Les trois zones (règle 5/25)</b><br>Le <b style="color:var(--txt)">poids cohérent</b> d'une ligne, c'est (sa conviction − 50) divisé par la somme des (conviction − 50) des lignes affichées ; une conviction de 50 ou moins donne 0. Exemple : 90 et 70 donnent 40 et 20, soit 67\u00a0% et 33\u00a0%. La <b style="color:var(--txt)">bande d'équilibre</b>, en menthe, l'entoure : l'écart toléré est le plus petit entre 25\u00a0% du poids cohérent et 5 points (règle « 5/25 » de Larry Swedroe). À gauche de la bande, la ligne pèse moins que ta conviction : <b style="color:var(--txt)">à renforcer</b>. À droite, elle pèse plus : <b style="color:var(--txt)">à alléger</b>. C'est une convention de calcul, pas un conseil.
 <div style="height:1px;background:var(--sep);margin:12px 0"></div>
 <b style="color:var(--txt)">Les contours en pointillés</b><br>Une conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans.
 <div style="height:1px;background:var(--sep);margin:12px 0"></div>
@@ -5168,7 +5201,7 @@ window._fillThese=tk=>{const el=document.getElementById("fillTh");const v=el?el.
 window._convSet=(tk,v)=>{_convWrite(tk,v);save();};
 // Les textes vivent dans convTabHtml (au plus près de ce qu'ils décrivent) ; on les relit ici au clic.
 window._convAide=(k)=>{const TITRES={diag:'La ligne de cohérence',dorm:'Les contours en pointillés',poids:'Le calcul des poids',horizon:'Le filtre par horizon',surveiller:'À surveiller',derive:'La dérive',marche:'Mes convictions face au marché'};const t={
- diag:"La diagonale : conviction et poids alignés. Un point AU-DESSUS = tu y crois plus que tu n'y as mis (à renforcer). EN DESSOUS = tu y as mis plus que tu n'y crois (à alléger). C'est une convention de lecture, pas un conseil.",
+ diag:"La bande menthe entoure le poids cohérent ((conviction − 50) ÷ somme des (conviction − 50)), à 5 points ou 25 % près. À gauche de la bande : à renforcer ; à droite : à alléger. Convention de calcul, pas un conseil.",
  dorm:"Contour en pointillés : conviction que tu n'as pas revue depuis longtemps. Le délai s'adapte à ton horizon — environ un tiers de celui-ci, jamais moins de 3 mois ni plus de 2 ans. Repasse dessus pour la remettre à jour.",
  poids:"Les poids sont calculés sur les seules lignes affichées, qui totalisent 100\u00a0% du nuage. Si tu ajoutes ou retires une ligne, tous les poids se recalculent et les points se déplacent : ton portefeuille n'a pas bougé, c'est la règle de calcul qui change.",
  surveiller:"Ce qui demande une réaction : une position dont le poids ne colle pas à ta conviction, et ce qui a bougé tout seul ces 3 derniers mois. Cette section disparaît quand il n'y a rien à signaler.",
@@ -5278,7 +5311,7 @@ ${anaSub==="synthese"?(()=>{const _exTs=(D.prefs&&D.prefs.pocheExclTotal)||{};co
   const _tu=lines.filter(x=>x&&x.tuile),_li=lines.filter(x=>x&&!x.tuile);
   if(_tu.length)o+=`<div class="bref-tuiles">${_tu.map(x=>`<div class="bref-tuile ${x.tuile} cv-rise"><span class="bref-tuile-lib">${x.lib}</span><span class="bref-tuile-tk">${esc(x.tk)}</span>${_pastilleVar(x.pct>=0,(x.pct>=0?"+":"−")+vg(Math.abs(x.pct),1)+"\u00a0%",false)}<span class="bref-tuile-eur mono">${x.eur>=0?"+":"−"}${_eur(Math.abs(Math.round(x.eur)))}</span></div>`).join("")}</div>`;
   if(_li.length)o+=`<div class="bref-lignes">${_li.map(x=>`<div class="bref-ligne cv-rise${x.clic?" card-tap":""}"${x.clic?` onclick="${x.clic}"`:""}><span class="bref-ico ${x.ico}">${_icoAn(x.ico,22)}</span><div class="bref-txt"><span class="bref-lib">${x.lib}</span><span class="bref-fort">${x.fort}</span>${x.sous?`<span class="bref-sous">${x.sous}</span>`:""}</div>${x.clic?`<span class="bref-chevron">${_icoAn("chevron",20)}</span>`:""}</div>`).join("")}</div>`;
-  if(!lines.length)o+=`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);padding:20px">Rien à signaler.</div>`;return o;})():""}
+  if(!lines.length)o+=`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);padding:20px">Rien à signaler.</div>`;o+=_pasConseil("Lecture indicative, pas un conseil.");return o;})():""}
 ${anaSub==="fisc"?fiscTabHtml():""}
 ${anaSub==="portef"&&anaView==="perf"?_backBtn("Portefeuille")+`<div class="tete-outil"><h1 class="titre-outil">Ma performance</h1></div><div class="onglets-perf">${segHtml([["evol","Évolution"],["encaisse","Encaissé"],["compte","Ce qui compte"]],perfSub,"setPerfSub")}</div>`+(perfSub==="encaisse"?_salesHtml():perfSub==="compte"?_perimetreHtml():`
 <div class="card" style="margin-bottom:10px; padding:16px 12px 12px;">
@@ -5348,7 +5381,7 @@ if($){
    $.classList.toggle("sans-anim",_sig===_dernierEcran);
    _dernierEcran=_sig;}
   h=h.replace("<!--BARRE-HAUT-->",h.indexOf('class="entete-detail"')>=0?'<div id="ptr" class="ptr" aria-hidden="true"></div>':_barreHaut(h.indexOf('class="retour"')>=0));// v265 : un bouton de retour = page de détail ; v268 : en-tête propre de la maquette
-  $.innerHTML=h;_espacesChiffres($);_moinsPoppins($);_ajusterValeurs($);_alignerTuiles($);_ongletActifVisible($);
+  $.innerHTML=h;_espacesChiffres($);_espacesFines($);if($.querySelector('.conv-graph'))_convBullePlacer($.querySelector('.conv-graph'));_moinsPoppins($);_ajusterValeurs($);_alignerTuiles($);_ongletActifVisible($);
   if(_fid){const _n=document.getElementById(_fid);
     if(_n&&typeof _n.focus==="function"){try{_n.focus({preventScroll:true});
       if(_ss!=null&&typeof _n.setSelectionRange==="function")_n.setSelectionRange(_ss,_se);}catch(e){}}}
@@ -7646,7 +7679,7 @@ function _qualCardHtml(f,isFundEtf){
   const C=2*Math.PI*40,arc=_nCss(Math.max(0,Math.min(100,q.score))/100*C,1);
   const anneau=`<div class="cq-anneau"><svg width="104" height="104" viewBox="0 0 104 104" role="img" aria-label="Note globale ${q.grade}, ${q.score} sur 100"><circle cx="52" cy="52" r="40" fill="none" stroke-width="12" style="stroke:var(--c-onglets)"></circle><circle class="cv-draw" cx="52" cy="52" r="40" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="${arc} ${_nCss(C,1)}" transform="rotate(-90 52 52)" style="stroke:var(--${gq})"></circle></svg><div class="cq-note"><span class="cq-lettre" style="color:${LETTRE[gq]}">${q.grade}</span><span class="cq-score">${q.score} / 100</span></div></div>`;
   const barre=(lib,v)=>`<div class="cq-barre${v==null?" estompe":""}"><div class="cq-barre-tete"><span>${lib}</span><span class="cq-val">${v==null?"n/a":Math.round(v)}</span></div><div class="cq-piste">${v==null?"":`<div class="cv-grow" style="width:${_nCss(Math.max(0,Math.min(100,v)),0)}%;background:${COUL(v)}"></div>`}</div></div>`;
-  return `<div class="card carte-qualite">${tete(`<button type="button" class="cq-methode" onclick="qualHelp()">Méthode${_SVG_AIDE14}</button>`)}<div class="cq-corps">${anneau}<div class="cq-barres">${barre("Rentabilité",q.pR)}${barre("Solidité",q.pS)}${barre("Croissance",q.pC)}${barre("Valorisation",q.pV)}</div></div><p class="cq-phrase">${_qualPhrase(q,f)}</p><p class="cq-mention">Calculé à partir de données publiques. Ne constitue pas un conseil en investissement.</p></div>`;
+  return `<div class="card carte-qualite">${tete(`<button type="button" class="cq-methode" onclick="qualHelp()">Méthode${_SVG_AIDE14}</button>`)}<div class="cq-corps">${anneau}<div class="cq-barres">${barre("Rentabilité",q.pR)}${barre("Solidité",q.pS)}${barre("Croissance",q.pC)}${barre("Valorisation",q.pV)}</div></div><p class="cq-phrase">${_qualPhrase(q,f)}</p>${_pasConseil("Calcul sur données publiques, pas un conseil.")}</div>`;
 }
 window.qualHelp=()=>{sm(`<div style="display:flex;justify-content:space-between;margin-bottom:12px"><h3 style="font-size:var(--fs-sous-titre);font-weight:700">Qualité de l'entreprise</h3><button class="btn-x" onclick="cm()">✕</button></div><p style="font-size:var(--fs-corps);color:var(--dim);line-height:1.6;margin:0 0 12px">Décrit la <b>santé financière de l'entreprise</b> à partir de données publiques, <b>indépendamment de ta performance</b> (une ligne en forte hausse peut avoir une note faible, et inversement). 4 piliers :</p><div style="font-size:var(--fs-corps);color:var(--dim);line-height:1.7;margin-bottom:12px"><b style="color:var(--txt)">Rentabilité (30\u00a0%)</b> — gagne-t-elle bien de l'argent ? (ROE, marges)<br><b style="color:var(--txt)">Solidité (25\u00a0%)</b> — peut-elle rembourser sa dette ? (dette nette / EBITDA, cash-flow positif, dette / capitaux propres)<br><b style="color:var(--txt)">Croissance (25\u00a0%)</b> — progresse-t-elle ? (chiffre d'affaires, bénéfice par action)<br><b style="color:var(--txt)">Valorisation (20\u00a0%)</b> — payée à un prix raisonnable ? (PER, price / book, rendement du cash-flow)</div><p style="font-size:var(--fs-petit);color:var(--mut);line-height:1.55;margin:0 0 12px">Le barème s'adapte au secteur : <b>banques &amp; assurances</b> — la dette n'est pas pénalisée ; <b>secteurs capital-intensifs</b> (services publics, énergie, immobilier, matériaux, industriels &amp; télécoms à dividende) — la croissance compte moitié moins et la dette est jugée plus souplement. Un critère sans donnée est ignoré. Note : A+ (90+) · A (80+) · B (65+) · C (50+) · D (moins de 50).</p><p style="font-size:var(--fs-petit);color:var(--mut);line-height:1.55;margin:0;padding:10px;background:var(--inp);border-radius:var(--r-moyen)">Ce score décrit la santé financière de l'entreprise à partir de données publiques. Il est calculé de la même façon pour tous, sans tenir compte de ta situation personnelle. <b>Ce n'est pas un conseil en investissement</b> et ne constitue pas une recommandation d'achat ou de vente. Les performances passées ne préjugent pas des performances futures. Tes décisions d'investissement relèvent de ta seule responsabilité.</p><button class="btn btn-s" style="width:100%;margin-top:14px" onclick="cm()">Compris</button>`);};
 // Helper de calibration : distribution du score sur mes positions réelles (à lancer depuis la console).
@@ -7692,7 +7725,7 @@ function _qualGridHtml(){
   if(naList.length){const rows=qualNaOpen?naList.map(i=>`<div onclick="aOpenFund('${escAttr(i.sym||i.x.ticker)}','${escAttr(i.x.titre||i.x.ticker)}','${escAttr(curOf(i.x))}','${escAttr(i.x.isin||"")}')" style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:7px 0;border-top:1px solid var(--sep);cursor:pointer;font-size:var(--fs-corps)"><span style="color:var(--dim);min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(i.x.titre||i.x.ticker)}</span><span style="color:var(--mut);flex-shrink:0">—</span></div>`).join(""):"";
     naSection=`<div onclick="toggleQualNa()" style="text-align:center;font-size:var(--fs-petit);color:var(--mut);cursor:pointer;margin-top:14px;padding-top:12px;border-top:1px solid var(--sep)">${naList.length} position${naList.length>1?"s":""} non notée${naList.length>1?"s":""} <span style="color:var(--dim)">(fonds, cryptos, données insuffisantes)</span> ${qualNaOpen?"▲":"▼"}</div>${rows}`;}
   setTimeout(_qualLoadAll,0);
-  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px"><div class="section" style="margin:0">Qualité de l'entreprise <span onclick="qualHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:var(--r-rond);background:var(--action);color:var(--sur-action);font-size:var(--fs-legende);font-weight:700;cursor:pointer;vertical-align:middle">?</span></div>${envSel}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-bottom:12px">Note l'entreprise (ses finances), pas ta performance.</div>${chips?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${chips}</div>`:""}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${sortBar}</div>${scored.length?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px 8px">${tiles}</div>`:`<div style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:14px">Aucune position notée pour l'instant.</div>`}${naSection}<div style="font-size:var(--fs-legende);color:var(--mut);text-align:center;margin-top:14px;line-height:1.5">Tape une position pour le détail des 4 piliers.${_voirPlus("qualite-mention","Indicateur calculé à partir de données publiques. Ne constitue pas un conseil en investissement.")}</div></div>`;
+  return `<div class="card"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:2px"><div class="section" style="margin:0">Qualité de l'entreprise <span onclick="qualHelp()" style="display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:var(--r-rond);background:var(--action);color:var(--sur-action);font-size:var(--fs-legende);font-weight:700;cursor:pointer;vertical-align:middle">?</span></div>${envSel}</div><div style="font-size:var(--fs-legende);color:var(--mut);margin-bottom:12px">Note l'entreprise (ses finances), pas ta performance.</div>${chips?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${chips}</div>`:""}<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px">${sortBar}</div>${scored.length?`<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px 8px">${tiles}</div>`:`<div style="font-size:var(--fs-petit);color:var(--mut);text-align:center;padding:14px">Aucune position notée pour l'instant.</div>`}${naSection}<div style="font-size:var(--fs-legende);color:var(--mut);text-align:center;margin-top:14px;line-height:1.5">Tape une position pour le détail des 4 piliers.${_pasConseil("Note indicative, pas un conseil en investissement.")}</div></div>`;
 }
 // v260 : la fiche ouverte est-elle celle d'un FONDS (ETF, OPCVM) ? Type donné par Yahoo, composition reçue,
 // fonds déjà marqué, ETF connu, enveloppe de fonds (PEE, assurance vie) ou ticker ISIN.
@@ -7763,7 +7796,7 @@ function _carteAnalystes(f){const c=_coursFiche();const cours=c?c.px:null;const 
   // v272 : deux populations différentes chez Yahoo — l'objectif moyen vient des analystes qui donnent un objectif de cours
   // (numberOfAnalystOpinions, 53 pour GOOGL), la répartition des recommandations du mois (recommendationTrend, 59) ;
   // chaque nombre est écrit à côté de ce qu'il compte.
-  return h+`<p class="cq-mention">${tot>0?`Répartition des ${tot} avis du mois · avis`:"Avis"} de tiers, pas une recommandation de Convicto.</p></div>`;}
+  return h+`${tot>0?`<p class="cq-mention">Répartition des ${tot} avis du mois.</p>`:""}${_pasConseil("Avis de tiers, pas un conseil de Convicto.")}</div>`;}
 // Historique (maquette B3c) : barres proportionnelles (96 px pour la plus grande valeur absolue), une couleur par série,
 // croissance annuelle moyenne en pastille ; les années négatives descendent sous l'axe, en rouge.
 function _carteHisto(titre,pts,col,k,sy){if(!pts||pts.length<2)return "";const vs=pts.map(q=>Number(q[1])||0);const n=vs.length;
@@ -8228,7 +8261,7 @@ function fiscTabHtml(){const _exTf=(D.prefs&&D.prefs.pocheExclTotal)||{};const e
 L.sort((x,y)=>y.tax-x.tax);
 const cards=L.map(x=>`<div class="card card-tap fisc-env" onclick="editFisc('${escAttr(x.name)}')">${_svgPiece(_pocheColor(x.name),36)}<div class="fisc-env-txt"><span class="fisc-env-nom">${esc(x.name)}</span><span class="fisc-env-sous">${x.sub}</span>${x.plus?_voirPlus("fisc-"+x.name,x.plus):""}${x.jauge||""}</div><span class="fisc-montant mono">${x.tax>0?"~":""}${fmt_(Math.round(x.tax))}\u00a0\u20ac</span></div>`).join("");
 const barre=total>0?`<div class="fisc-repartition" role="img" aria-label="${escAttr(L.map(x=>x.name+" "+Math.round(x.tax/total*100)+"\u00a0%").join(", "))}">${L.map(x=>`<span style="width:${_nCss(x.tax/total*100,1)}%;background:${_pocheColor(x.name)}"></span>`).join("")}</div>`:"";
-return `<div class="card fisc-tete"><div class="section mini">Imp\u00f4t estim\u00e9 si tu vendais tout aujourd'hui <span onclick="toast('Estimation de ce que tu paierais en vendant tout maintenant. Exemple CTO : PFU '+_pctTaux(TAUX_FISCAUX.pfu)+' sur tes gains ('+_pctTaux(TAUX_FISCAUX.ir)+' d\u2019imp\u00f4t + '+_pctTaux(TAUX_FISCAUX.ps)+' de pr\u00e9l\u00e8vements sociaux, taux 2026). PEA et assurance-vie : fiscalit\u00e9 plus douce selon la dur\u00e9e de d\u00e9tention. Chiffres indicatifs, pas un conseil fiscal.')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:var(--r-rond);background:var(--action);color:var(--sur-action);font-size:var(--fs-ico-0);font-weight:700;cursor:pointer;letter-spacing:0;vertical-align:middle">?</span></div><div class="fisc-total mono montant-grand">~${fmt_(Math.round(total))}\u00a0\u20ac</div>${barre}</div>${cards||`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);padding:22px">Aucune plus-value latente imposable.</div>`}<div style="font-size:var(--fs-legende);color:var(--mut);text-align:center;margin-top:8px;padding:0 12px;line-height:1.5">Tape une enveloppe pour ajuster son r\u00e9gime. Estimations indicatives, pas un conseil fiscal.</div>`;}
+return `<div class="card fisc-tete"><div class="section mini">Imp\u00f4t estim\u00e9 si tu vendais tout aujourd'hui <span onclick="toast('Estimation de ce que tu paierais en vendant tout maintenant. Exemple CTO : PFU '+_pctTaux(TAUX_FISCAUX.pfu)+' sur tes gains ('+_pctTaux(TAUX_FISCAUX.ir)+' d\u2019imp\u00f4t + '+_pctTaux(TAUX_FISCAUX.ps)+' de pr\u00e9l\u00e8vements sociaux, taux 2026). PEA et assurance-vie : fiscalit\u00e9 plus douce selon la dur\u00e9e de d\u00e9tention. Chiffres indicatifs, pas un conseil fiscal.')" style="display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;border-radius:var(--r-rond);background:var(--action);color:var(--sur-action);font-size:var(--fs-ico-0);font-weight:700;cursor:pointer;letter-spacing:0;vertical-align:middle">?</span></div><div class="fisc-total mono montant-grand">~${fmt_(Math.round(total))}\u00a0\u20ac</div>${barre}</div>${cards||`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);padding:22px">Aucune plus-value latente imposable.</div>`}<div style="font-size:var(--fs-legende);color:var(--mut);text-align:center;margin-top:8px;padding:0 12px;line-height:1.5">Tape une enveloppe pour ajuster son r\u00e9gime.</div>${_pasConseil("Estimation indicative, pas un conseil fiscal.")}`;}
 function _splitAlerts(){
 const da=(D.prefs&&D.prefs.divAutoSym)||{};
 const seen=(D.prefs&&D.prefs.splitSeen)||{};
@@ -8392,6 +8425,7 @@ const ad=_divAgendaData();
 let h=`<div class="tete-agenda"><h1 class="titre-outil">Dividendes</h1><div class="bascule-an" role="group" aria-label="Montants"><button type="button" onclick="setDivNet(false)" aria-pressed="${!divNet}" class="${!divNet?"actif":""}">Brut</button><button type="button" onclick="setDivNet(true)" aria-pressed="${divNet}" class="${divNet?"actif":""}">Net</button></div></div>`;
 {const _t=_divTotaux();/* v281 (maquette C7, avis validé) : mêmes chiffres que la Synthèse */
  h+=_carteHeros({compact:true,texte:`<span class="heros-libelle">Dividendes projetés sur 12 mois${divNet?" (nets)":""}</span><span class="mono montant-grand heros-montant">${_eur(Math.round(_t.tdShown))}</span><div class="heros-puces"><span class="heros-puce">≈ ${_eur(Math.round(_t.tdShown/12))} / mois</span><span class="heros-puce">rendement ${vg(_t.rendement,1)}\u00a0%</span></div>`});}
+h+=_pasConseil("Projection indicative, pas un conseil.");/* v298 */
 h+=_divCalendrierHtml();
 h+=`<div class="card carte-agenda"><div class="titre-carte-an">Dividendes à venir</div>${_agendaPaves(divItems,agendaExpDiv,"div","Rien de prévu pour le moment.",true)}</div>`;
 const posShown=agendaExpPos?ad.dpx:ad.dpx.slice(0,3);
@@ -8591,8 +8625,8 @@ window.setBSub=v=>{if(bSub==="resume"&&v!=="resume")_resetTools();if(v==="suivi"
 function bourseHtml(){const bl=_bPos();const F0=x=>_nfr(x,0,0);
 let tot=0,inv=0,dayE=0,dayB=0,dayN=0;bl.forEach(r=>{tot+=r.v;inv+=_investiLigne(r.x);const dp=_dayLive(r.x);if(dp!=null&&isFinite(dp)){const b=r.v/(1+dp/100);dayE+=r.v-b;dayB+=b;dayN++;}});
 const pv=tot-inv;const pvPct=inv>0?pv/inv*100:0;const dayPct=dayB>0?dayE/dayB*100:null;
-let sh=`<div class="fade">`;
-sh+=`<div class="segment clair" role="tablist" style="margin:0 0 16px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Outils et suivi"]].map(t=>`<button type="button" role="tab" aria-selected="${bSub===t[0]}" onclick="setBSub('${t[0]}')"${bSub===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
+let sh=`<div class="fade${bSub==="resume"?" resume-compact":""}">`;/* v298 : la Répartition tient au-dessus de la barre du bas */
+sh+=`<div class="segment clair" role="tablist" style="margin:0 0 ${bSub==="resume"?10:16}px">`+[["resume","Résumé"],["positions","Positions"],["suivi","Outils et suivi"]].map(t=>`<button type="button" role="tab" aria-selected="${bSub===t[0]}" onclick="setBSub('${t[0]}')"${bSub===t[0]?' class="actif"':""}>${t[1]}</button>`).join("")+`</div>`;
 if(!bl.length){sh+=`<div class="card" style="text-align:center;color:var(--mut);font-size:var(--fs-corps);line-height:1.6;padding:22px 14px">Aucune enveloppe boursière pour l'instant.<br>Crée un compte (PEA, CTO, crypto…) via <b style="color:var(--txt)">Patrimoine → ＋ Ajouter un actif</b>.</div></div>`;return sh;}
 const byP={};bl.forEach(r=>{const o=byP[r.poche]=byP[r.poche]||{v:0,inv:0,n:0};o.v+=r.v;o.inv+=_investiLigne(r.x);o.n++;});
 const pNames=Object.keys(byP).sort((a,b)=>byP[b].v-byP[a].v);
@@ -8707,7 +8741,7 @@ function simuObjHtml(){_simuInit();const v=_simu;const f="_simuSet(this.id,this.
   const rdt=`<div class="champ-outil champ-large"><span class="champ-outil-lib">Rendement / an</span><div class="simu-rendement"><div class="segment simu-seg" role="group" aria-label="Rendement par an">${_SIMU_RDT.map(r=>`<button type="button" aria-pressed="${!autre&&String(v.tx)===r[0]}" class="${!autre&&String(v.tx)===r[0]?"actif":""}" onclick="_simuRendement('${r[0]}')">${r[1]} <span class="rdt-pct">${r[2].replace(" ","\u00a0")}</span></button>`).join("")}</div><button type="button" aria-pressed="${autre}" class="autre-rendement${autre?" actif":""}" onclick="_simuAutre()">Autre</button></div>${autre?`<span class="champ-outil-ligne"><input id="simTx" class="champ-outil-input" inputmode="decimal" aria-label="Rendement par an" value="${esc(String(v.tx||""))}" oninput="${f}"><span class="champ-outil-unite">%</span></span>`:""}</div>`;
   return `<div id="simRes">${_simuResHtml()}</div><div class="card carte-outil"><div class="grille-champs">${_champOutil("simObj","Objectif",v.obj,"€",f)}${_champOutil("simDep","Départ",v.dep,"€",f)}</div><p class="note-champ">Départ : tes actifs placés (bourse, épargne, crypto), sans l'immobilier.</p>`
    +`<div class="grille-champs">${_champOutil("simVers","Versement / mois",v.vers,"€",f)}${_champOutil("simAns","Horizon (facultatif)",v.ans,"ans",f)}</div>${vm?`<p class="note-champ simu-vers-periode">moyenne réelle du ${new Date(vm.t0).toLocaleDateString("fr-FR")} au ${new Date(vm.t1).toLocaleDateString("fr-FR")} (${vm.mois} mois)</p>`:""}${rdt}</div>`
-   +`<p class="mention-outil">Projection à rendement constant, intérêts calculés chaque mois. Un ordre de grandeur, pas une prévision.</p>`;}
+   +`<p class="mention-outil">Projection à rendement constant, intérêts calculés chaque mois.</p>${_pasConseil("Ordre de grandeur, pas un conseil.")}`;}
 window._simuRendement=t=>{_simuInit();_simu.tx=t;_simu.txAutre=false;R();};
 window._simuAutre=()=>{_simuInit();_simu.txAutre=true;R();setTimeout(()=>{const e=document.getElementById("simTx");if(e)e.focus();},0);};
 function _simuCalc(){const v=_simu||{};const obj=pn(v.obj),tx=pn(v.tx),vers=pn(v.vers),ans=pn(v.ans),p0=pn(v.dep)||0;if(!(obj>0))return null;
